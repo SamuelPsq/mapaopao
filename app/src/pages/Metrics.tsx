@@ -12,6 +12,7 @@ import { Shell, NavBar } from "./Today"
 interface Metrics {
   weeks: { plan_id: string; week_no: number; planned: number; done: number; rate: number | null; key_planned: number; key_done: number }[]
   guard: { total: number; blocked: number; effectiveness: number }
+  ai_decision: { tune_total: number; tune_applied: number; tune_rate: number; recommend_total: number; recommend_llm: number; kb_injections: number; kb_blocks_used: number; cases_recalled: number }
   llm_usage: { llm: number; template: number; rate: number }
   user: { avail_days: number; vdot: number; goal_race: string } | null
 }
@@ -106,6 +107,17 @@ export default function MetricsPage() {
         <div className="text-3xl font-black">{Math.round(m.guard.effectiveness * 100)}%</div>
         <div className="text-xs text-muted-foreground mt-1">
           拦截 {m.guard.blocked} / 校验 {m.guard.total} 次 · 没有留痕，就永远证明不了护栏有用
+        </div>
+      </div>
+
+      <div className="rounded-2xl border bg-card p-4 mb-6 shadow-sm">
+        <div className="text-sm font-medium mb-1">AI 决策</div>
+        <div className="text-3xl font-black">{Math.round(m.ai_decision.tune_rate * 100)}%</div>
+        <div className="text-xs text-muted-foreground mt-1">
+          AI 微调落地 {m.ai_decision.tune_applied}/{m.ai_decision.tune_total} 次 · 重排推荐 {m.ai_decision.recommend_total} 次（LLM {m.ai_decision.recommend_llm} 次）
+        </div>
+        <div className="text-xs text-muted-foreground/70 mt-0.5">
+          知识库注入 {m.ai_decision.kb_injections} 次 · 命中 {m.ai_decision.kb_blocks_used} 块原则 · 案例召回 {m.ai_decision.cases_recalled} 条 · RAG 与召回全程埋点可审计
         </div>
       </div>
 

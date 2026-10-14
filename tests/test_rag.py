@@ -173,6 +173,31 @@ def test_validate_ops_blocks_aux_exceeding_long_run():
     assert ok is not None
 
 
+def test_metrics_ai_decision_stats():
+    """指标页 AI 决策卡片：微调落地、推荐、知识库注入与案例召回的统计口径。"""
+    from fastapi.testclient import TestClient
+    from server.main import app
+    from server import main as _main
+    saved = _main.AUTH_ENABLED
+    _main.AUTH_ENABLED = False
+    try:
+        _user_plan()
+        user, plan = None, None
+        with db.SessionLocal() as s:
+            user = s.get(db.User, "raguser")
+            plan = s.get(db.Plan, "plan-raguser")
+        r = tune_after_deviation(user, plan, 1, "over_done", 1.5, recent_logs=[])
+        m = TestClient(app).get("/v1/metrics?user_id=raguser").json()
+        d = m["ai_decision"]
+        assert d["tune_total"] == 1 and d["kb_injections"] == 1
+        assert d["kb_blocks_used"] >= 1, "注入的知识块要去重计数"
+        assert d["tune_applied"] in (0, 1)
+        # 埋点格式带 kb_ids → cases_recalled 口径存在
+        assert "cases_recalled" in d and "recommend_total" in d
+    finally:
+        _main.AUTH_ENABLED = saved
+
+
 def test_tune_after_deviation_weekly_cooldown():
     """同一计划同一周只微调一次：第二次调用直接冷却，不再改课表。"""
     user, plan = _user_plan()

@@ -1220,11 +1220,33 @@ def metrics(user_id: str | None = None):
         blocked = sum(1 for g in guards if g.action == "block")
         llm_rows = s.query(db.Event).filter_by(name="llm_explain").all()
         llm_n = sum(1 for e in llm_rows if e.payload.get("source") == "llm")
+        # AI 决策统计：微调落地、重排推荐、知识库注入与案例召回（全部来自埋点事件）
+        ai_evs = s.query(db.Event).filter(db.Event.name.in_(
+            ("ai_tune", "ai_tune_deviation", "rearrange_ai_recommend"))).all()
+        tune_evs = [e for e in ai_evs if e.name in ("ai_tune", "ai_tune_deviation")]
+        tune_applied = sum(1 for e in tune_evs if e.payload.get("applied"))
+        rec_evs = [e for e in ai_evs if e.name == "rearrange_ai_recommend"]
+        kb_inject = 0
+        kb_ids: set[str] = set()
+        for e in ai_evs:
+            ids = e.payload.get("kb_ids") or []
+            if ids:
+                kb_inject += 1
+                kb_ids.update(ids)
+        cases_recalled = sum(len(e.payload.get("case_ids") or []) for e in ai_evs)
+        ai_decision = {"tune_total": len(tune_evs), "tune_applied": tune_applied,
+                       "tune_rate": round(tune_applied / len(tune_evs), 3) if tune_evs else 0,
+                       "recommend_total": len(rec_evs),
+                       "recommend_llm": sum(1 for e in rec_evs
+                                            if e.payload.get("source") == "llm"),
+                       "kb_injections": kb_inject, "kb_blocks_used": len(kb_ids),
+                       "cases_recalled": cases_recalled}
         user = s.get(db.User, user_id) if user_id else None
         return {"weeks": rows, "user": ({"avail_days": user.avail_days, "vdot": user.vdot,
                                          "goal_race": user.goal_race} if user else None),
                 "guard": {"total": len(guards), "blocked": blocked,
                           "effectiveness": round(blocked / len(guards), 3) if guards else 0},
+                "ai_decision": ai_decision,
                 "llm_usage": {"llm": llm_n, "template": len(llm_rows) - llm_n,
                               "rate": round(llm_n / len(llm_rows), 3) if llm_rows else 0}}
 
