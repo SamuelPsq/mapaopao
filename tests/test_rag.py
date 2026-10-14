@@ -252,3 +252,32 @@ def test_week_review_backfills_case_outcome():
                 assert case.outcome == "good", "执行率 100% 的周末，pending 案例应回填 good"
     finally:
         _main.AUTH_ENABLED = saved
+
+
+def test_beginner_tips_subset_and_endpoint():
+    """跑步知识子集：只含新手/禁忌/前中后标签的块，接口每次随机返回一条。"""
+    from fastapi.testclient import TestClient
+    from server.main import app
+    from server import main as _main
+    saved = _main.AUTH_ENABLED
+    _main.AUTH_ENABLED = False
+    try:
+        tips = rag.beginner_tips()
+        assert len(tips) >= 8, "新手向知识块应覆盖禁忌+跑前+跑中+跑后"
+        ids = {t["id"] for t in tips}
+        assert "kb_taboo_daily_intensity" in ids
+        assert "kb_before_run" in ids and "kb_during_run" in ids and "kb_after_run" in ids
+        assert "kb_longrun_rest" not in ids, "非新手标签的块不应进跑步知识子集"
+        assert all(t["name"] and t["text"] for t in tips)
+
+        c = TestClient(app)
+        seen = set()
+        for _ in range(20):
+            r = c.get("/v1/kb/tip")
+            assert r.status_code == 200
+            body = r.json()
+            assert body["text"] and body["name"]
+            seen.add(body["id"])
+        assert len(seen) > 1, "多次调用应能抽到不同的知识块"
+    finally:
+        _main.AUTH_ENABLED = saved

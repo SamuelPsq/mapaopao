@@ -209,7 +209,7 @@ elements:
     bounds: [361, 506, 260, 110]
     content:
       style: "$stageDesc"
-      text: docs/training-principles.md 切 29 块入库；中文 bigram 分词 + 标题标签权重 ×2，按口语问法召回 top-k 原则。
+      text: docs/training-principles.md 切 37 块入库；中文 bigram 分词 + 标题标签权重 ×2，按口语问法召回 top-k 原则。
   - elementId: s1-arrow2
     elementType: line
     bounds: [621, 477, 37, 4]
@@ -580,7 +580,7 @@ elements:
   - elementId: ft1-num
     elementType: text
     bounds: [64, 1602, 368, 48]
-    content: {fontSize: 38, bold: true, color: "$ink", wrap: false, text: 29 块}
+    content: {fontSize: 38, bold: true, color: "$ink", wrap: false, text: 37 块}
   - elementId: ft1-cap
     elementType: text
     bounds: [64, 1654, 340, 58]

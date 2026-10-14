@@ -5,7 +5,7 @@ import { fmtKm } from "@/lib/format"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Shell, NavBar } from "./Today"
-import { ChevronLeft, ChevronRight, CloudSun, Flame } from "lucide-react"
+import { ChevronLeft, ChevronRight, CloudSun, Flame, Lightbulb } from "lucide-react"
 
 const PHASE_CN: Record<string, string> = { load: "加载周", cut: "减量周", taper: "赛前减量" }
 const STATUS_CN: Record<string, string> = {
@@ -19,6 +19,14 @@ export default function Week() {
   const uid = loadUser()
   const [w, setW] = useState<WeekReview | null>(null)
   const [err, setErr] = useState("")
+  const [tip, setTip] = useState<{ id: string; name: string; text: string } | null>(null)
+
+  // 跑步知识：每次进入/刷新页面随机抽一条新手向知识（禁忌 + 训练前中后）
+  useEffect(() => {
+    api.get<{ id: string; name: string; text: string }>("/v1/kb/tip")
+      .then(setTip)
+      .catch(() => setTip(null))
+  }, [no])
 
   const refresh = useCallback(async () => {
     if (!uid) { nav("/login", { replace: true }); return }
@@ -118,6 +126,17 @@ export default function Week() {
           {w.comment.note ? (
             <p className="text-xs bg-muted/60 rounded px-2.5 py-2 mt-2 leading-relaxed">💡 {w.comment.note}</p>
           ) : null}
+        </div>
+      ) : null}
+
+      {/* 跑步知识：知识库随机抽取，每次刷新换一条 */}
+      {tip?.text ? (
+        <div className="bg-card border rounded-2xl px-4 py-3 mb-5 shadow-sm">
+          <div className="flex items-center gap-2">
+            <Lightbulb className="h-4 w-4 text-orange-500" />
+            <span className="text-sm font-medium">跑步知识{tip.name ? ` · ${tip.name}` : ""}</span>
+          </div>
+          <p className="text-sm text-muted-foreground mt-1 leading-relaxed">{tip.text}</p>
         </div>
       ) : null}
 

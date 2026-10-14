@@ -183,6 +183,16 @@ def retrieve(query: str, k: int = 3) -> list[dict]:
             for s, c in scored[:k] if s > 0.05]
 
 
+# 新手向知识子集：「跑步知识」板块每次刷新随机展示一条
+BEGINNER_TAGS = {"新手", "禁忌", "高频错误", "跑前", "跑中", "跑后"}
+
+
+def beginner_tips() -> list[dict]:
+    """返回带新手/禁忌标签的知识块（id/name/text），供随机抽取。"""
+    return [{"id": c["id"], "name": c["name"], "text": c["text"]}
+            for c in KB if BEGINNER_TAGS & set(c["tags"])]
+
+
 # ---------------------------------------------------------------- 案例库
 def _dev_bucket(ratio: float) -> float:
     """偏差率分桶：log 刻度，1.0=刚好完成，<1 不足，>1 超额。"""

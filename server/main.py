@@ -1186,6 +1186,17 @@ def weather_refresh_job():
     return {"ok": True, "rows": n}
 
 
+@app.get("/v1/kb/tip")
+def kb_tip():
+    """「跑步知识」板块：从新手/禁忌知识子集随机抽一条，每次刷新换一条。"""
+    import random
+    from server import rag
+    tips = rag.beginner_tips()
+    if not tips:
+        return {"id": "", "name": "", "text": ""}
+    return random.choice(tips)
+
+
 @app.get("/v1/metrics")
 def metrics(user_id: str | None = None):
     """北极星看板：周计划执行率等（分母取周初快照，不被重排美化）。"""
