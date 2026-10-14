@@ -1,0 +1,9 @@
+# 周期模板（YAML，知识变更走 PR review，不进数据库）
+total_weeks: 16
+mesocycle: [load, load, load, cut]          # 3 周递增 + 1 周减量
+taper_weeks: [15, 16]
+cut_ratio: 0.70
+key_sessions_per_week: 2
+long_run_cap_of_weekly_km: 0.30            # 单次长距离不超过周跑量 30%
+session_cap_by_avail_days: {2: 2, 3: 3, 4: 4, 5: 5, 6: 5, 7: 5}
+compensate_across_week: false              # ← v3 → v3.1 唯一改动的常量

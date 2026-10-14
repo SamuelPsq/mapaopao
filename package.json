@@ -1,0 +1,16 @@
+{
+  "name": "mapaopao",
+  "private": true,
+  "version": "3.1.0",
+  "description": "马跑跑 · 马拉松训练规划助手（按 PRD 全栈实现）",
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "dev:web": "npm --prefix app run dev",
+    "dev:api": ".venv/Scripts/python.exe -m uvicorn server.main:app --host 127.0.0.1 --port 8000",
+    "build": "npm --prefix app run build",
+    "test": ".venv/Scripts/python.exe -m pytest tests/ -q"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}

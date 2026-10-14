@@ -1,0 +1,340 @@
+import { useCallback, useEffect, useState } from "react"
+import { useLocation, useNavigate } from "react-router"
+import { api, loadUser, clearUser, savePlan, type TodayCard } from "@/lib/api"
+import { fmtKm } from "@/lib/format"
+import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
+import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { Slider } from "@/components/ui/slider"
+import { Label } from "@/components/ui/label"
+import { CityPicker } from "@/components/CityPicker"
+import type { CityInfo } from "@/lib/cities"
+import { CalendarDays, ChartNoAxesColumnIncreasing, CloudSun, Dumbbell, Flame, House, MapPin, Target, Timer, Wrench } from "lucide-react"
+
+export default function Today() {
+  const nav = useNavigate()
+  const uid = loadUser()
+  const [card, setCard] = useState<TodayCard | null>(null)
+  const [err, setErr] = useState("")
+  const [toast, setToast] = useState("")
+  const [notTimeOpen, setNotTimeOpen] = useState(false)
+
+  const refresh = useCallback(async () => {
+    if (!uid) { nav("/login", { replace: true }); return }
+    try {
+      const c = await api.get<TodayCard>(`/v1/today?user_id=${uid}`)
+      savePlan(c.plan_id)                    // 缓存 plan_id，周审视页就不用先等 /v1/today
+      setCard(c)
+    } catch (e) {
+      setErr((e as Error).message)
+    }
+  }, [uid, nav])
+
+  useEffect(() => { refresh() }, [refresh])
+
+  useEffect(() => {
+    if (!toast) return
+    const t = setTimeout(() => setToast(""), 4000)
+    return () => clearTimeout(t)
+  }, [toast])
+
+  if (err) {
+    return (
+      <Shell>
+        <p className="text-muted-foreground">{err}</p>
+        <Button className="mt-4" onClick={() => { clearUser(); nav("/login") }}>重新登录</Button>
+      </Shell>
+    )
+  }
+  if (!card) return <Shell><p className="text-muted-foreground">加载中…</p></Shell>
+
+  const m = card.main_session
+  const todayStr = new Date().toLocaleDateString("sv-SE")   // YYYY-MM-DD（本地时区）
+  const isToday = !!m && m.date === todayStr                // 主课是不是今天的课
+
+  async function log(status: "full" | "partial" | "skipped") {
+    if (!isToday) { setNotTimeOpen(true); return }          // 时间对不上：不是不练，时候未到
+    const actual_km = status === "full" ? m!.target_km : 0
+    const r = await api.post<{ vdot_update?: string; rearrange_ready?: boolean }>(
+      `/v1/session/${m!.session_id}/log`,
+      { status, actual_km, actual_pace: "", rpe: null })
+    setToast(status === "full" ? "已记录完成，继续保持 💪" : status === "partial" ? "已记录，部分完成也算数" : "已记录，别担心，不用补")
+    if (r.vdot_update) setToast(r.vdot_update)
+    if (status === "skipped") nav("/rearrange?trigger=schedule")
+    refresh()
+  }
+
+  const phaseCn: Record<string, string> = { load: "加载周", cut: "减量周", taper: "赛前减量", base: "基础期", build: "强化期", peak: "峰值期" }
+  const durationMin = m ? Math.round(m.target_km * paceSec(m.target_pace) / 60) : 0
+
+  return (
+    <Shell>
+      {/* 顶部 */}
+      <div className="flex items-baseline justify-between mb-1">
+        <div className="text-lg font-bold">{card.weekday} · 第 {card.week_no} 周 / 16 周</div>
+        <div className="text-xs text-muted-foreground">距赛事 {card.days_to_race} 天</div>
+      </div>
+      <div className="flex gap-2 mb-5">
+        <Badge variant="secondary">{phaseCn[card.week_phase] || card.week_phase}</Badge>
+        <Badge variant="outline">VDOT {card.vdot}</Badge>
+        {card.is_dropped ? (
+          <Badge className="bg-amber-500 hover:bg-amber-500 gap-1"><Flame className="h-3 w-3" />本周降载</Badge>
+        ) : null}
+      </div>
+
+      {/* 主课卡 */}
+      {m ? (
+        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-primary to-[hsl(28,95%,45%)] text-primary-foreground shadow-lg shadow-primary/25 mb-4">
+          <div className="absolute -right-6 -top-8 h-32 w-32 rounded-full bg-white/10" />
+          <div className="absolute -right-14 top-10 h-40 w-40 rounded-full bg-white/5" />
+          <div className="relative px-5 pt-5 pb-5">
+            <div className="flex items-center justify-between mb-3">
+              <div className="text-xs font-medium text-white/85">
+                {!isToday ? "下一节 · " : ""}{m.dow} · {m.is_key ? "关键课" : "辅助课"}
+              </div>
+              {m.is_key ? <Badge className="bg-white/20 hover:bg-white/20 text-white border-0">关键课</Badge> : null}
+            </div>
+            <div className="text-3xl font-black tracking-tight">
+              {m.type_cn} <span className="text-xl font-bold">{fmtKm(m.target_km)} km</span>
+            </div>
+            <div className="flex gap-2 mt-3">
+              <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-2.5 py-1 text-xs">
+                <Timer className="h-3 w-3" />约 {durationMin} 分钟
+              </span>
+              <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-2.5 py-1 text-xs">
+                配速 {m.target_pace}
+              </span>
+            </div>
+            {card.reason_line ? <div className="text-xs text-white/80 mt-3 border-t border-white/15 pt-3">{card.reason_line}</div> : null}
+          </div>
+        </div>
+      ) : (
+        <div className="rounded-3xl border bg-card px-5 py-6 text-sm text-muted-foreground shadow-sm mb-4">今天没有排课，好好休息。</div>
+      )}
+
+      {/* 力量训练提醒：不进周计划，空闲日提示即可 */}
+      {!card.today_has_run ? (
+        <div className="rounded-2xl border border-primary/30 bg-primary/5 px-4 py-3.5 mb-4 shadow-sm">
+          <div className="flex items-center gap-2 text-sm font-medium text-primary">
+            <Dumbbell className="h-4 w-4 shrink-0" />今日无跑步课 · 适合加练力量
+          </div>
+          <div className="text-xs text-muted-foreground mt-1.5 leading-relaxed">
+            深蹲 3×12 · 臀桥 3×15 · 平板支撑 3×45 秒 · 单腿提踵 3×15，20–30 分钟。
+            核心和臀腿力量是跑步稳定性的底座，也能降低受伤风险。
+          </div>
+        </div>
+      ) : null}
+
+      {/* 天气行 */}
+      {card.weather_line ? (
+        <div className="text-sm bg-card border rounded-2xl px-3.5 py-2.5 mb-4 flex items-center gap-2 shadow-sm">
+          <CloudSun className="h-4 w-4 text-primary shrink-0" />{card.weather_line}
+        </div>
+      ) : null}
+      {card.hard_days.length > 0 ? (
+        <div className="text-sm bg-amber-500/10 text-amber-700 rounded-2xl px-3.5 py-2.5 mb-4">
+          ⚠️ {card.hard_days.join("、")}天气硬约束，系统已准备调整方案
+        </div>
+      ) : null}
+
+      {/* 重排建议 */}
+      {card.suggestion ? (
+        <button className="w-full text-left text-sm bg-primary/10 text-primary rounded-2xl px-3.5 py-3 mb-4 font-medium flex items-center gap-2"
+          onClick={() => nav(`/rearrange?trigger=${card.suggestion!.trigger_src}`)}>
+          <Wrench className="h-4 w-4 shrink-0" />{card.suggestion.message}
+        </button>
+      ) : null}
+
+      {/* 劝降 */}
+      {card.degrade?.triggered ? (
+        <button className="w-full text-left text-sm bg-red-500/10 text-red-700 rounded-2xl px-3.5 py-3 mb-4 font-medium flex items-center gap-2"
+          onClick={() => nav("/degrade")}>
+          <Target className="h-4 w-4 shrink-0" />{card.degrade.message} —— 点此调整目标
+        </button>
+      ) : null}
+
+      {/* 三按钮 */}
+      <div className="grid grid-cols-3 gap-2 mb-3">
+        <Button onClick={() => log("full")}>完成了</Button>
+        <Button variant="secondary" onClick={() => log("partial")}>只跑了一部分</Button>
+        <Button variant="outline" className="bg-card" onClick={() => log("skipped")}>今天跑不了</Button>
+      </div>
+
+      {/* 身体上报（打卡即上报） */}
+      <ReportSheet onDone={(msg) => { setToast(msg); refresh() }} />
+
+      {/* 本周进度 */}
+      <div className="mt-6 rounded-2xl border bg-card p-4 shadow-sm">
+        <div className="flex justify-between text-xs text-muted-foreground mb-2">
+          <span>本周关键课 {card.week_progress.key_done}/{card.week_progress.key_total}</span>
+          <span>全部课次 {card.week_progress.done}/{card.week_progress.total}</span>
+        </div>
+        <div className="h-2.5 bg-muted rounded-full overflow-hidden">
+          <div className="h-full bg-primary rounded-full transition-all"
+            style={{ width: `${(card.week_progress.done / Math.max(1, card.week_progress.total)) * 100}%` }} />
+        </div>
+      </div>
+
+      {/* 切换城市：换坐标 + 按新城市天气重新生成配套计划 */}
+      <CitySheet current={card.city} onDone={(msg) => { setToast(msg); refresh() }} />
+
+      <NavBar weekNo={card.week_no} />
+      {toast ? <div className="fixed bottom-20 left-1/2 -translate-x-1/2 bg-foreground text-background text-sm px-4 py-2 rounded-full shadow-lg max-w-xs text-center z-50">{toast}</div> : null}
+
+      {/* 时间对不上时的弹窗：不是不练，时候未到 */}
+      <AlertDialog open={notTimeOpen} onOpenChange={setNotTimeOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>不是不练，时候未到</AlertDialogTitle>
+            <AlertDialogDescription>
+              {m
+                ? <>现在打卡的应该是「今天」的课，而当前显示的是 <b>{m.dow}</b> 的{m.type_cn}。到 {m.dow} 跑完再打卡；真跑不了，那天点「今天跑不了」也一样。</>
+                : "今天课表上没有排课，好好休息。到上课那天再来打卡。"}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => setNotTimeOpen(false)}>好的，到时候练</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </Shell>
+  )
+}
+
+function ReportSheet({ onDone }: { onDone: (msg: string) => void }) {
+  const uid = loadUser()!
+  const [open, setOpen] = useState(false)
+  const [part, setPart] = useState("none")
+  const [sleep, setSleep] = useState(7)
+  const [fatigue, setFatigue] = useState(4)
+
+  async function submit() {
+    const r = await api.post<{ suggestion: string | null }>("/v1/status/report", {
+      user_id: uid, soreness_part: part, sleep_score: sleep, fatigue_score: fatigue, entry: "checkin",
+    })
+    setOpen(false)
+    onDone(r.suggestion || "状态已上报，今天的建议会随之调整")
+  }
+
+  return (
+    <Sheet open={open} onOpenChange={setOpen}>
+      <SheetTrigger asChild>
+        <Button variant="ghost" className="w-full">📋 上报身体状态（酸痛 / 睡眠 / 疲劳）</Button>
+      </SheetTrigger>
+      <SheetContent side="bottom" className="rounded-t-2xl">
+        <SheetHeader><SheetTitle>身体状态上报</SheetTitle></SheetHeader>
+        <div className="space-y-6 px-1 py-4">
+          <div>
+            <Label>哪里酸痛？</Label>
+            <RadioGroup value={part} onValueChange={setPart} className="mt-2">
+              <div className="flex gap-4">
+                {[["none", "没有"], ["knee", "膝盖"], ["calf", "小腿"], ["ankle", "脚踝"]].map(([v, l]) => (
+                  <label key={v} className="flex items-center gap-1.5">
+                    <RadioGroupItem value={v} /><span className="text-sm">{l}</span>
+                  </label>
+                ))}
+              </div>
+            </RadioGroup>
+          </div>
+          <div>
+            <Label>睡眠：{sleep}/10</Label>
+            <Slider value={[sleep]} min={1} max={10} onValueChange={([v]) => setSleep(v)} />
+          </div>
+          <div>
+            <Label>疲劳：{fatigue}/10</Label>
+            <Slider value={[fatigue]} min={1} max={10} onValueChange={([v]) => setFatigue(v)} />
+          </div>
+          <Button className="w-full" onClick={submit}>提交（一次点击，打卡即上报）</Button>
+        </div>
+      </SheetContent>
+    </Sheet>
+  )
+}
+
+function CitySheet({ current, onDone }: { current: string; onDone: (msg: string) => void }) {
+  const uid = loadUser()!
+  const [open, setOpen] = useState(false)
+  const [busy, setBusy] = useState(false)
+
+  async function submit(sel: CityInfo) {
+    setBusy(true)
+    try {
+      const r = await api.post<{ ok: boolean; plan_id?: string; message?: string }>("/v1/user/city", {
+        user_id: uid, city: sel.name, lat: sel.lat, lon: sel.lon,
+      })
+      setOpen(false)
+      if (r.plan_id) savePlan(r.plan_id)          // 新计划 id 写回缓存，周审视页直接可用
+      onDone(r.message || `已切换到${sel.name}`)
+    } catch (e) {
+      onDone("切换失败：" + (e as Error).message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <Sheet open={open} onOpenChange={setOpen}>
+      <SheetTrigger asChild>
+        <button className="w-full text-left text-sm bg-card border rounded-2xl px-3.5 py-3 mt-3 text-muted-foreground flex items-center gap-2 shadow-sm">
+          <MapPin className="h-4 w-4 text-primary shrink-0" />当前城市：<b className="text-foreground">{current}</b>
+          <span className="ml-auto text-xs">切换</span>
+        </button>
+      </SheetTrigger>
+      <SheetContent side="bottom" className="rounded-t-2xl">
+        <SheetHeader><SheetTitle>切换城市</SheetTitle></SheetHeader>
+        <div className="px-1 py-4">
+          {busy
+            ? <p className="text-sm text-muted-foreground text-center py-12">正在按新城市天气重新生成计划…</p>
+            : <CityPicker current={current} onConfirm={submit} />}
+          {!busy && (
+            <p className="text-xs text-muted-foreground mt-4">
+              切换后将按新城市的天气（体感温度、降雨硬约束）重新生成配套训练计划，当前计划进度会清零。
+            </p>
+          )}
+        </div>
+      </SheetContent>
+    </Sheet>
+  )
+}
+
+export function NavBar({ weekNo }: { weekNo?: number }) {
+  const nav = useNavigate()
+  const { pathname } = useLocation()
+  const items = [
+    { to: "/", label: "今日卡", icon: House, match: (p: string) => p === "/" || p.startsWith("/rearrange") || p.startsWith("/degrade") },
+    { to: `/week/${weekNo ?? 1}`, label: "周审视", icon: CalendarDays, match: (p: string) => p.startsWith("/week") },
+    { to: "/metrics", label: "指标", icon: ChartNoAxesColumnIncreasing, match: (p: string) => p.startsWith("/metrics") },
+  ]
+  return (
+    <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md bg-background/85 backdrop-blur border-t z-40">
+      <div className="flex">
+        {items.map(({ to, label, icon: Icon, match }) => {
+          const active = match(pathname)
+          return (
+            <button key={label} className={`flex-1 py-2.5 flex flex-col items-center gap-0.5 text-[11px] transition-colors
+              ${active ? "text-primary font-semibold" : "text-muted-foreground"}`}
+              onClick={() => nav(to)}>
+              <Icon className="h-5 w-5" />
+              {label}
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+function paceSec(pace: string): number {
+  const m = pace.match(/(\d+):(\d+)/)
+  return m ? Number(m[1]) * 60 + Number(m[2]) : 360
+}
+
+export function Shell({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="min-h-screen bg-background flex justify-center">
+      <div className="w-full max-w-md px-5 pt-8 pb-28">{children}</div>
+    </div>
+  )
+}
