@@ -1,0 +1,32 @@
+version: v2
+title: AI 防幻觉设计 · 马跑跑
+size: [1280, 1740]
+theme:
+  colors:
+    ink: "#1E2228"
+    paper: "#F7F5F1"
+    orange: "#E8641C"
+    green: "#1F7A4D"
+    red: "#B3341F"
+    muted: "#6B7280"
+    body: "#3D434C"
+    hairline: "#D8D2C6"
+    faint: "#B9B3A5"
+    band: "#EFEAE0"
+    passbg: "#EAF3EC"
+    failbg: "#F9ECE8"
+  textStyles:
+    stageName:
+      fontSize: 17
+      color: "$ink"
+      bold: true
+    stageDesc:
+      fontSize: 12.5
+      color: "$body"
+      lineHeight: 1.55
+    caption:
+      fontSize: 12.5
+      color: "$muted"
+      lineHeight: 1.5
+pages:
+  - pages/1_guard.page

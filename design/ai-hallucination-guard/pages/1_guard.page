@@ -1,0 +1,634 @@
+pageType: content
+background:
+  type: solid
+  color: "$paper"
+elements:
+  # ================= 页眉 =================
+  - elementId: kicker
+    elementType: text
+    bounds: [64, 52, 820, 18]
+    content:
+      fontSize: 12
+      bold: true
+      color: "$orange"
+      letterSpacing: 3
+      wrap: false
+      text: MAPAOPAO · 马跑跑 —— AI 训练助手的模型安全设计
+  - elementId: title
+    elementType: text
+    bounds: [64, 80, 820, 62]
+    content:
+      fontSize: 46
+      bold: true
+      color: "$ink"
+      wrap: false
+      text: AI 防幻觉设计
+  - elementId: head-tag
+    elementType: text
+    bounds: [884, 62, 332, 54]
+    content:
+      fontSize: 11
+      color: "$muted"
+      align: [right, top]
+      lineHeight: 1.6
+      fontFamily: {latin: "Consolas", ea: "MiSans"}
+      text: |
+        server/explain/__init__.py
+        server/tune.py
+        github.com/SamuelPsq/mapaopao
+  - elementId: subtitle
+    elementType: text
+    bounds: [64, 154, 1050, 30]
+    content:
+      fontSize: 18
+      color: "$body"
+      wrap: false
+      text: |
+        <p>两道关卡，一个假设——模型一定会「编」。在它碰到用户和数据库之前：<strong><span style="color:$orange">先验尸，再安检</span></strong>。</p>
+
+  # ================= 底座 =================
+  - elementId: base-band
+    elementType: shape
+    bounds: [0, 210, 1280, 102]
+    shapeName: rect
+    fill: {type: solid, color: "$ink"}
+  - elementId: base-icon-l
+    elementType: icon
+    bounds: [64, 248, 26, 26]
+    iconName: "fas:calculator"
+    fill: {type: solid, color: "$paper"}
+  - elementId: base-title-l
+    elementType: text
+    bounds: [104, 228, 420, 26]
+    content:
+      fontSize: 17
+      bold: true
+      color: "#FFFFFF"
+      wrap: false
+      text: 规则引擎 · 唯一数值来源
+  - elementId: base-sub-l
+    elementType: text
+    bounds: [104, 258, 420, 20]
+    content:
+      fontSize: 12
+      color: "$faint"
+      wrap: false
+      text: VDOT 查表 + 周期模板 · 纯函数零随机 · 240 题锚点测试
+  - elementId: base-arrow
+    elementType: line
+    bounds: [548, 260, 112, 4]
+    viewBox: [112, 4]
+    points: "0,2 112,2"
+    arrow: [null, arrow]
+    border: {style: solid, width: 2, color: "$orange"}
+  - elementId: base-arrow-label
+    elementType: text
+    bounds: [504, 234, 200, 18]
+    content:
+      fontSize: 11
+      color: "$orange"
+      align: [center, top]
+      wrap: false
+      text: 结构化事实 facts · 数字已算好
+  - elementId: base-icon-r
+    elementType: icon
+    bounds: [700, 248, 26, 26]
+    iconName: "fas:robot"
+    fill: {type: solid, color: "$paper"}
+  - elementId: base-title-r
+    elementType: text
+    bounds: [740, 228, 460, 26]
+    content:
+      fontSize: 17
+      bold: true
+      color: "#FFFFFF"
+      wrap: false
+      text: LLM · 只负责表达与建议
+  - elementId: base-sub-r
+    elementType: text
+    bounds: [740, 258, 460, 20]
+    content:
+      fontSize: 12
+      color: "$faint"
+      wrap: false
+      text: 只读结构化结果 · 不计算、不写库 · 调不通自动降级模板
+
+  # ================= 关卡一 标题 =================
+  - elementId: s1-num
+    elementType: text
+    bounds: [64, 364, 90, 66]
+    content:
+      fontSize: 54
+      bold: true
+      color: "$orange"
+      wrap: false
+      text: "01"
+  - elementId: s1-title
+    elementType: text
+    bounds: [160, 372, 560, 34]
+    content:
+      fontSize: 26
+      bold: true
+      color: "$ink"
+      wrap: false
+      text: 数值断言 · 解释层
+  - elementId: s1-desc
+    elementType: text
+    bounds: [160, 410, 880, 22]
+    content:
+      fontSize: 14
+      color: "$muted"
+      wrap: false
+      text: LLM 文案里出现的每个数字都必须来自给定事实——编一个数，整条作废，规则模板顶上。
+  - elementId: s1-file
+    elementType: text
+    bounds: [960, 384, 256, 18]
+    content:
+      fontSize: 11
+      color: "$muted"
+      align: [right, top]
+      wrap: false
+      fontFamily: {latin: "Consolas", ea: "MiSans"}
+      text: server/explain/__init__.py
+
+  # ---- 关卡一 流水线 ----
+  - elementId: s1-rule
+    elementType: shape
+    bounds: [64, 470, 1152, 2]
+    shapeName: rect
+    fill: {type: solid, color: "$ink"}
+  # 阶段 1
+  - elementId: s1a-chip
+    elementType: shape
+    bounds: [64, 486, 26, 26]
+    shapeName: rect
+    fill: {type: solid, color: "$orange"}
+  - elementId: s1a-chip-num
+    elementType: text
+    bounds: [64, 486, 26, 26]
+    content: {fontSize: 14, bold: true, color: "#FFFFFF", align: [center, middle], wrap: false, text: "1"}
+  - elementId: s1a-name
+    elementType: text
+    bounds: [100, 488, 224, 24]
+    content:
+      style: "$stageName"
+      wrap: false
+      text: 给定事实 facts
+  - elementId: s1a-desc
+    elementType: text
+    bounds: [64, 526, 260, 104]
+    content:
+      style: "$stageDesc"
+      text: 本周刺激度 82% · 周三轻松跑 5km · 第 1 周。先把 facts 里所有数字（含嵌套列表）摊平成一个集合。
+  - elementId: s1-arrow1
+    elementType: line
+    bounds: [324, 497, 37, 4]
+    viewBox: [37, 4]
+    points: "0,2 37,2"
+    arrow: [null, arrow]
+    border: {style: solid, width: 2, color: "#9AA0A6"}
+  # 阶段 2
+  - elementId: s1b-chip
+    elementType: shape
+    bounds: [361, 486, 26, 26]
+    shapeName: rect
+    fill: {type: solid, color: "$orange"}
+  - elementId: s1b-chip-num
+    elementType: text
+    bounds: [361, 486, 26, 26]
+    content: {fontSize: 14, bold: true, color: "#FFFFFF", align: [center, middle], wrap: false, text: "2"}
+  - elementId: s1b-name
+    elementType: text
+    bounds: [397, 488, 224, 24]
+    content:
+      style: "$stageName"
+      wrap: false
+      text: LLM 生成文案
+  - elementId: s1b-desc
+    elementType: text
+    bounds: [361, 526, 260, 104]
+    content:
+      style: "$stageDesc"
+      text: 模型把结构化结果翻译成人话。允许组织语言、调整语气，不允许引入任何新数字。
+  - elementId: s1-arrow2
+    elementType: line
+    bounds: [621, 497, 37, 4]
+    viewBox: [37, 4]
+    points: "0,2 37,2"
+    arrow: [null, arrow]
+    border: {style: solid, width: 2, color: "#9AA0A6"}
+  # 阶段 3
+  - elementId: s1c-chip
+    elementType: shape
+    bounds: [658, 486, 26, 26]
+    shapeName: rect
+    fill: {type: solid, color: "$orange"}
+  - elementId: s1c-chip-num
+    elementType: text
+    bounds: [658, 486, 26, 26]
+    content: {fontSize: 14, bold: true, color: "#FFFFFF", align: [center, middle], wrap: false, text: "3"}
+  - elementId: s1c-name
+    elementType: text
+    bounds: [694, 488, 224, 24]
+    content:
+      style: "$stageName"
+      wrap: false
+      text: 正则提取数字
+  - elementId: s1c-desc
+    elementType: text
+    bounds: [658, 526, 260, 104]
+    content:
+      style: "$stageDesc"
+      text: 用正则把输出文案中的每个数字逐一抓出，一个不漏，作为待验尸清单。
+  - elementId: s1-arrow3
+    elementType: line
+    bounds: [918, 497, 37, 4]
+    viewBox: [37, 4]
+    points: "0,2 37,2"
+    arrow: [null, arrow]
+    border: {style: solid, width: 2, color: "#9AA0A6"}
+  # 阶段 4
+  - elementId: s1d-chip
+    elementType: shape
+    bounds: [955, 486, 26, 26]
+    shapeName: rect
+    fill: {type: solid, color: "$orange"}
+  - elementId: s1d-chip-num
+    elementType: text
+    bounds: [955, 486, 26, 26]
+    content: {fontSize: 14, bold: true, color: "#FFFFFF", align: [center, middle], wrap: false, text: "4"}
+  - elementId: s1d-name
+    elementType: text
+    bounds: [991, 488, 224, 24]
+    content:
+      style: "$stageName"
+      wrap: false
+      text: 逐一对照
+  - elementId: s1d-desc
+    elementType: text
+    bounds: [955, 526, 260, 104]
+    content:
+      style: "$stageDesc"
+      text: 输出数字 ⊆ facts 数字？任何一个数字不在集合里，即判定为「编数」，与措辞无关。
+
+  # ---- 关卡一 裁决 ----
+  - elementId: s1-pass-bar
+    elementType: shape
+    bounds: [64, 660, 4, 56]
+    shapeName: rect
+    fill: {type: solid, color: "$green"}
+  - elementId: s1-pass-bg
+    elementType: shape
+    bounds: [68, 660, 476, 56]
+    shapeName: rect
+    fill: {type: solid, color: "$passbg"}
+  - elementId: s1-pass-icon
+    elementType: icon
+    bounds: [86, 678, 20, 20]
+    iconName: "fas:circle-check"
+    fill: {type: solid, color: "$green"}
+  - elementId: s1-pass-text
+    elementType: text
+    bounds: [118, 660, 416, 56]
+    content:
+      fontSize: 14
+      bold: true
+      color: "$green"
+      align: [left, middle]
+      wrap: false
+      text: 通过 · 输出数字全部来自 facts
+  - elementId: s1-pass-arrow
+    elementType: line
+    bounds: [552, 686, 40, 4]
+    viewBox: [40, 4]
+    points: "0,2 40,2"
+    arrow: [null, arrow]
+    border: {style: solid, width: 2, color: "$green"}
+  - elementId: s1-pass-out
+    elementType: text
+    bounds: [604, 660, 612, 56]
+    content:
+      fontSize: 13.5
+      color: "$ink"
+      align: [left, middle]
+      text: 放行展示 AI 文案 · 埋点 source = llm · 计入指标页「AI 文案使用率」
+  - elementId: s1-fail-bar
+    elementType: shape
+    bounds: [64, 724, 4, 56]
+    shapeName: rect
+    fill: {type: solid, color: "$red"}
+  - elementId: s1-fail-bg
+    elementType: shape
+    bounds: [68, 724, 476, 56]
+    shapeName: rect
+    fill: {type: solid, color: "$failbg"}
+  - elementId: s1-fail-icon
+    elementType: icon
+    bounds: [86, 742, 20, 20]
+    iconName: "fas:circle-xmark"
+    fill: {type: solid, color: "$red"}
+  - elementId: s1-fail-text
+    elementType: text
+    bounds: [118, 724, 416, 56]
+    content:
+      fontSize: 13
+      bold: true
+      color: "$red"
+      align: [left, middle]
+      text: 不通过 · 出现 facts 之外的数字（facts=82，文案写 75）
+  - elementId: s1-fail-arrow
+    elementType: line
+    bounds: [552, 750, 40, 4]
+    viewBox: [40, 4]
+    points: "0,2 40,2"
+    arrow: [null, arrow]
+    border: {style: solid, width: 2, color: "$red"}
+  - elementId: s1-fail-out
+    elementType: text
+    bounds: [604, 724, 612, 56]
+    content:
+      fontSize: 13.5
+      color: "$ink"
+      align: [left, middle]
+      text: 整条作废 · 8 条规则模板文案自动顶上 · 用户无感知 · 埋点 source = template
+
+  # ================= 关卡二 标题 =================
+  - elementId: s2-num
+    elementType: text
+    bounds: [64, 854, 90, 66]
+    content:
+      fontSize: 54
+      bold: true
+      color: "$orange"
+      wrap: false
+      text: "02"
+  - elementId: s2-title
+    elementType: text
+    bounds: [160, 862, 560, 34]
+    content:
+      fontSize: 26
+      bold: true
+      color: "$ink"
+      wrap: false
+      text: 硬校验 · AI 微调层
+  - elementId: s2-desc
+    elementType: text
+    bounds: [160, 900, 900, 22]
+    content:
+      fontSize: 14
+      color: "$muted"
+      wrap: false
+      text: LLM 可以提议调整课表，但提议能不能执行由代码裁决——这不是给模型的「守则」，是越不过去的闸门。
+  - elementId: s2-file
+    elementType: text
+    bounds: [960, 874, 256, 18]
+    content:
+      fontSize: 11
+      color: "$muted"
+      align: [right, top]
+      wrap: false
+      fontFamily: {latin: "Consolas", ea: "MiSans"}
+      text: server/tune.py
+
+  # ---- 关卡二 流水线 ----
+  - elementId: s2-rule
+    elementType: shape
+    bounds: [64, 940, 1152, 2]
+    shapeName: rect
+    fill: {type: solid, color: "$ink"}
+  # 阶段 A
+  - elementId: s2a-chip
+    elementType: shape
+    bounds: [64, 956, 26, 26]
+    shapeName: rect
+    fill: {type: solid, color: "$orange"}
+  - elementId: s2a-chip-num
+    elementType: text
+    bounds: [64, 956, 26, 26]
+    content: {fontSize: 14, bold: true, color: "#FFFFFF", align: [center, middle], wrap: false, text: "1"}
+  - elementId: s2a-name
+    elementType: text
+    bounds: [100, 958, 240, 24]
+    content:
+      style: "$stageName"
+      wrap: false
+      text: LLM 提议微调
+  - elementId: s2a-desc
+    elementType: text
+    bounds: [64, 996, 300, 150]
+    content:
+      style: "$stageDesc"
+      text: 每周首次打开今日卡时触发（幂等，每周最多调一次）。只许两种操作：move 把非关键课移到本周另一天；adjust 微调非关键课跑量。
+  - elementId: s2-arrow1
+    elementType: line
+    bounds: [364, 967, 60, 4]
+    viewBox: [60, 4]
+    points: "0,2 60,2"
+    arrow: [null, arrow]
+    border: {style: solid, width: 2, color: "#9AA0A6"}
+  # 阶段 B
+  - elementId: s2b-chip
+    elementType: shape
+    bounds: [424, 956, 26, 26]
+    shapeName: rect
+    fill: {type: solid, color: "$orange"}
+  - elementId: s2b-chip-num
+    elementType: text
+    bounds: [424, 956, 26, 26]
+    content: {fontSize: 14, bold: true, color: "#FFFFFF", align: [center, middle], wrap: false, text: "2"}
+  - elementId: s2b-name
+    elementType: text
+    bounds: [460, 958, 380, 24]
+    content:
+      style: "$stageName"
+      wrap: false
+      text: 四道闸门 · 逐条硬校验
+  - elementId: s2b-desc
+    elementType: text
+    bounds: [424, 996, 440, 150]
+    content:
+      style: "$stageDesc"
+      lineHeight: 1.7
+      text: |
+        <p>① 目标是已计划、非关键的课？（关键课直接拒）</p>
+        <p>② 单课跑量在原始值 ±10% 内、0.5km 取整？</p>
+        <p>③ 调整后本周总跑量变化 ≤ 3%？</p>
+        <p>④ 本周 ≤ 3 个操作、每节课 ≤ 1 个？</p>
+  - elementId: s2-arrow2
+    elementType: line
+    bounds: [864, 967, 60, 4]
+    viewBox: [60, 4]
+    points: "0,2 60,2"
+    arrow: [null, arrow]
+    border: {style: solid, width: 2, color: "#9AA0A6"}
+  # 阶段 C
+  - elementId: s2c-chip
+    elementType: shape
+    bounds: [924, 956, 26, 26]
+    shapeName: rect
+    fill: {type: solid, color: "$orange"}
+  - elementId: s2c-chip-num
+    elementType: text
+    bounds: [924, 956, 26, 26]
+    content: {fontSize: 14, bold: true, color: "#FFFFFF", align: [center, middle], wrap: false, text: "3"}
+  - elementId: s2c-name
+    elementType: text
+    bounds: [960, 958, 256, 24]
+    content:
+      style: "$stageName"
+      wrap: false
+      text: 裁决与落库
+  - elementId: s2c-desc
+    elementType: text
+    bounds: [924, 996, 292, 150]
+    content:
+      style: "$stageDesc"
+      text: 全部通过 → 写入课表并标记 source=ai_tuned，周审视页显示「AI 微调」徽标；任一越界 → 整体拒收，本周保持规则引擎课表。
+
+  # ---- 实测条 ----
+  - elementId: lab-band
+    elementType: shape
+    bounds: [64, 1176, 1152, 64]
+    shapeName: rect
+    fill: {type: solid, color: "$band"}
+  - elementId: lab-icon
+    elementType: icon
+    bounds: [86, 1197, 22, 22]
+    iconName: "fas:flask"
+    fill: {type: solid, color: "$orange"}
+  - elementId: lab-text
+    elementType: text
+    bounds: [124, 1176, 1076, 64]
+    content:
+      fontSize: 13
+      color: "$ink"
+      align: [left, middle]
+      text: |
+        <p><strong>实测：</strong>LLM 提议把长距离 7.1km 调整为 12km（+69%）→ 第二道闸门拦下，课表保持原样，埋点 applied=false。它下次再提议，还得过同一组闸门。</p>
+
+  # ================= prompt vs 代码 =================
+  - elementId: vs-kicker
+    elementType: text
+    bounds: [64, 1300, 500, 20]
+    content:
+      fontSize: 13
+      bold: true
+      color: "$ink"
+      letterSpacing: 2
+      wrap: false
+      text: 为什么不把规则写进 prompt？
+  - elementId: vs-left-quote
+    elementType: text
+    bounds: [64, 1332, 530, 40]
+    content:
+      fontSize: 18
+      color: "$muted"
+      wrap: false
+      text: 「请遵守规则：不要编造数字，不要动关键课。」
+  - elementId: vs-left-cap
+    elementType: text
+    bounds: [64, 1376, 530, 60]
+    content:
+      style: "$caption"
+      text: prompt 约束 = 请求。模型可以遵守，也可以不遵守——你无法审计它什么时候失灵，更没法写测试证明它一直有效。
+  - elementId: vs-divider
+    elementType: shape
+    bounds: [622, 1332, 2, 104]
+    shapeName: rect
+    fill: {type: solid, color: "$hairline"}
+  - elementId: vs-right-code
+    elementType: text
+    bounds: [660, 1332, 556, 40]
+    content:
+      fontSize: 16
+      color: "$ink"
+      wrap: false
+      fontFamily: {latin: "Consolas", ea: "MiSans"}
+      text: |
+        <p>assert set(nums) &lt;= set(facts)</p>
+  - elementId: vs-right-cap
+    elementType: text
+    bounds: [660, 1376, 556, 60]
+    content:
+      style: "$caption"
+      text: 代码校验 = 法律。过不了校验的提案没有执行入口；行为可被测试（74 条用例覆盖边界）、被审计（全量埋点）、被复现。
+
+  # ================= 落地结果 =================
+  - elementId: ft-rule
+    elementType: shape
+    bounds: [64, 1472, 1152, 1]
+    shapeName: rect
+    fill: {type: solid, color: "$hairline"}
+  - elementId: ft-label
+    elementType: text
+    bounds: [64, 1492, 200, 20]
+    content:
+      fontSize: 13
+      bold: true
+      color: "$ink"
+      letterSpacing: 2
+      wrap: false
+      text: 落地结果
+  - elementId: ft1-rule
+    elementType: shape
+    bounds: [64, 1528, 48, 3]
+    shapeName: rect
+    fill: {type: solid, color: "$orange"}
+  - elementId: ft1-num
+    elementType: text
+    bounds: [64, 1544, 368, 48]
+    content: {fontSize: 38, bold: true, color: "$ink", wrap: false, text: 100%}
+  - elementId: ft1-cap
+    elementType: text
+    bounds: [64, 1596, 340, 58]
+    content:
+      style: "$caption"
+      text: AI 文案经数值断言通过后才允许标记 source=llm——成功率就是通过率，指标页逐条可审计。
+  - elementId: ft2-rule
+    elementType: shape
+    bounds: [456, 1528, 48, 3]
+    shapeName: rect
+    fill: {type: solid, color: "$orange"}
+  - elementId: ft2-num
+    elementType: text
+    bounds: [456, 1544, 368, 48]
+    content: {fontSize: 38, bold: true, color: "$ink", wrap: false, text: 4 道}
+  - elementId: ft2-cap
+    elementType: text
+    bounds: [456, 1596, 340, 58]
+    content:
+      style: "$caption"
+      text: 微调闸门：关键课禁动 · 单课 ±10% · 周总量 ±3% · 每周 ≤3 个操作，每节课 ≤1 个。
+  - elementId: ft3-rule
+    elementType: shape
+    bounds: [848, 1528, 48, 3]
+    shapeName: rect
+    fill: {type: solid, color: "$orange"}
+  - elementId: ft3-num
+    elementType: text
+    bounds: [848, 1544, 368, 48]
+    content: {fontSize: 38, bold: true, color: "$ink", wrap: false, text: 0 泄露}
+  - elementId: ft3-cap
+    elementType: text
+    bounds: [848, 1596, 340, 58]
+    content:
+      style: "$caption"
+      text: 编出的数字在展示前被断言作废、在落库前被闸门拒收——幻觉到不了用户，也到不了数据库。
+  - elementId: ft-src
+    elementType: text
+    bounds: [64, 1668, 760, 16]
+    content:
+      fontSize: 11
+      color: "$muted"
+      wrap: false
+      fontFamily: {latin: "Consolas", ea: "MiSans"}
+      text: github.com/SamuelPsq/mapaopao · 马跑跑 MAPAOPAO · 规则引擎为主，LLM 为辅
+  - elementId: ft-copy
+    elementType: text
+    bounds: [916, 1668, 300, 16]
+    content:
+      fontSize: 11
+      color: "$muted"
+      align: [right, top]
+      wrap: false
+      text: © 2026 马跑跑

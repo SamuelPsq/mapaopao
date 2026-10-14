@@ -113,22 +113,18 @@ _SCHEMA = {"type": "object",
            "required": ["ops"]}
 
 
-def propose_ops(facts: dict) -> Optional[list]:
-    """调网关让 LLM 提微调建议；失败/非法返回 None。"""
+def propose_ops(facts: dict, rag_ctx: Optional[dict] = None) -> Optional[list]:
+    """调网关让 LLM 提微调建议；失败/非法返回 None。
+
+    rag_ctx 非空时走 tune_v2（注入知识库 + 召回案例）；为 None 时保持 v1 行为。
+    """
     base, key, model = os.getenv("LLM_BASE_URL"), os.getenv("LLM_API_KEY"), os.getenv("LLM_MODEL")
     if not (base and key and model):
         return None
     try:
         import httpx
-        prompt = (
-            "你是马拉松课表微调助手。课表由 VDOT 规则引擎生成，你只能做微小调整，"
-            "绝不做大改。允许的操作只有两种：\n"
-            '1. {"op":"move","session_id":"<id>","to_date":"<YYYY-MM-DD，必须在本周内且当天无其他课>"} 把一节【非关键课】移到本周另一天\n'
-            '2. {"op":"adjust","session_id":"<id>","km":"<数字，必须在原跑量±10%内且是0.5的倍数>"} 微调一节【非关键课】的跑量\n'
-            "规则：key=true 的关键课绝对不许出现在 ops 里；每周最多 3 个操作，每节课最多 1 个；"
-            "天气差的日子（bad_weather_days）优先把轻松跑移走；用户酸痛时优先减量非关键课。\n"
-            "如果课表已经合理，ops 可以是空数组。只输出 JSON，不要输出任何其他内容。\n"
-            "本周事实：" + json.dumps(facts, ensure_ascii=False))
+        from .prompts import build_tune_prompt
+        prompt, _ver = build_tune_prompt(facts, rag_ctx)
         payload = {"model": model, "temperature": 0.2, "max_tokens": 600, "timeout": 3.0,
                    "messages": [{"role": "user", "content": prompt}],
                    "response_format": {"type": "json_schema",
@@ -205,3 +201,70 @@ def maybe_tune_week(user: db.User, plan: db.Plan, week_no: int, bad_dates: list[
              applied=bool(ok), ops_cnt=len(ok) if ok else 0)
     db.track("llm_explain", user.user_id, scene="ai_tune", source=src)
     return src
+
+
+# ---------------------------------------------------------------- 偏差触发微调（RAG + 案例召回）
+_TRIGGER_CN = {"over_done": "超额完成", "under_done": "完成不足", "skipped": "缺课"}
+
+
+def tune_after_deviation(user: db.User, plan: db.Plan, week_no: int, trigger: str,
+                         dev_ratio: float, recent_logs: list[dict]) -> dict:
+    """用户打卡偏差（超额/不足/跳过）后：RAG 检索 + 案例召回 → LLM 微调本周剩余课表。
+
+    与 maybe_tune_week 的区别：那是周初预防性微调，这是事后响应式微调；
+    但边界完全一样——非关键课、±10%、周变化 ≤3%，validate_ops 不过一律拒收。
+
+    返回 {"applied": bool, "ops": list, "src": "llm"/"template", "case_id": str, "note": str}
+    """
+    from . import rag
+    from .prompts import TUNE_PROMPT_VERSION
+
+    week_start = plan.start_date + timedelta(days=7 * (week_no - 1))
+    with db.SessionLocal() as s:
+        sessions = s.query(db.Session).filter_by(plan_id=plan.plan_id, week_no=week_no).all()
+        pw = s.query(db.PlanWeek).filter_by(plan_id=plan.plan_id, week_no=week_no).first()
+        phase = pw.phase if pw else ""
+        planned = [x for x in sessions if x.status == "planned"]
+    if not planned:
+        return {"applied": False, "ops": [], "src": "template", "case_id": "", "note": ""}
+    # 事实：本周课表 + 最近实际 vs 目标（recent_logs 由调用方从 session_log 组装）
+    facts = build_facts(week_no, phase, sessions, [], "")
+    facts["deviation"] = {"trigger": trigger, "ratio": round(dev_ratio, 2),
+                          "cn": _TRIGGER_CN.get(trigger, trigger),
+                          "recent_actual_vs_target": recent_logs[-7:]}
+    # RAG 检索：用触发类型 + 阶段构造查询
+    query = f"{_TRIGGER_CN.get(trigger, trigger)} {phase} 训练计划调整"
+    rag_ctx = rag.build_rag_context(user.user_id, query, phase, trigger, dev_ratio)
+    ver = TUNE_PROMPT_VERSION
+
+    raw = propose_ops(facts, rag_ctx)
+    ok = validate_ops(raw, sessions, week_start) if raw is not None else None
+    applied = bool(ok)
+    if applied:
+        with db.SessionLocal.begin() as s:
+            by_id = {x.session_id: x for x in
+                     s.query(db.Session).filter_by(plan_id=plan.plan_id, week_no=week_no).all()}
+            for op in ok:
+                row = by_id[op["session_id"]]
+                if op["op"] == "move":
+                    row.date = op["to_date"]
+                else:
+                    row.target_km = op["km"]
+                row.source = "ai_tuned"
+            live = [x for x in by_id.values() if x.status == "planned"]
+            pw2 = s.query(db.PlanWeek).filter_by(plan_id=plan.plan_id, week_no=week_no).first()
+            if pw2:
+                pw2.planned_km = round(sum(x.target_km for x in live), 1)
+    case_id = rag.record_case(user.user_id, week_no, phase, trigger, dev_ratio,
+                              context={"prompt_ver": ver, **rag_ctx},
+                              decision=ok)
+    src = "llm" if applied else "template"
+    db.track("ai_tune_deviation", user.user_id, plan_id=plan.plan_id, week_no=week_no,
+             trigger=trigger, dev_ratio=round(dev_ratio, 3), applied=applied,
+             prompt_ver=ver, kb_ids=rag_ctx.get("kb_ids", []),
+             case_ids=rag_ctx.get("case_ids", []), case_id=case_id)
+    note = ""
+    if applied:
+        note = (f"AI 已按「{_TRIGGER_CN.get(trigger, trigger)}」微调本周剩余课表"
+                f"（{len(ok)} 项调整，关键课未动）")
+    return {"applied": applied, "ops": ok or [], "src": src, "case_id": case_id, "note": note}

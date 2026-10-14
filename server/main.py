@@ -435,6 +435,65 @@ def change_city(body: CityIn):
             "message": f"已切换到{city}，训练计划已按新城市重新生成"}
 
 
+class PlanAdjustIn(BaseModel):
+    user_id: str
+    avail_days: int | None = None          # 每周训练天数（2–7）
+    intensity_shift: int = 0               # 训练强度 -1 减一级 / +1 加一级；一级 = VDOT ±2
+
+
+@app.post("/v1/plan/adjust")
+def adjust_plan(body: PlanAdjustIn):
+    """修改训练计划：调整每周训练天数 / 增减一级训练强度（一级 = VDOT ±2，只影响目标配速）。
+
+    与切换城市同一语义：旧计划作废，按新参数重新生成 16 周计划，进度清零。
+    """
+    from server.knowledge.rules import VDOT_MIN, VDOT_MAX
+    if body.intensity_shift not in (-1, 0, 1):
+        raise HTTPException(400, "intensity_shift 只能是 -1/0/1")
+    with db.SessionLocal.begin() as s:
+        user = s.get(db.User, body.user_id)
+        if not user:
+            raise HTTPException(404, "用户不存在")
+        changes = []
+        new_days = user.avail_days
+        if body.avail_days is not None:
+            if body.avail_days == user.avail_days:
+                pass
+            elif not (2 <= body.avail_days <= 7):
+                raise HTTPException(400, "每周训练天数需在 2–7 天之间")
+            else:
+                new_days = body.avail_days
+                changes.append(f"训练天数 {user.avail_days} → {new_days} 天")
+        new_vdot = user.vdot
+        if body.intensity_shift:
+            v = max(VDOT_MIN, min(VDOT_MAX, user.vdot + 2 * body.intensity_shift))
+            if v == user.vdot:
+                word = "最高" if body.intensity_shift > 0 else "最低"
+                raise HTTPException(400, f"已经处于{word}训练强度（VDOT {user.vdot}），无法再{'增加' if body.intensity_shift > 0 else '减少'}")
+            new_vdot = v
+            changes.append(f"训练强度 VDOT {user.vdot} → {new_vdot}"
+                           f"（{'增加' if body.intensity_shift > 0 else '减少'}一级，目标配速随之{'加快' if body.intensity_shift > 0 else '放慢'}）")
+        if not changes:
+            return {"ok": True, "changed": False, "message": "没有需要修改的内容"}
+        user.avail_days, user.vdot = new_days, new_vdot
+        # 强度不在 profile_hash 里 → 先把旧计划作废，gen_plan 才不会幂等 dedup 掉
+        s.query(db.Plan).filter(db.Plan.user_id == body.user_id,
+                                db.Plan.status == "active").update({"status": "superseded"})
+        s.add(db.Event(name="plan_adjusted", user_id=body.user_id,
+                       payload={"avail_days": new_days, "vdot": new_vdot,
+                                "changes": changes}))
+    r = gen_plan(body.user_id)
+    if r.get("rejected"):
+        return {"ok": False, "message": r.get("reason", "计划生成失败")}
+    # 目标配速按真实 VDOT 刷新（generate_plan 内部用的是占位配速，与切换城市后同一处理）
+    with db.SessionLocal.begin() as s:
+        plan = s.get(db.Plan, r["plan_id"])
+        _refresh_future_weeks(s, plan, 0, new_vdot)
+    return {"ok": True, "changed": True, "plan_id": r["plan_id"],
+            "vdot": new_vdot, "avail_days": new_days,
+            "message": "已修改：" + "；".join(changes) + "。训练计划已重新生成，进度从头开始。"}
+
+
 @app.post("/v1/plan/generate")
 def gen_plan(user_id: str):
     """16 周计划生成 + 落 week 1 快照。幂等：同 profile 哈希生成同一计划。"""
@@ -619,7 +678,7 @@ def _degrade_check(s, plan: db.Plan, week_no: int) -> dict | None:
 
 @app.post("/v1/session/{session_id}/log")
 def log_session(session_id: str, body: LogIn):
-    """写 session_log；skipped 时自动触发候选预生成（不展示，先算好）。"""
+    """写 session_log；skipped / 超额完成 / 明显不足时自动触发候选预生成（不展示，先算好）。"""
     if body.status not in ("full", "partial", "skipped"):
         raise HTTPException(400, "status 必须是 full/partial/skipped")
     with db.SessionLocal.begin() as s:
@@ -635,6 +694,11 @@ def log_session(session_id: str, body: LogIn):
                                 "is_key": sess.is_key}))
         plan = s.get(db.Plan, sess.plan_id)
         user = s.get(db.User, plan.user_id) if plan else None
+        # 超额完成：实际里程明显超过目标（>110%），本周刺激已够，引导压缩剩余课表
+        over_done = (body.status == "full" and body.actual_km > sess.target_km * 1.1)
+        # 明显不足：部分完成但低于目标 50%，缺口需要本周内重排补上
+        under_done = (body.status == "partial" and sess.target_km > 0
+                      and body.actual_km < sess.target_km * 0.5)
         # 能力重估：每 4 周，用实际配速回写 VDOT（只刷新未开始的周）
         vdot_note = None
         if body.status in ("full", "partial") and body.actual_km > 0 and body.actual_pace and user:
@@ -650,20 +714,55 @@ def log_session(session_id: str, body: LogIn):
                     vdot_note = f"根据你的实际表现，能力值已从 VDOT {old} {direction} {new_v}，未来周计划已刷新"
             except Exception:
                 pass
+        # 事务块外预生成重排要用到，先取值（离开 session 后访问会 DetachedInstanceError）
+        plan_id, week_no = sess.plan_id, sess.week_no
     out = {"ok": True}
     if vdot_note:
         out["vdot_update"] = vdot_note
-    if body.status == "skipped":
+    if over_done:
+        out["over_done"] = True
+        out["over_note"] = f"超额完成 {body.actual_km:g} km，状态很好。本周刺激已经够了，看看要不要压缩剩余课表。"
+    if under_done:
+        out["under_note"] = "完成量不足目标的一半，缺口已记入，可在重排里补齐。"
+    if body.status == "skipped" or over_done or under_done:
         # 自动触发候选预生成（不展示）
         try:
             with db.SessionLocal() as s2:
-                plan = s2.get(db.Plan, sess.plan_id)
+                plan = s2.get(db.Plan, plan_id)
                 user = s2.get(db.User, plan.user_id)
-                ctx = _build_ctx(s2, user, plan, sess.week_no, "schedule")
+                ctx = _build_ctx(s2, user, plan, week_no, "schedule")
                 _main, _alt, _audit = rearrange(ctx)
                 out["rearrange_ready"] = True
         except Exception:
             out["rearrange_ready"] = False
+    if over_done or under_done:
+        # AI 响应式微调：RAG 检索 + 案例召回 → LLM 提建议 → 硬校验后落地
+        # 设计边界：AI 只动非关键课 ±10%（validate_ops 把关），减量周 AI 不干预
+        try:
+            with db.SessionLocal() as s3:
+                plan = s3.get(db.Plan, plan_id)
+                user = s3.get(db.User, plan.user_id)
+                week_no3 = week_no
+                sess_row = s3.get(db.Session, session_id)
+                target_km = sess_row.target_km if sess_row else 0
+                pw = s3.query(db.PlanWeek).filter_by(plan_id=plan_id, week_no=week_no3).first()
+                if pw and pw.phase != "taper" and target_km > 0:
+                    rows = (s3.query(db.Session, db.SessionLog)
+                            .join(db.SessionLog, db.SessionLog.session_id == db.Session.session_id)
+                            .filter(db.Session.plan_id == plan_id,
+                                    db.SessionLog.logged_at >= datetime.utcnow() - timedelta(days=14))
+                            .order_by(db.SessionLog.logged_at).all())
+                    recent = [{"date": sl.logged_at.date().isoformat(), "type": se.type,
+                               "target": se.target_km, "actual": sl.actual_km,
+                               "status": sl.status} for se, sl in rows]
+                    trigger = "over_done" if over_done else "under_done"
+                    dev_ratio = body.actual_km / target_km
+                    from server.tune import tune_after_deviation
+                    tune_result = tune_after_deviation(user, plan, week_no3, trigger, dev_ratio, recent)
+                    if tune_result.get("note"):
+                        out["ai_tune_note"] = tune_result["note"]
+        except Exception:
+            pass
     return out
 
 
@@ -897,6 +996,15 @@ def week_review(plan_id: str, week_no: int):
                   "rate_pct": round(done / (denom or 1) * 100), "done": done, "planned": denom}
         comment, csrc = render_scene("week_comment", cfacts, week_comment_template(cfacts))
         db.track("llm_explain", plan.user_id, scene="week_comment", source=csrc)
+        # 回填 AI 案例效果：周结束后按执行率给 pending 案例打 good/bad，供相似情境召回
+        week_end = plan.start_date + timedelta(days=7 * week_no - 1)
+        if date.today() > week_end:
+            try:
+                from server import rag as _rag
+                _rag.backfill_outcome(plan.user_id, plan_id, week_no,
+                                      round(done / (planned_denom or current_total or 1), 3))
+            except Exception:
+                pass
         return {"week_no": week_no, "phase": pw.phase, "planned_km": round(pw.planned_km, 1),
                 "is_dropped": pw.is_dropped,
                 "is_current": week_no == _current_week_no(plan, date.today()),
@@ -1053,8 +1161,11 @@ def metrics(user_id: str | None = None):
         blocked = sum(1 for g in guards if g.action == "block")
         llm_rows = s.query(db.Event).filter_by(name="llm_explain").all()
         llm_n = sum(1 for e in llm_rows if e.payload.get("source") == "llm")
-        return {"weeks": rows, "guard": {"total": len(guards), "blocked": blocked,
-                                         "effectiveness": round(blocked / len(guards), 3) if guards else 0},
+        user = s.get(db.User, user_id) if user_id else None
+        return {"weeks": rows, "user": ({"avail_days": user.avail_days, "vdot": user.vdot,
+                                         "goal_race": user.goal_race} if user else None),
+                "guard": {"total": len(guards), "blocked": blocked,
+                          "effectiveness": round(blocked / len(guards), 3) if guards else 0},
                 "llm_usage": {"llm": llm_n, "template": len(llm_rows) - llm_n,
                               "rate": round(llm_n / len(llm_rows), 3) if llm_rows else 0}}
 

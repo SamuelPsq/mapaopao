@@ -181,6 +181,21 @@ class Event(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
+class AICase(Base):
+    """AI 调整案例库：情境 + 决策 + 后续效果，供相似情境召回（个人记忆，不做跨用户共享）。"""
+    __tablename__ = "ai_case"
+    case_id: Mapped[str] = mapped_column(String(40), primary_key=True)
+    user_id: Mapped[str] = mapped_column(String(32), index=True)
+    week_no: Mapped[int] = mapped_column(Integer)
+    phase: Mapped[str] = mapped_column(String(12), default="")
+    trigger: Mapped[str] = mapped_column(String(16), default="")   # over_done / under_done / skipped / soreness / weather
+    dev_ratio: Mapped[float] = mapped_column(Float, default=1.0)   # actual_km / target_km
+    context_json: Mapped[dict] = mapped_column(JSON, default=dict) # 检索到的知识块 id + 召回的历史 case_id
+    decision_json: Mapped[dict] = mapped_column(JSON, nullable=True)  # AI 落地的微调 ops；未落地为 null
+    outcome: Mapped[str] = mapped_column(String(12), default="pending")  # pending / good / bad（后续执行率回填）
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
 def init_db() -> None:
     Base.metadata.create_all(engine)
     if DB_URL.startswith("sqlite"):

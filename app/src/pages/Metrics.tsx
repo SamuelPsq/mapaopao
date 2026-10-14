@@ -1,17 +1,19 @@
 import { useEffect, useState } from "react"
 import { useNavigate } from "react-router"
-import { api, loadUser, clearUser, loadUsername } from "@/lib/api"
+import { api, loadUser, clearUser, loadUsername, savePlan } from "@/lib/api"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
-import { LogOut, UserRound, UserRoundX } from "lucide-react"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { LogOut, UserRound, UserRoundX, SlidersHorizontal, Minus, Plus, ChevronUp, ChevronDown } from "lucide-react"
 import { Shell, NavBar } from "./Today"
 
 interface Metrics {
   weeks: { plan_id: string; week_no: number; planned: number; done: number; rate: number | null; key_planned: number; key_done: number }[]
   guard: { total: number; blocked: number; effectiveness: number }
   llm_usage: { llm: number; template: number; rate: number }
+  user: { avail_days: number; vdot: number; goal_race: string } | null
 }
 
 export default function MetricsPage() {
@@ -22,6 +24,12 @@ export default function MetricsPage() {
   const [password, setPassword] = useState("")
   const [deleteErr, setDeleteErr] = useState("")
   const [deleting, setDeleting] = useState(false)
+  // 修改训练计划弹窗
+  const [adjustOpen, setAdjustOpen] = useState(false)
+  const [adjDays, setAdjDays] = useState<number | null>(null)
+  const [adjShift, setAdjShift] = useState(0)
+  const [adjBusy, setAdjBusy] = useState(false)
+  const [toast, setToast] = useState("")
 
   useEffect(() => {
     if (!uid) { nav("/login", { replace: true }); return }
@@ -46,6 +54,23 @@ export default function MetricsPage() {
   }
 
   if (!m) return <Shell><p className="text-muted-foreground">加载中…</p></Shell>
+
+  async function submitAdjust() {
+    if (!m?.user) return
+    setAdjBusy(true)
+    try {
+      const r = await api.post<{ ok: boolean; changed: boolean; plan_id?: string; message?: string }>(
+        "/v1/plan/adjust",
+        { user_id: uid, avail_days: adjDays, intensity_shift: adjShift })
+      if (r.changed && r.plan_id) savePlan(r.plan_id)
+      setAdjustOpen(false)
+      setToast(r.message || "已保存")
+    } catch (e) {
+      setToast((e as Error).message.replace(/^\d+:\s*/, ""))
+    } finally {
+      setAdjBusy(false)
+    }
+  }
 
   const done = m.weeks.reduce((a, w) => a + w.done, 0)
   const planned = m.weeks.reduce((a, w) => a + w.planned, 0)
@@ -106,6 +131,12 @@ export default function MetricsPage() {
         ))}
       </div>
 
+      {/* 修改训练计划：训练天数 / 训练强度档位 */}
+      <Button variant="outline" className="w-full mt-6 bg-card"
+        onClick={() => { setAdjDays(m.user?.avail_days ?? null); setAdjShift(0); setAdjustOpen(true) }}>
+        <SlidersHorizontal className="h-4 w-4 mr-1.5" />修改训练计划
+      </Button>
+
       {/* 账号：退出登录 / 切换账号（数据保留在服务端，重新登录可继续） */}
       <div className="mt-6 grid grid-cols-2 gap-2">
         <Button variant="outline" className="bg-card"
@@ -124,6 +155,60 @@ export default function MetricsPage() {
       <p className="text-xs text-muted-foreground/70 text-center mt-2">
         训练数据保留在账号下，重新登录后进度不丢
       </p>
+
+      {/* 修改训练计划弹窗：每周训练天数 + 训练强度档位 */}
+      <Dialog open={adjustOpen} onOpenChange={setAdjustOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>修改训练计划</DialogTitle>
+            <DialogDescription>
+              修改后训练计划会按新参数重新生成，当前进度清零。强度只影响目标配速，VDOT 算法的课表结构不变。
+            </DialogDescription>
+          </DialogHeader>
+          {m.user ? (
+            <div className="space-y-5 py-2">
+              <div>
+                <Label>每周训练天数</Label>
+                <div className="flex items-center gap-3 mt-2">
+                  <Button variant="outline" size="icon" disabled={(adjDays ?? m.user.avail_days) <= 2}
+                    onClick={() => setAdjDays((adjDays ?? m.user!.avail_days) - 1)}>
+                    <Minus className="h-4 w-4" />
+                  </Button>
+                  <span className="flex-1 text-center text-2xl font-black">{adjDays ?? m.user.avail_days} 天</span>
+                  <Button variant="outline" size="icon" disabled={(adjDays ?? m.user.avail_days) >= 7}
+                    onClick={() => setAdjDays((adjDays ?? m.user!.avail_days) + 1)}>
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+              <div>
+                <Label>训练强度（当前 VDOT {m.user.vdot}{adjShift ? ` → ${m.user.vdot + adjShift * 2}` : ""}）</Label>
+                <div className="grid grid-cols-2 gap-2 mt-2">
+                  <Button variant={adjShift === -1 ? "default" : "outline"}
+                    disabled={m.user.vdot - 2 < 30}
+                    onClick={() => setAdjShift(adjShift === -1 ? 0 : -1)}>
+                    <ChevronDown className="h-4 w-4 mr-1" />减少一级训练强度
+                  </Button>
+                  <Button variant={adjShift === 1 ? "default" : "outline"}
+                    disabled={m.user.vdot + 2 > 70}
+                    onClick={() => setAdjShift(adjShift === 1 ? 0 : 1)}>
+                    <ChevronUp className="h-4 w-4 mr-1" />增加一级训练强度
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1.5">一级 = VDOT ±2，目标配速随之放慢 / 加快</p>
+              </div>
+            </div>
+          ) : null}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAdjustOpen(false)}>取消</Button>
+            <Button disabled={adjBusy ||
+                (adjDays === m.user?.avail_days && adjShift === 0)}
+              onClick={submitAdjust}>
+              {adjBusy ? "正在重新生成…" : "确认修改"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <AlertDialogContent>
@@ -151,6 +236,8 @@ export default function MetricsPage() {
       </AlertDialog>
 
       <NavBar />
+      {toast ? <div className="fixed bottom-20 left-1/2 -translate-x-1/2 bg-foreground text-background text-sm px-4 py-2 rounded-full shadow-lg max-w-xs text-center z-50"
+        onClick={() => setToast("")}>{toast}</div> : null}
     </Shell>
   )
 }

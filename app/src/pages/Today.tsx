@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
 import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Slider } from "@/components/ui/slider"
 import { Label } from "@/components/ui/label"
@@ -20,6 +22,9 @@ export default function Today() {
   const [err, setErr] = useState("")
   const [toast, setToast] = useState("")
   const [notTimeOpen, setNotTimeOpen] = useState(false)
+  // 实际里程输入：超额完成 / 只跑了一部分 点击后弹窗填数字
+  const [kmDialog, setKmDialog] = useState<null | { mode: "over" | "partial" }>(null)
+  const [kmInput, setKmInput] = useState("")
 
   const refresh = useCallback(async () => {
     if (!uid) { nav("/login", { replace: true }); return }
@@ -54,16 +59,32 @@ export default function Today() {
   const todayStr = new Date().toLocaleDateString("sv-SE")   // YYYY-MM-DD（本地时区）
   const isToday = !!m && m.date === todayStr                // 主课是不是今天的课
 
-  async function log(status: "full" | "partial" | "skipped") {
+  async function log(status: "full" | "partial" | "skipped", actualKm?: number) {
     if (!isToday) { setNotTimeOpen(true); return }          // 时间对不上：不是不练，时候未到
-    const actual_km = status === "full" ? m!.target_km : 0
-    const r = await api.post<{ vdot_update?: string; rearrange_ready?: boolean }>(
+    const actual_km = actualKm ?? (status === "full" ? m!.target_km : 0)
+    const r = await api.post<{ vdot_update?: string; over_note?: string; under_note?: string; ai_tune_note?: string; rearrange_ready?: boolean }>(
       `/v1/session/${m!.session_id}/log`,
       { status, actual_km, actual_pace: "", rpe: null })
     setToast(status === "full" ? "已记录完成，继续保持 💪" : status === "partial" ? "已记录，部分完成也算数" : "已记录，别担心，不用补")
     if (r.vdot_update) setToast(r.vdot_update)
-    if (status === "skipped") nav("/rearrange?trigger=schedule")
+    if (r.over_note) setToast(r.over_note)
+    if (r.under_note) setToast(r.under_note)
+    if (r.ai_tune_note) setToast(r.ai_tune_note)
+    if (status === "skipped" || r.rearrange_ready) nav("/rearrange?trigger=schedule")
     refresh()
+  }
+
+  // 填完实际公里数后的提交：超额必须 > 目标，部分必须 0 < km < 目标
+  function submitKm() {
+    if (!kmDialog || !m) return
+    const km = Number(kmInput)
+    const target = m.target_km
+    if (!Number.isFinite(km) || km <= 0) { setToast("请输入大于 0 的公里数"); return }
+    if (kmDialog.mode === "over" && km <= target) { setToast(`超额完成要大于目标 ${fmtKm(target)} km 哦`); return }
+    if (kmDialog.mode === "partial" && km >= target) { setToast(`只跑了一部分应该小于目标 ${fmtKm(target)} km，超过了就选「超额完成」`); return }
+    setKmDialog(null)
+    setKmInput("")
+    log(kmDialog.mode === "over" ? "full" : "partial", Math.round(km * 10) / 10)
   }
 
   const phaseCn: Record<string, string> = { load: "加载周", cut: "减量周", taper: "赛前减量", base: "基础期", build: "强化期", peak: "峰值期" }
@@ -155,11 +176,13 @@ export default function Today() {
         </button>
       ) : null}
 
-      {/* 三按钮 */}
-      <div className="grid grid-cols-3 gap-2 mb-3">
+      {/* 打卡按钮：完成 / 部分（填数字）/ 跑不了 / 超额（填数字） */}
+      <div className="grid grid-cols-2 gap-2 mb-3">
         <Button onClick={() => log("full")}>完成了</Button>
-        <Button variant="secondary" onClick={() => log("partial")}>只跑了一部分</Button>
+        <Button variant="secondary" onClick={() => { setKmInput(""); setKmDialog({ mode: "partial" }) }}>只跑了一部分</Button>
         <Button variant="outline" className="bg-card" onClick={() => log("skipped")}>今天跑不了</Button>
+        <Button className="bg-orange-500 hover:bg-orange-600 text-white border-0"
+          onClick={() => { setKmInput(""); setKmDialog({ mode: "over" }) }}>超额完成</Button>
       </div>
 
       {/* 身体上报（打卡即上报） */}
@@ -182,6 +205,30 @@ export default function Today() {
 
       <NavBar weekNo={card.week_no} />
       {toast ? <div className="fixed bottom-20 left-1/2 -translate-x-1/2 bg-foreground text-background text-sm px-4 py-2 rounded-full shadow-lg max-w-xs text-center z-50">{toast}</div> : null}
+
+      {/* 实际训练量输入：超额完成 / 只跑了一部分 */}
+      <Dialog open={!!kmDialog} onOpenChange={(o) => { if (!o) setKmDialog(null) }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{kmDialog?.mode === "over" ? "超额完成 · 实际跑了多少？" : "只跑了一部分 · 实际跑了多少？"}</DialogTitle>
+            <DialogDescription>
+              {m ? <>这节课目标是 <b>{fmtKm(m.target_km)} km</b>。填你实际跑的量，会影响接下来的排期。</> : null}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-2">
+            <Input type="number" inputMode="decimal" min="0" step="0.5" autoFocus
+              placeholder="例如 6.5"
+              value={kmInput}
+              onChange={(e) => setKmInput(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") submitKm() }} />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setKmDialog(null)}>取消</Button>
+            <Button className={kmDialog?.mode === "over" ? "bg-orange-500 hover:bg-orange-600 text-white border-0" : ""}
+              onClick={submitKm}>确认记录</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* 时间对不上时的弹窗：不是不练，时候未到 */}
       <AlertDialog open={notTimeOpen} onOpenChange={setNotTimeOpen}>

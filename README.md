@@ -57,6 +57,16 @@ LLM_MODEL=deepseek-flash
 
 未配置时所有 AI 文案与微调自动降级为规则模板。每次调用都埋点留痕（source=llm/template），指标页可视化「AI 文案使用率」与「护栏有效性」。
 
+### RAG + 案例召回 + Prompt 版本化
+
+用户打卡填入实际训练量后（超额完成 >110% / 不足一半），系统自动触发三层 AI 决策增强：
+
+1. **RAG 知识检索**（`server/rag.py`）：训练学原则切块带标签（超量恢复、10% 增量原则、80/20、缺口处理等），中文 bigram 检索 top-3 注入 prompt——零外部依赖，不引 embedding 服务；
+2. **案例召回**（`ai_case` 表）：每次偏差触发都记录「情境 + AI 决策 + 检索上下文」，周末按执行率回填 good/bad；相似情境（同阶段 + 同触发 + 偏差率接近）召回历史案例，AI 优先复用被验证有效的调整；
+3. **Prompt 版本化调优**（`server/prompts.py`）：prompt 带版本号（tune_v1/v2）埋点，离线评测 `scripts/eval_tune.py` 回放黄金集对比通过率。
+
+主权边界不变：检索结果只进 prompt 做参考，课表改动仍由 `tune.validate_ops` 硬校验把关（非关键课、±10%、周变化 ≤3%），减量周 AI 不干预。
+
 ## PRD 关键约束的落点
 
 | PRD 约束 | 实现 |
