@@ -447,7 +447,7 @@ def adjust_plan(body: PlanAdjustIn):
 
     与切换城市同一语义：旧计划作废，按新参数重新生成 16 周计划，进度清零。
     """
-    from server.knowledge.rules import VDOT_MIN, VDOT_MAX
+    from server.knowledge.rules import VDOT_MIN, VDOT_MAX, session_cap
     if body.intensity_shift not in (-1, 0, 1):
         raise HTTPException(400, "intensity_shift 只能是 -1/0/1")
     with db.SessionLocal.begin() as s:
@@ -456,6 +456,7 @@ def adjust_plan(body: PlanAdjustIn):
             raise HTTPException(404, "用户不存在")
         changes = []
         new_days = user.avail_days
+        days_note = ""
         if body.avail_days is not None:
             if body.avail_days == user.avail_days:
                 pass
@@ -463,6 +464,17 @@ def adjust_plan(body: PlanAdjustIn):
                 raise HTTPException(400, "每周训练天数需在 2–7 天之间")
             else:
                 new_days = body.avail_days
+                if session_cap(new_days) == session_cap(user.avail_days):
+                    # 课次上限相同 → 新课表与现有课表逐节相同，重建只会清空进度
+                    old_days = user.avail_days
+                    user.avail_days = new_days
+                    s.add(db.Event(name="plan_adjusted", user_id=body.user_id,
+                                   payload={"avail_days": new_days, "vdot": user.vdot,
+                                            "changes": [], "cap_unchanged": True}))
+                    return {"ok": True, "changed": False,
+                            "message": f"已记录每周 {new_days} 天的偏好。课表每周最多 "
+                                       f"{session_cap(new_days)} 节课，{old_days} 天和 {new_days} 天排出的课表"
+                                       "完全相同，当前计划与进度已保留"}
                 changes.append(f"训练天数 {user.avail_days} → {new_days} 天")
         new_vdot = user.vdot
         if body.intensity_shift:
@@ -505,8 +517,9 @@ def gen_plan(user_id: str):
                           goal_race=user.goal_race, ability=user.ability_tier,
                           injury_flag=user.injury_flag, city=user.city, lat=user.lat,
                           lon=user.lon, max_duration=user.max_duration)
-        # 用画像时存下的 vdot 反推：直接以 user.vdot 为能力参数
-        result = generate_plan(profile)
+        # 用画像时存下的真实 vdot 生成（override），课表跑量/配速都按真实能力；
+        # 不用占位成绩——否则整个计划的跑量基线约等于 VDOT 30 新手水平
+        result = generate_plan(profile, vdot_override=user.vdot)
         if isinstance(result, Reject):
             return {"rejected": True, "reason": result.reason, "suggest": result.suggest}
         # 用已保存的 vdot 覆盖（画像阶段已算好，含 A 类保守系数）
@@ -904,12 +917,48 @@ def rearrange_preview(body: PreviewIn):
             alt_payload = {"strategy": alt.strategy, "description": alt.description,
                            "delta_km": alt.delta_km, "sessions": _cand_sessions(alt),
                            "explain": alt_explain | {"source": alt_src}}
+        # AI 推荐人：只在有备选时启用。只影响「推荐展示」——候选生成与落地仍是规则引擎。
+        ai_rec = None
+        if alt_payload:
+            try:
+                from server.explain import render_recommend
+                from server import rag as _rag
+                trigger_cn = {"weather": "恶劣天气", "body": "身体状态",
+                              "schedule": "时间不够"}.get(ctx.trigger_src, ctx.trigger_src)
+                rec_facts = {
+                    "trigger": trigger_cn, "week_no": ctx.week_no,
+                    "avail_days_left": ctx.avail_days_left,
+                    "soreness_today": ctx.soreness_today,
+                    "prev_week_km": round(ctx.prev_week_km, 1),
+                    "planned_week_km": round(ctx.planned_week_km, 1),
+                    "main": {"strategy": main.strategy, "description": main.description,
+                             "delta_km": main.delta_km,
+                             "stimulus_pct": _facts_for(main, ctx)["stimulus_pct"],
+                             "guard_action": main.guard_action},
+                    "alt": {"strategy": alt.strategy, "description": alt.description,
+                            "delta_km": alt.delta_km,
+                            "stimulus_pct": _facts_for(alt, ctx)["stimulus_pct"],
+                            "guard_action": alt.guard_action},
+                }
+                kb_hits = _rag.retrieve(
+                    f"重排 {trigger_cn} {main.strategy} {alt.strategy} 训练计划调整原则")
+                rec_facts["principles"] = [h["text"] for h in kb_hits]
+                rec, rsrc = render_recommend(rec_facts)
+                if rec:
+                    ai_rec = rec | {"source": rsrc}
+                db.track("rearrange_ai_recommend", body.user_id,
+                         choice=rec["choice"] if rec else None, source=rsrc,
+                         kb_ids=[h["id"] for h in kb_hits],
+                         strategies=[main.strategy, alt.strategy])
+            except Exception:
+                ai_rec = None
         return {"event_id": event_id, "main": {
             "strategy": main.strategy, "description": main.description,
             "delta_km": main.delta_km, "sessions": _cand_sessions(main),
             "guard_action": main.guard_action, "guard_note": main.guard_note,
             "explain": explain_main | {"source": src},
         }, "alt": alt_payload, "guard_notes": audit,
+            "ai_recommendation": ai_rec,
             "context_hash": ctx.context_hash()}
 
 
@@ -996,6 +1045,16 @@ def week_review(plan_id: str, week_no: int):
                   "rate_pct": round(done / (denom or 1) * 100), "done": done, "planned": denom}
         comment, csrc = render_scene("week_comment", cfacts, week_comment_template(cfacts))
         db.track("llm_explain", plan.user_id, scene="week_comment", source=csrc)
+        # 训练天数 > 课次上限（6/7 天上限 5 节）→ 确定性的补充提醒，不依赖 LLM
+        extra_note = None
+        user = s.get(db.User, plan.user_id)
+        if user:
+            from server.knowledge.rules import session_cap
+            cap = session_cap(user.avail_days)
+            if user.avail_days > cap:
+                extra_note = (f"你设置了每周 {user.avail_days} 天训练，课表最多排 {cap} 节课"
+                              f"（每周超过 5 节课对新手受伤风险大于收益）；多出来的 "
+                              f"{user.avail_days - cap} 天适合安排力量训练或完全休息。")
         # 回填 AI 案例效果：周结束后按执行率给 pending 案例打 good/bad，供相似情境召回
         week_end = plan.start_date + timedelta(days=7 * week_no - 1)
         if date.today() > week_end:
@@ -1009,7 +1068,7 @@ def week_review(plan_id: str, week_no: int):
                 "is_dropped": pw.is_dropped,
                 "is_current": week_no == _current_week_no(plan, date.today()),
                 "comment": {"text": comment["comment"] if isinstance(comment, dict) else comment,
-                            "source": csrc},
+                            "source": csrc, "note": extra_note},
                 "adherence": {"done": done,
                               "planned_snapshot": planned_denom or current_total,
                               "rate": round(done / (planned_denom or current_total or 1), 3)},

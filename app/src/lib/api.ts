@@ -82,6 +82,7 @@ export interface PreviewResp {
   main: PlanOption | null
   alt: PlanOption | null
   guard_notes: { strategy: string; hit_rule: string | null; action: string; reason_user: string }[]
+  ai_recommendation?: { choice: "main" | "alt" | "either"; reason: string; source: "llm" | "template" } | null
   message?: string
 }
 
@@ -91,7 +92,7 @@ export interface WeekReview {
   planned_km: number
   is_dropped: boolean
   is_current: boolean
-  comment: { text: string; source: string }
+  comment: { text: string; source: string; note?: string | null }
   adherence: { done: number; planned_snapshot: number; rate: number }
   sessions: MainSession[]
   next_week_preview: MainSession[]

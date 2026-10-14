@@ -58,6 +58,13 @@ def validate_ops(ops: list, sessions: list, week_start: date) -> Optional[list]:
     by_id = {x.session_id: x for x in sessions}
     touched: set[str] = set()
     total = sum(x.target_km for x in sessions if x.status == "planned")
+    # 结构红线：辅助课调整后的跑量不得超过本周长距离的 70%。
+    # 没有长距离（异常周）时按关键课最大值兜底；都没有则不允许任何加量。
+    long_km = max((x.target_km for x in sessions if getattr(x, "type", "") == "long_run"),
+                  default=None)
+    if long_km is None:
+        long_km = max((x.target_km for x in sessions if x.is_key), default=None)
+    aux_cap = round(long_km * 0.7, 2) if long_km else None
     delta = 0.0
     out = []
     for op in ops:
@@ -92,6 +99,8 @@ def validate_ops(ops: list, sessions: list, week_start: date) -> Optional[list]:
                 return None
             if abs(km - x.target_km) > x.target_km * KM_TOL + 1e-9:  # ±10%
                 return None
+            if km > x.target_km and aux_cap is not None and km > aux_cap:
+                return None      # 结构红线：辅助课不得膨胀超过长距离的 70%
             delta += km - x.target_km
             out.append({"op": "adjust", "session_id": sid, "km": km})
         else:
@@ -213,11 +222,19 @@ def tune_after_deviation(user: db.User, plan: db.Plan, week_no: int, trigger: st
 
     与 maybe_tune_week 的区别：那是周初预防性微调，这是事后响应式微调；
     但边界完全一样——非关键课、±10%、周变化 ≤3%，validate_ops 不过一律拒收。
+    幂等：同一计划同一周最多微调一次——±10% 是相对当前值校验的，
+    不冷却的话同一节轻松跑每次 +10% 会复利膨胀，最终超过长距离（结构失衡）。
 
     返回 {"applied": bool, "ops": list, "src": "llm"/"template", "case_id": str, "note": str}
     """
     from . import rag
     from .prompts import TUNE_PROMPT_VERSION
+
+    with db.SessionLocal() as s:
+        done = s.query(db.Event).filter_by(name="ai_tune_deviation", user_id=user.user_id).all()
+        if any(e.payload.get("plan_id") == plan.plan_id and e.payload.get("week_no") == week_no
+               for e in done):
+            return {"applied": False, "ops": [], "src": "template", "case_id": "", "note": ""}
 
     week_start = plan.start_date + timedelta(days=7 * (week_no - 1))
     with db.SessionLocal() as s:

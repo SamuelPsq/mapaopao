@@ -121,14 +121,21 @@ def _layout_sessions(week_no: int, week_km: float, zones: dict, cap: int,
     return sessions
 
 
-def generate_plan(p: Profile) -> dict | Reject:
-    """链路 A：一次性生成 16 周计划。P95 < 50ms，纯 CPU，无网络。"""
+def generate_plan(p: Profile, vdot_override: int | None = None) -> dict | Reject:
+    """链路 A：一次性生成 16 周计划。P95 < 50ms，纯 CPU，无网络。
+
+    vdot_override：调用方已知真实能力值时直接传入（如建档时已算好 user.vdot）。
+    不传则按最近一次跑步折算——generate_plan 自身不知道用户真实 VDOT 时
+    只能用占位成绩，课表跑量和配速都会偏低。profile_hash 只由画像字段决定，
+    不受 override 影响（幂等语义不变）。
+    """
     # ① 护栏前置
     rej = validate_intake(p)
     if rej:
         return rej
     # ② 能力参数化
-    vdot = vdot_from_recent_race(p.recent_km, p.recent_sec, p.ability)
+    vdot = vdot_override if vdot_override is not None else \
+        vdot_from_recent_race(p.recent_km, p.recent_sec, p.ability)
     zones = pace_zones(vdot)
     # ③ 课次上限收敛
     cap = session_cap(p.avail_days)

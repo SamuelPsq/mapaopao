@@ -140,7 +140,22 @@ SCENE_SCHEMAS: dict[str, dict] = {
     "reason_line": _obj(reason={"type": "string"}),
     "week_comment": _obj(comment={"type": "string"}),
     "degrade_advice": _obj(advice={"type": "string"}),
+    "rearrange_recommend": _obj(choice={"type": "string"}, reason={"type": "string"}),
 }
+
+
+def render_recommend(facts: dict) -> tuple[Optional[dict], str]:
+    """重排候选推荐：模型在 main / alt 中选一个（或 either），附一句理由。
+
+    只影响「推荐展示」，不影响候选生成与落地——决策主权在规则引擎和用户。
+    校验：choice 必须是 main/alt/either；理由过数值断言；不过即降级（None, template）。
+    """
+    llm = _llm_call("rearrange_recommend", facts)
+    if llm is not None and llm.get("choice") in ("main", "alt", "either"):
+        reason = str(llm.get("reason", "")).strip()
+        if reason and assert_no_hallucination(reason, facts):
+            return {"choice": llm["choice"], "reason": reason}, "llm"
+    return None, "template"
 
 
 # ---------------------------------------------------------------- 各场景模板兜底

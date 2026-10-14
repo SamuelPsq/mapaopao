@@ -56,10 +56,12 @@ export default function Rearrange() {
 
       {data.main && (
         <>
-          <OptionCard opt={data.main} rank="主方案" highlight />
+          <OptionCard opt={data.main} rank="主方案" highlight
+            ai={data.ai_recommendation?.choice === "main" ? data.ai_recommendation : null} />
           {data.alt && (
             <div className="mt-4">
-              <OptionCard opt={data.alt} rank="备选" />
+              <OptionCard opt={data.alt} rank="备选"
+                ai={data.ai_recommendation?.choice === "alt" ? data.ai_recommendation : null} />
             </div>
           )}
           <div className="grid grid-cols-3 gap-2 mt-6">
@@ -91,7 +93,7 @@ export default function Rearrange() {
   )
 }
 
-function OptionCard({ opt, rank, highlight }: { opt: PlanOption; rank: string; highlight?: boolean }) {
+function OptionCard({ opt, rank, highlight, ai }: { opt: PlanOption; rank: string; highlight?: boolean; ai?: PreviewResp["ai_recommendation"] }) {
   const changed = opt.sessions.filter((s) => s.note || s.status === "cancelled_by_rearrange")
   return (
     <Card className={highlight ? "border-2 border-primary" : ""}>
@@ -100,6 +102,11 @@ function OptionCard({ opt, rank, highlight }: { opt: PlanOption; rank: string; h
           <Badge variant={highlight ? "default" : "secondary"}>{rank}</Badge>
           <Badge variant="outline">{STRATEGY_CN[opt.strategy]}</Badge>
         </div>
+        {ai ? (
+          <div className="mb-3 text-xs bg-orange-500/10 text-orange-700 rounded px-2.5 py-2 leading-relaxed">
+            🤖 AI 推荐这个方案（{ai.source === "llm" ? "LLM + 知识库" : "规则"}）：{ai.reason}
+          </div>
+        ) : null}
         <div className="space-y-2 text-sm">
           <Line k="为什么" v={opt.explain.reason} />
           <Line k="怎么改" v={opt.explain.what_changed} strong />

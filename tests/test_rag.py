@@ -151,6 +151,51 @@ def test_tune_after_deviation_rejects_bad_ops():
         assert case.decision_json is None, "被拒收的决策不写入案例 decision"
 
 
+def test_validate_ops_blocks_aux_exceeding_long_run():
+    """结构红线：辅助课调整后不得超过长距离的 70%（轻松跑不许比长距离还长）。"""
+    from server.tune import validate_ops
+    import datetime as _dt
+    base = _dt.date(2026, 10, 19)
+
+    class S:
+        def __init__(self, sid, km, key, t="easy_run"):
+            self.session_id, self.target_km, self.is_key = sid, km, key
+            self.status, self.type, self.date = "planned", t, base
+            self.pace_zone = "E"
+
+    sessions = [S("aux", 6.0, False), S("long", 12.0, True, "long_run")]
+    # 长距离 12 → 上限 8.4；6.0→8.5 在 ±10% 外会被拒，构造 8.0→8.5（+6.25%）但超红线
+    sessions[0].target_km = 8.0
+    bad = validate_ops([{"op": "adjust", "session_id": "aux", "km": 8.5}], sessions, base)
+    assert bad is None, "辅助课超过长距离 70% 必须拒收"
+    ok = validate_ops([{"op": "adjust", "session_id": "aux", "km": 8.0 + 0.5}], sessions, base) \
+        if False else validate_ops([{"op": "adjust", "session_id": "aux", "km": 8.0}], sessions, base)
+    assert ok is not None
+
+
+def test_tune_after_deviation_weekly_cooldown():
+    """同一计划同一周只微调一次：第二次调用直接冷却，不再改课表。"""
+    user, plan = _user_plan()
+    from server import tune
+    orig = tune.propose_ops
+    calls = {"n": 0}
+
+    def fake(facts, rag_ctx=None):
+        calls["n"] += 1
+        return [{"op": "adjust", "session_id": "plan-raguser-W1-s1", "km": 6.5}]
+
+    tune.propose_ops = fake
+    try:
+        r1 = tune_after_deviation(user, plan, 1, "over_done", 1.5, recent_logs=[])
+        r2 = tune_after_deviation(user, plan, 1, "under_done", 0.3, recent_logs=[])
+    finally:
+        tune.propose_ops = orig
+    assert r1["applied"] is True
+    assert r2["applied"] is False and calls["n"] == 1, "第二次必须冷却，不重复调 LLM"
+    with db.SessionLocal() as s:
+        assert s.get(db.Session, "plan-raguser-W1-s1").target_km == 6.5, "只生效一次"
+
+
 def test_week_review_backfills_case_outcome():
     """周审视接口：周结束后访问，pending 案例按执行率回填 good/bad。"""
     from fastapi.testclient import TestClient

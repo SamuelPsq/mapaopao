@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react"
 import { useNavigate, useParams } from "react-router"
-import { api, loadUser, loadPlan, type WeekReview } from "@/lib/api"
+import { api, loadUser, loadPlan, savePlan, type WeekReview } from "@/lib/api"
 import { fmtKm } from "@/lib/format"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -27,10 +27,15 @@ export default function Week() {
       const planId = loadPlan()
       const fromUrl = Math.min(16, Math.max(1, Number(no) || 0))
       if (planId && fromUrl) {
-        setW(await api.get<WeekReview>(`/v1/plan/${planId}/week/${fromUrl}`))
-        return
+        try {
+          setW(await api.get<WeekReview>(`/v1/plan/${planId}/week/${fromUrl}`))
+          return
+        } catch {
+          // 缓存的 plan 已作废（如修改训练计划/切换城市后本地缓存没跟上）→ 回退到 active 计划
+        }
       }
       const today = await api.get<{ plan_id: string; week_no: number }>(`/v1/today?user_id=${uid}`)
+      savePlan(today.plan_id)             // 同步缓存，下次直接命中新计划
       const weekNo = fromUrl || Math.min(16, Math.max(1, today.week_no))
       setW(await api.get<WeekReview>(`/v1/plan/${today.plan_id}/week/${weekNo}`))
     } catch (e) { setErr((e as Error).message) }
@@ -110,6 +115,9 @@ export default function Week() {
             </Badge>
           </div>
           <p className="text-sm text-muted-foreground mt-1 leading-relaxed">{w.comment.text}</p>
+          {w.comment.note ? (
+            <p className="text-xs bg-muted/60 rounded px-2.5 py-2 mt-2 leading-relaxed">💡 {w.comment.note}</p>
+          ) : null}
         </div>
       ) : null}
 
