@@ -1,0 +1,637 @@
+pageType: content
+background:
+  type: solid
+  color: "$paper"
+elements:
+  # ================= 页眉 =================
+  - elementId: kicker
+    elementType: text
+    bounds: [64, 52, 820, 18]
+    content:
+      fontSize: 12
+      bold: true
+      color: "$orange"
+      letterSpacing: 3
+      wrap: false
+      text: MAPAOPAO · 马跑跑 —— 打卡偏差到课表落地的 AI 决策链路
+  - elementId: title
+    elementType: text
+    bounds: [64, 80, 820, 62]
+    content:
+      fontSize: 46
+      bold: true
+      color: "$ink"
+      wrap: false
+      text: AI 决策链路
+  - elementId: head-tag
+    elementType: text
+    bounds: [884, 62, 332, 54]
+    content:
+      fontSize: 11
+      color: "$muted"
+      align: [right, top]
+      lineHeight: 1.6
+      fontFamily: {latin: "Consolas", ea: "MiSans"}
+      text: |
+        server/tune.py
+        server/rag.py
+        docs/training-principles.md
+  - elementId: subtitle
+    elementType: text
+    bounds: [64, 154, 1100, 30]
+    content:
+      fontSize: 18
+      color: "$body"
+      wrap: false
+      text: |
+        <p>RAG 与召回只负责「喂料」，模型只负责「建议」——<strong><span style="color:$orange">能不能落地，代码说了算</span></strong>。</p>
+
+  # ================= 触发带 =================
+  - elementId: base-band
+    elementType: shape
+    bounds: [0, 210, 1280, 102]
+    shapeName: rect
+    fill: {type: solid, color: "$ink"}
+  - elementId: base-icon-l
+    elementType: icon
+    bounds: [64, 248, 26, 26]
+    iconName: "fas:calculator"
+    fill: {type: solid, color: "$paper"}
+  - elementId: base-title-l
+    elementType: text
+    bounds: [104, 228, 420, 26]
+    content:
+      fontSize: 17
+      bold: true
+      color: "#FFFFFF"
+      wrap: false
+      text: 打卡触发 · 规则判定
+  - elementId: base-sub-l
+    elementType: text
+    bounds: [104, 258, 420, 20]
+    content:
+      fontSize: 12
+      color: "$faint"
+      wrap: false
+      text: 今日卡填实际公里数 · 超额 >110% 或不足 <50% 才触发
+  - elementId: base-arrow
+    elementType: line
+    bounds: [548, 260, 112, 4]
+    viewBox: [112, 4]
+    points: "0,2 112,2"
+    arrow: [null, arrow]
+    border: {style: solid, width: 2, color: "$orange"}
+  - elementId: base-arrow-label
+    elementType: text
+    bounds: [504, 234, 200, 18]
+    content:
+      fontSize: 11
+      color: "$orange"
+      align: [center, top]
+      wrap: false
+      text: 偏差事实 deviation · 数字已算好
+  - elementId: base-icon-r
+    elementType: icon
+    bounds: [700, 248, 26, 26]
+    iconName: "fas:robot"
+    fill: {type: solid, color: "$paper"}
+  - elementId: base-title-r
+    elementType: text
+    bounds: [740, 228, 460, 26]
+    content:
+      fontSize: 17
+      bold: true
+      color: "#FFFFFF"
+      wrap: false
+      text: LLM · 只提建议不写库
+  - elementId: base-sub-r
+    elementType: text
+    bounds: [740, 258, 460, 20]
+    content:
+      fontSize: 12
+      color: "$faint"
+      wrap: false
+      text: 提议必须过硬校验闸门 · 不通过则保持规则课表
+
+  # ================= 第一排 标题 =================
+  - elementId: s1-num
+    elementType: text
+    bounds: [64, 344, 90, 66]
+    content:
+      fontSize: 54
+      bold: true
+      color: "$orange"
+      wrap: false
+      text: "01"
+  - elementId: s1-title
+    elementType: text
+    bounds: [160, 352, 560, 34]
+    content:
+      fontSize: 26
+      bold: true
+      color: "$ink"
+      wrap: false
+      text: RAG 与召回 · 给模型查资料
+  - elementId: s1-desc
+    elementType: text
+    bounds: [160, 390, 880, 22]
+    content:
+      fontSize: 14
+      color: "$muted"
+      wrap: false
+      text: 模型不懂训练学，但项目里有一本「书」和一群「过来人」——检索结果只进 prompt，当上下文用。
+  - elementId: s1-file
+    elementType: text
+    bounds: [960, 364, 256, 18]
+    content:
+      fontSize: 11
+      color: "$muted"
+      align: [right, top]
+      wrap: false
+      fontFamily: {latin: "Consolas", ea: "MiSans"}
+      text: server/rag.py
+
+  # ---- 第一排 流水线 ----
+  - elementId: s1-rule
+    elementType: shape
+    bounds: [64, 450, 1152, 2]
+    shapeName: rect
+    fill: {type: solid, color: "$ink"}
+  # 阶段 1
+  - elementId: s1a-chip
+    elementType: shape
+    bounds: [64, 466, 26, 26]
+    shapeName: rect
+    fill: {type: solid, color: "$orange"}
+  - elementId: s1a-chip-num
+    elementType: text
+    bounds: [64, 466, 26, 26]
+    content: {fontSize: 14, bold: true, color: "#FFFFFF", align: [center, middle], wrap: false, text: "1"}
+  - elementId: s1a-name
+    elementType: text
+    bounds: [100, 468, 224, 24]
+    content:
+      style: "$stageName"
+      wrap: false
+      text: 打卡偏差判定
+  - elementId: s1a-desc
+    elementType: text
+    bounds: [64, 506, 260, 110]
+    content:
+      style: "$stageDesc"
+      text: 今日卡「超额完成 / 只跑了一部分」填实际公里数，log 接口对比计划值：>110% 记超额、<50% 记不足。
+  - elementId: s1-arrow1
+    elementType: line
+    bounds: [324, 477, 37, 4]
+    viewBox: [37, 4]
+    points: "0,2 37,2"
+    arrow: [null, arrow]
+    border: {style: solid, width: 2, color: "#9AA0A6"}
+  # 阶段 2
+  - elementId: s1b-chip
+    elementType: shape
+    bounds: [361, 466, 26, 26]
+    shapeName: rect
+    fill: {type: solid, color: "$orange"}
+  - elementId: s1b-chip-num
+    elementType: text
+    bounds: [361, 466, 26, 26]
+    content: {fontSize: 14, bold: true, color: "#FFFFFF", align: [center, middle], wrap: false, text: "2"}
+  - elementId: s1b-name
+    elementType: text
+    bounds: [397, 468, 224, 24]
+    content:
+      style: "$stageName"
+      wrap: false
+      text: RAG 知识检索
+  - elementId: s1b-desc
+    elementType: text
+    bounds: [361, 506, 260, 110]
+    content:
+      style: "$stageDesc"
+      text: docs/training-principles.md 切 28 块入库；中文 bigram 分词 + 标题标签权重 ×2，按口语问法召回 top-k 原则。
+  - elementId: s1-arrow2
+    elementType: line
+    bounds: [621, 477, 37, 4]
+    viewBox: [37, 4]
+    points: "0,2 37,2"
+    arrow: [null, arrow]
+    border: {style: solid, width: 2, color: "#9AA0A6"}
+  # 阶段 3
+  - elementId: s1c-chip
+    elementType: shape
+    bounds: [658, 466, 26, 26]
+    shapeName: rect
+    fill: {type: solid, color: "$orange"}
+  - elementId: s1c-chip-num
+    elementType: text
+    bounds: [658, 466, 26, 26]
+    content: {fontSize: 14, bold: true, color: "#FFFFFF", align: [center, middle], wrap: false, text: "3"}
+  - elementId: s1c-name
+    elementType: text
+    bounds: [694, 468, 224, 24]
+    content:
+      style: "$stageName"
+      wrap: false
+      text: 案例召回
+  - elementId: s1c-desc
+    elementType: text
+    bounds: [658, 506, 260, 110]
+    content:
+      style: "$stageDesc"
+      text: 查 ai_case 表本人历史案例，按「阶段 + 触发类型 + 偏差率 log 刻度」算相似度，取最像的几条当参考。
+  - elementId: s1-arrow3
+    elementType: line
+    bounds: [918, 477, 37, 4]
+    viewBox: [37, 4]
+    points: "0,2 37,2"
+    arrow: [null, arrow]
+    border: {style: solid, width: 2, color: "#9AA0A6"}
+  # 阶段 4
+  - elementId: s1d-chip
+    elementType: shape
+    bounds: [955, 466, 26, 26]
+    shapeName: rect
+    fill: {type: solid, color: "$orange"}
+  - elementId: s1d-chip-num
+    elementType: text
+    bounds: [955, 466, 26, 26]
+    content: {fontSize: 14, bold: true, color: "#FFFFFF", align: [center, middle], wrap: false, text: "4"}
+  - elementId: s1d-name
+    elementType: text
+    bounds: [991, 468, 224, 24]
+    content:
+      style: "$stageName"
+      wrap: false
+      text: prompt 组装 tune_v2
+  - elementId: s1d-desc
+    elementType: text
+    bounds: [955, 506, 260, 110]
+    content:
+      style: "$stageDesc"
+      text: 知识块 + 相似案例 + 当前课表 facts 一起注进模板；prompt 版本号随埋点上报，可回滚可对比。
+
+  # ---- 第一排 裁决 ----
+  - elementId: s1-pass-bar
+    elementType: shape
+    bounds: [64, 640, 4, 56]
+    shapeName: rect
+    fill: {type: solid, color: "$green"}
+  - elementId: s1-pass-bg
+    elementType: shape
+    bounds: [68, 640, 476, 56]
+    shapeName: rect
+    fill: {type: solid, color: "$passbg"}
+  - elementId: s1-pass-icon
+    elementType: icon
+    bounds: [86, 658, 20, 20]
+    iconName: "fas:circle-check"
+    fill: {type: solid, color: "$green"}
+  - elementId: s1-pass-text
+    elementType: text
+    bounds: [118, 640, 416, 56]
+    content:
+      fontSize: 14
+      bold: true
+      color: "$green"
+      align: [left, middle]
+      wrap: false
+      text: 喂料完成 · 检索结果只作为上下文
+  - elementId: s1-pass-arrow
+    elementType: line
+    bounds: [552, 666, 40, 4]
+    viewBox: [40, 4]
+    points: "0,2 40,2"
+    arrow: [null, arrow]
+    border: {style: solid, width: 2, color: "$green"}
+  - elementId: s1-pass-out
+    elementType: text
+    bounds: [604, 640, 612, 56]
+    content:
+      fontSize: 13.5
+      color: "$ink"
+      align: [left, middle]
+      text: 进入 LLM 提议阶段 · 检索不到也不阻塞——空上下文照样能跑，只是建议更保守
+  - elementId: s1-fail-bar
+    elementType: shape
+    bounds: [64, 704, 4, 56]
+    shapeName: rect
+    fill: {type: solid, color: "$red"}
+  - elementId: s1-fail-bg
+    elementType: shape
+    bounds: [68, 704, 476, 56]
+    shapeName: rect
+    fill: {type: solid, color: "$failbg"}
+  - elementId: s1-fail-icon
+    elementType: icon
+    bounds: [86, 722, 20, 20]
+    iconName: "fas:circle-xmark"
+    fill: {type: solid, color: "$red"}
+  - elementId: s1-fail-text
+    elementType: text
+    bounds: [118, 704, 416, 56]
+    content:
+      fontSize: 14
+      bold: true
+      color: "$red"
+      align: [left, middle]
+      wrap: false
+      text: 越界红线 · 知识库原则明令禁止
+  - elementId: s1-fail-arrow
+    elementType: line
+    bounds: [552, 730, 40, 4]
+    viewBox: [40, 4]
+    points: "0,2 40,2"
+    arrow: [null, arrow]
+    border: {style: solid, width: 2, color: "$red"}
+  - elementId: s1-fail-out
+    elementType: text
+    bounds: [604, 704, 612, 56]
+    content:
+      fontSize: 13.5
+      color: "$ink"
+      align: [left, middle]
+      text: 如「轻松跑比长距离还长」这类结构性越界，在闸门处直接拒收，与措辞无关
+
+  # ================= 第二排 标题 =================
+  - elementId: s2-num
+    elementType: text
+    bounds: [64, 824, 90, 66]
+    content:
+      fontSize: 54
+      bold: true
+      color: "$orange"
+      wrap: false
+      text: "02"
+  - elementId: s2-title
+    elementType: text
+    bounds: [160, 832, 620, 34]
+    content:
+      fontSize: 26
+      bold: true
+      color: "$ink"
+      wrap: false
+      text: LLM 提议与硬校验 · 代码裁决
+  - elementId: s2-desc
+    elementType: text
+    bounds: [160, 870, 900, 22]
+    content:
+      fontSize: 14
+      color: "$muted"
+      wrap: false
+      text: 偏差越明显，AI 介入越深——但介入的每一步都被规则夹着走，这是产品里的「安全带」。
+  - elementId: s2-file
+    elementType: text
+    bounds: [960, 844, 256, 18]
+    content:
+      fontSize: 11
+      color: "$muted"
+      align: [right, top]
+      wrap: false
+      fontFamily: {latin: "Consolas", ea: "MiSans"}
+      text: server/tune.py
+
+  # ---- 第二排 流水线 ----
+  - elementId: s2-rule
+    elementType: shape
+    bounds: [64, 930, 1152, 2]
+    shapeName: rect
+    fill: {type: solid, color: "$ink"}
+  # 阶段 A
+  - elementId: s2a-chip
+    elementType: shape
+    bounds: [64, 946, 26, 26]
+    shapeName: rect
+    fill: {type: solid, color: "$orange"}
+  - elementId: s2a-chip-num
+    elementType: text
+    bounds: [64, 946, 26, 26]
+    content: {fontSize: 14, bold: true, color: "#FFFFFF", align: [center, middle], wrap: false, text: "5"}
+  - elementId: s2a-name
+    elementType: text
+    bounds: [100, 948, 240, 24]
+    content:
+      style: "$stageName"
+      wrap: false
+      text: LLM 提议微调
+  - elementId: s2a-desc
+    elementType: text
+    bounds: [64, 986, 300, 150]
+    content:
+      style: "$stageDesc"
+      text: 只许两种操作：move 把非关键课移到本周另一天；adjust 微调非关键课跑量。DeepSeek 兼容网关，3.5s 超时即降级。
+  - elementId: s2-arrow1
+    elementType: line
+    bounds: [364, 957, 60, 4]
+    viewBox: [60, 4]
+    points: "0,2 60,2"
+    arrow: [null, arrow]
+    border: {style: solid, width: 2, color: "#9AA0A6"}
+  # 阶段 B
+  - elementId: s2b-chip
+    elementType: shape
+    bounds: [424, 946, 26, 26]
+    shapeName: rect
+    fill: {type: solid, color: "$orange"}
+  - elementId: s2b-chip-num
+    elementType: text
+    bounds: [424, 946, 26, 26]
+    content: {fontSize: 14, bold: true, color: "#FFFFFF", align: [center, middle], wrap: false, text: "6"}
+  - elementId: s2b-name
+    elementType: text
+    bounds: [460, 948, 380, 24]
+    content:
+      style: "$stageName"
+      wrap: false
+      text: 硬校验闸门 · 逐条裁决
+  - elementId: s2b-desc
+    elementType: text
+    bounds: [424, 986, 440, 150]
+    content:
+      style: "$stageDesc"
+      lineHeight: 1.7
+      text: |
+        <p>① 目标是已计划、非关键的课？（关键课直接拒）</p>
+        <p>② 单课跑量 ±10% 内、0.5km 取整？</p>
+        <p>③ 调整后本周总跑量变化 ≤ 3%？</p>
+        <p>④ 辅助课 ≤ 本周长距离的 70%？</p>
+        <p>⑤ 本周 ≤ 3 个操作、每节课 ≤ 1 个？</p>
+        <p>⑥ 每周冷却幂等——同一偏差不重复微调</p>
+  - elementId: s2-arrow2
+    elementType: line
+    bounds: [864, 957, 60, 4]
+    viewBox: [60, 4]
+    points: "0,2 60,2"
+    arrow: [null, arrow]
+    border: {style: solid, width: 2, color: "#9AA0A6"}
+  # 阶段 C
+  - elementId: s2c-chip
+    elementType: shape
+    bounds: [924, 946, 26, 26]
+    shapeName: rect
+    fill: {type: solid, color: "$orange"}
+  - elementId: s2c-chip-num
+    elementType: text
+    bounds: [924, 946, 26, 26]
+    content: {fontSize: 14, bold: true, color: "#FFFFFF", align: [center, middle], wrap: false, text: "7"}
+  - elementId: s2c-name
+    elementType: text
+    bounds: [960, 948, 256, 24]
+    content:
+      style: "$stageName"
+      wrap: false
+      text: 裁决与落库
+  - elementId: s2c-desc
+    elementType: text
+    bounds: [924, 986, 292, 150]
+    content:
+      style: "$stageDesc"
+      text: 全部通过 → 写库 source=ai_tuned，周审视显示「AI 微调」徽标；任一越界 → 整体拒收，保持规则课表。
+
+  # ---- 降级链说明 ----
+  - elementId: lab-band
+    elementType: shape
+    bounds: [64, 1166, 1152, 64]
+    shapeName: rect
+    fill: {type: solid, color: "$band"}
+  - elementId: lab-icon
+    elementType: icon
+    bounds: [86, 1187, 22, 22]
+    iconName: "fas:flask"
+    fill: {type: solid, color: "$orange"}
+  - elementId: lab-text
+    elementType: text
+    bounds: [124, 1166, 1076, 64]
+    content:
+      fontSize: 13
+      color: "$ink"
+      align: [left, middle]
+      text: |
+        <p><strong>降级链：</strong>未配密钥 / 调用超时 / 校验不过 → 规则模板顶上，体验不断档；埋点 source=template，失败原因逐条可审计，指标页「AI 文案使用率」只统计真实通过的调用。</p>
+
+  # ================= 旁支 · 重排推荐人 =================
+  - elementId: side-kicker
+    elementType: text
+    bounds: [64, 1270, 600, 20]
+    content:
+      fontSize: 13
+      bold: true
+      color: "$ink"
+      letterSpacing: 2
+      wrap: false
+      text: 旁支 · 重排页的 AI 推荐人
+  - elementId: side-flow
+    elementType: text
+    bounds: [64, 1302, 640, 92]
+    content:
+      style: "$caption"
+      text: |
+        <p>天气打断计划时，规则引擎先出 main / alt 两个候选方案 → LLM 结合 RAG 原则做推荐并给出理由 → 同样过数值断言 → 只影响「推荐」卡片展示，不动课表。</p>
+  - elementId: side-divider
+    elementType: shape
+    bounds: [730, 1302, 2, 92]
+    shapeName: rect
+    fill: {type: solid, color: "$hairline"}
+  - elementId: side-assert
+    elementType: text
+    bounds: [758, 1302, 458, 92]
+    content:
+      style: "$caption"
+      text: |
+        <p>推荐文案里的每个数字同样过 assert set(nums) &lt;= set(facts)，编数即整条降级模板——旁支和主流水线共用同一套防幻觉机制。</p>
+
+  # ================= 埋点带 =================
+  - elementId: track-band
+    elementType: shape
+    bounds: [64, 1430, 1152, 64]
+    shapeName: rect
+    fill: {type: solid, color: "$ink"}
+  - elementId: track-text
+    elementType: text
+    bounds: [88, 1430, 1104, 64]
+    content:
+      fontSize: 13
+      color: "#FFFFFF"
+      align: [left, middle]
+      text: |
+        <p><strong>每个节点都留痕：</strong>ai_tune_deviation 记录 prompt_ver / kb_ids / case_ids / applied；rearrange_ai_recommend 记录采纳与否；ai_case 周末按执行率回填 good / bad——案例库越用越准。</p>
+
+  # ================= 落地结果 =================
+  - elementId: ft-rule
+    elementType: shape
+    bounds: [64, 1530, 1152, 1]
+    shapeName: rect
+    fill: {type: solid, color: "$hairline"}
+  - elementId: ft-label
+    elementType: text
+    bounds: [64, 1550, 200, 20]
+    content:
+      fontSize: 13
+      bold: true
+      color: "$ink"
+      letterSpacing: 2
+      wrap: false
+      text: 落地结果
+  - elementId: ft1-rule
+    elementType: shape
+    bounds: [64, 1586, 48, 3]
+    shapeName: rect
+    fill: {type: solid, color: "$orange"}
+  - elementId: ft1-num
+    elementType: text
+    bounds: [64, 1602, 368, 48]
+    content: {fontSize: 38, bold: true, color: "$ink", wrap: false, text: 28 块}
+  - elementId: ft1-cap
+    elementType: text
+    bounds: [64, 1654, 340, 58]
+    content:
+      style: "$caption"
+      text: 训练原则知识库：docs/training-principles.md 切块入库，中文 bigram 检索，9/9 口语问法命中。
+  - elementId: ft2-rule
+    elementType: shape
+    bounds: [456, 1586, 48, 3]
+    shapeName: rect
+    fill: {type: solid, color: "$orange"}
+  - elementId: ft2-num
+    elementType: text
+    bounds: [456, 1602, 368, 48]
+    content: {fontSize: 38, bold: true, color: "$ink", wrap: false, text: 2 道防线}
+  - elementId: ft2-cap
+    elementType: text
+    bounds: [456, 1654, 340, 58]
+    content:
+      style: "$caption"
+      text: 结构红线（辅助课 ≤ 长距离 70%）+ 每周冷却幂等——拦住「轻松跑比长距离还长」这类结构性错误。
+  - elementId: ft3-rule
+    elementType: shape
+    bounds: [848, 1586, 48, 3]
+    shapeName: rect
+    fill: {type: solid, color: "$orange"}
+  - elementId: ft3-num
+    elementType: text
+    bounds: [848, 1602, 368, 48]
+    content: {fontSize: 38, bold: true, color: "$ink", wrap: false, text: 0 写库入口}
+  - elementId: ft3-cap
+    elementType: text
+    bounds: [848, 1654, 340, 58]
+    content:
+      style: "$caption"
+      text: LLM 全程只读提议，所有落库必经代码闸门；检索、召回、prompt 版本全量埋点可回滚。
+  - elementId: ft-src
+    elementType: text
+    bounds: [64, 1714, 760, 16]
+    content:
+      fontSize: 11
+      color: "$muted"
+      wrap: false
+      fontFamily: {latin: "Consolas", ea: "MiSans"}
+      text: github.com/SamuelPsq/mapaopao · 马跑跑 MAPAOPAO · 规则引擎为主，LLM 为辅
+  - elementId: ft-copy
+    elementType: text
+    bounds: [916, 1714, 300, 16]
+    content:
+      fontSize: 11
+      color: "$muted"
+      align: [right, top]
+      wrap: false
+      text: © 2026 马跑跑
