@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react"
-import { Bot, X, SendHorizonal } from "lucide-react"
+import { Bot, X, SendHorizonal, TriangleAlert } from "lucide-react"
 import { api, loadUser } from "../lib/api"
 
 interface Msg {
@@ -99,7 +99,7 @@ export default function Assistant() {
               <div className="text-[11px] opacity-80 leading-tight">回答来自训练原则库 + 跑者经验库</div>
             </div>
             <button onClick={() => setOpen(false)} aria-label="关闭"
-              className="ml-auto opacity-80 hover:opacity-100 active:scale-95">
+              className="ml-auto p-1.5 -m-1 opacity-80 hover:opacity-100 active:scale-95">
               <X className="h-5 w-5" />
             </button>
           </div>
@@ -114,7 +114,7 @@ export default function Assistant() {
                 <div className="mt-3 space-y-1.5">
                   {SUGGESTIONS.map(s => (
                     <button key={s} onClick={() => ask(s)}
-                      className="block w-full text-left text-[13px] text-primary bg-primary/8 border border-primary/20 rounded-xl px-3 py-2 active:scale-[0.98] transition-transform">
+                      className="block w-full text-left text-[13px] text-primary bg-primary/8 border border-primary/20 rounded-xl px-3 py-2.5 active:scale-[0.98] transition-transform">
                       {s}
                     </button>
                   ))}
@@ -128,8 +128,9 @@ export default function Assistant() {
                   : "max-w-[88%] rounded-2xl rounded-tl-sm bg-muted px-3.5 py-2.5 text-sm leading-relaxed whitespace-pre-wrap"}>
                   {m.text}
                   {m.medical && (
-                    <div className="mt-2 text-[11px] leading-snug text-amber-700 bg-amber-500/10 border border-amber-500/20 rounded-lg px-2.5 py-1.5">
-                      ⚠️ 伤病内容仅供参考，不构成医疗建议；症状持续或加重，请及时就医（运动医学科 / 骨科）。
+                    <div className="mt-2 text-[11px] leading-snug text-amber-800 bg-amber-500/10 border border-amber-500/20 rounded-lg px-2.5 py-1.5 flex gap-1.5">
+                      <TriangleAlert className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                      <span>伤病内容仅供参考，不构成医疗建议；症状持续或加重，请及时就医（运动医学科 / 骨科）。</span>
                     </div>
                   )}
                   {m.sources && m.sources.length > 0 && (
@@ -165,7 +166,7 @@ export default function Assistant() {
             />
             <button onClick={() => ask(input)} disabled={busy || !input.trim()}
               aria-label="发送"
-              className="h-9 w-9 rounded-xl bg-primary text-primary-foreground flex items-center justify-center disabled:opacity-40 active:scale-95 transition-transform">
+              className="h-10 w-10 rounded-xl bg-primary text-primary-foreground flex items-center justify-center disabled:opacity-40 active:scale-95 transition-transform">
               <SendHorizonal className="h-4 w-4" />
             </button>
           </div>

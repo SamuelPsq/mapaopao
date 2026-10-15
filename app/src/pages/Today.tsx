@@ -14,7 +14,7 @@ import { Label } from "@/components/ui/label"
 import { CityPicker } from "@/components/CityPicker"
 import MonthCalendar from "@/components/MonthCalendar"
 import type { CityInfo } from "@/lib/cities"
-import { CalendarDays, ChartNoAxesColumnIncreasing, CloudSun, Dumbbell, Flame, House, MapPin, MoonStar, Target, Timer, Wrench } from "lucide-react"
+import { CalendarDays, ChartNoAxesColumnIncreasing, CloudSun, Dumbbell, Flame, House, Lightbulb, MapPin, MoonStar, PersonStanding, Target, Timer, TriangleAlert, Wrench } from "lucide-react"
 
 export default function Today() {
   const nav = useNavigate()
@@ -48,6 +48,10 @@ export default function Today() {
   const [fatigue, setFatigue] = useState(4)
   // 跑后拉伸建议（LLM 生成，规则模板兜底）
   const [stretch, setStretch] = useState<null | { text: string; source: string; suggestion: string }>(null)
+
+  // 问卷提交中 / 进阶重排中：禁用按钮防重复提交
+  const [surveyBusy, setSurveyBusy] = useState(false)
+  const [advanceBusy, setAdvanceBusy] = useState(false)
 
   const refresh = useCallback(async () => {
     if (!uid) { nav("/login", { replace: true }); return }
@@ -158,7 +162,7 @@ export default function Today() {
   // 进阶确认：是 → 按真实跑力重排剩余周；否 → 保持原计划，提醒循序渐进。
   // 两个分支结束后都进入打卡后问卷。
   async function confirmAdvance(yes: boolean) {
-    if (!advance) return
+    if (!advance || advanceBusy) return
     const a = advance
     setAdvance(null)
     if (!yes) {
@@ -166,12 +170,15 @@ export default function Today() {
       setSurvey(pendingSurvey.current)
       return
     }
+    setAdvanceBusy(true)
     try {
       const r = await api.post<{ note: string }>("/v1/user/advance",
         { user_id: uid, actual_km: a.km, duration_sec: a.sec })
       setToast(r.note || "已按照您的跑力重新安排")
     } catch (e) {
       setToast("重排失败：" + (e as Error).message)
+    } finally {
+      setAdvanceBusy(false)
     }
     setSurvey(pendingSurvey.current)
     refresh()
@@ -179,9 +186,10 @@ export default function Today() {
 
   // 问卷提交：状态上报（含训练状态/酸痛/睡眠/疲劳）→ 拉伸建议弹窗
   async function submitSurvey() {
-    if (!survey) return
+    if (!survey || surveyBusy) return
     const sv = survey
     setSurvey(null)
+    setSurveyBusy(true)
     try {
       const r = await api.post<{ suggestion: string | null }>("/v1/status/report", {
         user_id: uid, soreness_part: joint, muscle_sore: muscle === "yes",
@@ -194,6 +202,8 @@ export default function Today() {
       if (r.suggestion) setToast(r.suggestion)
     } catch (e) {
       setToast("状态上报失败：" + (e as Error).message)
+    } finally {
+      setSurveyBusy(false)
     }
     refresh()
   }
@@ -216,10 +226,10 @@ export default function Today() {
         ) : null}
       </div>
 
-      {/* 查看月记录 */}
+      {/* 查看月记录：整行右上的热区加大，避免小字难点（触控目标 ≥40px） */}
       <div className="flex justify-end -mb-2">
         <button onClick={() => setCalendarOpen(true)}
-          className="text-xs text-primary flex items-center gap-1 py-1 active:scale-95 transition-transform">
+          className="text-xs text-primary flex items-center gap-1 py-2 px-2 -mx-2 active:scale-95 transition-transform">
           <CalendarDays className="h-3.5 w-3.5" />查看月记录
         </button>
       </div>
@@ -242,11 +252,11 @@ export default function Today() {
 
       {/* 主课卡：次主要元素，窄卡片小字号 */}
       {m ? (
-        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary to-[hsl(28,95%,45%)] text-primary-foreground shadow-md shadow-primary/20 mb-4">
+        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary to-[hsl(20,88%,33%)] text-primary-foreground shadow-md shadow-primary/20 mb-4">
           <div className="absolute -right-6 -top-8 h-24 w-24 rounded-full bg-white/10" />
           <div className="relative px-4 py-3.5">
             <div className="flex items-center justify-between mb-1.5">
-              <div className="text-[11px] font-medium text-white/85">
+              <div className="text-[11px] font-medium text-white/90">
                 {!isToday ? "下一节 · " : ""}{m.dow} · {m.is_key ? "关键课" : "辅助课"}
               </div>
               {m.is_key ? <Badge className="bg-white/20 hover:bg-white/20 text-white border-0 text-[10px] px-1.5">关键课</Badge> : null}
@@ -262,7 +272,7 @@ export default function Today() {
                 配速 {m.target_pace}
               </span>
             </div>
-            {card.reason_line ? <div className="text-[11px] text-white/80 mt-2 border-t border-white/15 pt-2">{card.reason_line}</div> : null}
+            {card.reason_line ? <div className="text-[11px] text-white/90 mt-2 border-t border-white/15 pt-2">{card.reason_line}</div> : null}
           </div>
         </div>
       ) : (
@@ -289,8 +299,9 @@ export default function Today() {
         </div>
       ) : null}
       {card.hard_days.length > 0 ? (
-        <div className="text-sm bg-amber-500/10 text-amber-700 rounded-2xl px-3.5 py-2.5 mb-4">
-          ⚠️ {card.hard_days.join("、")}天气硬约束，系统已准备调整方案
+        <div className="text-sm bg-amber-500/10 text-amber-700 rounded-2xl px-3.5 py-2.5 mb-4 flex items-center gap-2">
+          <TriangleAlert className="h-4 w-4 shrink-0" />
+          <span>{card.hard_days.join("、")}天气硬约束，系统已准备调整方案</span>
         </div>
       ) : null}
 
@@ -319,7 +330,7 @@ export default function Today() {
 
       {/* 打卡按钮：今日打卡（默认值=今日课程，可手改）+ 今天跑不了 */}
       <div className="grid grid-cols-2 gap-2 mb-3">
-        <Button className="bg-orange-500 hover:bg-orange-600 text-white border-0" onClick={openCheckin}>今日打卡</Button>
+        <Button className="border-0" onClick={openCheckin}>今日打卡</Button>
         <Button variant="outline" className="bg-card" onClick={() => {
           if (!isToday) { setNotTimeOpen(true); return }   // 时间对不上：不是不练，时候未到
           setSkipConfirm(true)
@@ -368,8 +379,7 @@ export default function Today() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setLogOpen(false)}>取消</Button>
-            <Button className="bg-orange-500 hover:bg-orange-600 text-white border-0"
-              onClick={submitLog}>确认记录</Button>
+            <Button className="border-0" onClick={submitLog}>确认记录</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -387,7 +397,7 @@ export default function Today() {
           <AlertDialogFooter className="flex-col gap-2">
             <Button variant="outline" className="w-full"
               onClick={() => answerDevAsk("impulse")}>临时起意 —— 只记录，原计划不变</Button>
-            <AlertDialogAction className="w-full bg-orange-500 hover:bg-orange-600"
+            <AlertDialogAction className="w-full"
               onClick={() => answerDevAsk("mismatch")}>强度不匹配 —— 按今日跑量调整训练计划</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -404,8 +414,10 @@ export default function Today() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <Button variant="outline" onClick={() => confirmAdvance(false)}>不用，循序渐进</Button>
-            <AlertDialogAction onClick={() => confirmAdvance(true)}>是，按我的跑力重排</AlertDialogAction>
+            <Button variant="outline" disabled={advanceBusy} onClick={() => confirmAdvance(false)}>不用，循序渐进</Button>
+            <AlertDialogAction disabled={advanceBusy} onClick={() => confirmAdvance(true)}>
+              {advanceBusy ? "正在按跑力重排…" : "是，按我的跑力重排"}
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -464,8 +476,10 @@ export default function Today() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setSurvey(null)}>跳过</Button>
-            <Button onClick={submitSurvey}>提交并看拉伸建议</Button>
+            <Button variant="ghost" disabled={surveyBusy} onClick={() => setSurvey(null)}>跳过</Button>
+            <Button disabled={surveyBusy} onClick={submitSurvey}>
+              {surveyBusy ? "正在生成拉伸建议…" : "提交并看拉伸建议"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -475,7 +489,7 @@ export default function Today() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              🧘 别忘了拉伸
+              <PersonStanding className="h-5 w-5 text-primary" />别忘了拉伸
               {stretch ? (
                 <Badge variant="secondary" className="text-[10px] px-1.5">
                   {stretch.source === "llm" ? "AI 生成" : "规则生成"}
@@ -487,7 +501,9 @@ export default function Today() {
             <div className="space-y-3 py-2">
               <p className="text-sm text-muted-foreground leading-relaxed">{stretch.text}</p>
               {stretch.suggestion ? (
-                <p className="text-xs bg-muted/60 rounded px-2.5 py-2 leading-relaxed">💡 {stretch.suggestion}</p>
+                <p className="text-xs bg-muted/60 rounded px-2.5 py-2 leading-relaxed flex gap-1.5">
+                  <Lightbulb className="h-3.5 w-3.5 shrink-0 mt-0.5 text-primary" />{stretch.suggestion}
+                </p>
               ) : null}
             </div>
           ) : null}
@@ -680,12 +696,12 @@ function TimeWheel({ value, onChange }: {
     <div className="flex h-[180px] rounded-xl border overflow-hidden mt-1.5">
       {cols.map((c) => (
         <div key={c.key} className="flex-1 overflow-y-auto py-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          <div className="text-center text-[10px] text-muted-foreground/70 sticky top-0 bg-background/90 py-0.5">{c.unit}</div>
+          <div className="text-center text-[10px] text-muted-foreground sticky top-0 bg-background/90 py-0.5">{c.unit}</div>
           {Array.from({ length: c.max + 1 }, (_, i) => (
             <button key={i} type="button"
               {...(value[c.key] === i ? { "data-timewheel-selected": "1" } : {})}
               onClick={() => onChange({ ...value, [c.key]: i })}
-              className={`w-full py-2 text-center text-sm transition-colors
+              className={`w-full py-2.5 text-center text-base transition-colors
                 ${value[c.key] === i ? "text-primary font-bold bg-primary/5" : "text-muted-foreground"}`}>
               {String(i).padStart(2, "0")}
             </button>

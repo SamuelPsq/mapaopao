@@ -8,7 +8,7 @@ import { Slider } from "@/components/ui/slider"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
 import { WheelPicker } from "@/components/WheelPicker"
 import { REGIONS, findCity } from "@/lib/cities"
-import { UserRound } from "lucide-react"
+import { UserRound, PartyPopper, ShieldCheck } from "lucide-react"
 
 interface Answers {
   recent_km: number
@@ -136,7 +136,7 @@ export default function Onboarding() {
   if (generated) {
     return (
       <Shell>
-        <div className="text-5xl mb-4">🎉</div>
+        <PartyPopper className="h-12 w-12 text-primary mb-4" />
         <h2 className="text-xl font-bold mb-2">16 周计划已生成！</h2>
         <p className="text-sm text-muted-foreground mb-6">
           上传一张头像，让计划更有你的印记；也可以跳过，之后随时在指标页补传。
@@ -171,7 +171,7 @@ export default function Onboarding() {
   if (reject) {
     return (
       <Shell>
-        <div className="text-5xl mb-4">🛡️</div>
+        <ShieldCheck className="h-12 w-12 text-primary mb-4" />
         <h2 className="text-xl font-bold mb-2">现在生成计划还太早</h2>
         <p className="text-muted-foreground mb-2">{reject.suggest}</p>
         <p className="text-xs text-muted-foreground/70 mb-6">

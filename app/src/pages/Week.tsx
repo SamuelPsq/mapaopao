@@ -133,7 +133,9 @@ export default function Week() {
           </div>
           <p className="text-sm text-muted-foreground mt-1 leading-relaxed">{w.comment.text}</p>
           {w.comment.note ? (
-            <p className="text-xs bg-muted/60 rounded px-2.5 py-2 mt-2 leading-relaxed">💡 {w.comment.note}</p>
+            <p className="text-xs bg-muted/60 rounded px-2.5 py-2 mt-2 leading-relaxed flex gap-1.5">
+              <Lightbulb className="h-3.5 w-3.5 shrink-0 mt-0.5 text-primary" />{w.comment.note}
+            </p>
           ) : null}
         </div>
       ) : null}

@@ -181,7 +181,7 @@ export default function MetricsPage() {
               </div>
             </div>
             <div className="text-sm text-muted-foreground mt-2">累计周计划执行率（北极星）</div>
-            <div className="text-xs text-muted-foreground/70 mt-1">完成 {done} / 快照 {planned} 次 · 快照口径，重排不美化</div>
+            <div className="text-xs text-muted-foreground mt-1">完成 {done} / 快照 {planned} 次 · 快照口径，重排不美化</div>
           </div>
         </div>
 
@@ -218,7 +218,7 @@ export default function MetricsPage() {
           <div className="text-[10px] text-muted-foreground/80 mt-1 leading-snug">
             微调 {m.ai_decision.tune_applied}/{m.ai_decision.tune_total} · 推荐 {m.ai_decision.recommend_total} 次
           </div>
-          <div className="text-[10px] text-muted-foreground/60 mt-0.5 leading-snug">
+          <div className="text-[10px] text-muted-foreground mt-0.5 leading-snug">
             知识库 {m.ai_decision.kb_blocks_used} 块 · 案例召回 {m.ai_decision.cases_recalled} 条
           </div>
         </div>
@@ -273,11 +273,11 @@ export default function MetricsPage() {
           <UserRound className="h-4 w-4 mr-1.5" />切换账号
         </ConfirmButton>
       </div>
-      <Button className="w-full mt-2 bg-orange-500 hover:bg-orange-600 text-white"
+      <Button className="w-full mt-2"
         onClick={() => { setPassword(""); setDeleteErr(""); setDeleteOpen(true) }}>
         <UserRoundX className="h-4 w-4 mr-1.5" />注销账号
       </Button>
-      <p className="text-xs text-muted-foreground/70 text-center mt-2">
+      <p className="text-xs text-muted-foreground text-center mt-2">
         训练数据保留在账号下，重新登录后进度不丢
       </p>
 
@@ -466,7 +466,6 @@ export default function MetricsPage() {
           <AlertDialogFooter>
             <AlertDialogCancel>再想想</AlertDialogCancel>
             <AlertDialogAction disabled={deleting}
-              className="bg-orange-500 hover:bg-orange-600"
               onClick={(e) => { e.preventDefault(); deleteAccount() }}>
               {deleting ? "正在注销…" : "确认注销"}
             </AlertDialogAction>

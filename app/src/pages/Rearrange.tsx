@@ -7,6 +7,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Shell } from "./Today"
+import { ShieldCheck } from "lucide-react"
 
 export default function Rearrange() {
   const nav = useNavigate()
@@ -146,8 +147,9 @@ function OptionCard({ opt, rank, highlight, ai }: { opt: PlanOption; rank: strin
           </div>
         )}
         {opt.guard_action === "patch" && opt.guard_note && (
-          <div className="mt-3 text-xs bg-amber-500/10 text-amber-700 rounded px-2.5 py-2">
-            🛡️ 护栏自动修正：{opt.guard_note}
+          <div className="mt-3 text-xs bg-amber-500/10 text-amber-700 rounded px-2.5 py-2 flex gap-1.5">
+            <ShieldCheck className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+            <span>护栏自动修正：{opt.guard_note}</span>
           </div>
         )}
       </CardContent>

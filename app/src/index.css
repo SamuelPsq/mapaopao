@@ -12,19 +12,20 @@
     --card-foreground: 240 10% 8%;
     --popover: 0 0% 100%;
     --popover-foreground: 240 10% 8%;
-    --primary: 24 95% 53%;
+    /* 主色取 hsl(24 90% 43%)：白字对比度 ≈4.7:1，通过 WCAG AA（原 53% 亮度仅 ≈2.9:1） */
+    --primary: 24 90% 43%;
     --primary-foreground: 0 0% 100%;
     --secondary: 36 25% 93%;
     --secondary-foreground: 240 10% 8%;
     --muted: 36 20% 94%;
-    --muted-foreground: 240 4% 46%;
+    --muted-foreground: 240 4% 40%;
     --accent: 36 25% 93%;
     --accent-foreground: 240 10% 8%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
     --border: 36 14% 89%;
     --input: 36 14% 89%;
-    --ring: 24 95% 53%;
+    --ring: 24 90% 43%;
     --radius: 0.85rem;
     --sidebar-background: 0 0% 98%;
     --sidebar-foreground: 240 5.3% 26.1%;
@@ -76,5 +77,35 @@
     font-family: "Space Grotesk Variable", ui-sans-serif, system-ui, -apple-system,
       "Segoe UI", Roboto, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
     -webkit-font-smoothing: antialiased;
+    /* 移动端禁用下拉刷新误触（PWA 式单页应用） */
+    overscroll-behavior-y: contain;
+  }
+  /* 自定义 button（非 shadcn）统一可见焦点环：键盘导航可感知 */
+  button:focus-visible,
+  [role="button"]:focus-visible,
+  a:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px hsl(var(--background)), 0 0 0 4px hsl(var(--primary) / 0.65);
+    border-radius: 0.5rem;
+  }
+  /* iOS 输入框 <16px 会聚焦自动放大页面；移动端统一抬到 16px */
+  @media (max-width: 640px) {
+    input,
+    select,
+    textarea {
+      font-size: 16px;
+    }
+  }
+}
+
+/* 尊重系统减少动效设置 */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }
