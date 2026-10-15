@@ -457,7 +457,13 @@ def delete_account(body: AccountIn):
 
 @app.post("/v1/user/city")
 def change_city(body: CityIn):
-    """切换城市：更新用户坐标，并按新城市重新生成配套训练计划（天气联动随之切换）。"""
+    """切换城市：更新用户坐标；与修改天数/强度/体重同一语义——
+    不重建计划、进度不清零，今天及以前的课次与打卡记录原样保留。
+
+    天气是按坐标实时取的（不烤进课表），坐标更新后体感/降雨硬约束
+    对今天之后的周自动按新城市生效；今天之后的课顺手按当前画像重排一遍。
+    """
+    stats: dict = {}
     with db.SessionLocal.begin() as s:
         user = s.get(db.User, body.user_id)
         if not user:
@@ -466,13 +472,15 @@ def change_city(body: CityIn):
         user.lat, user.lon = body.lat, body.lon
         s.add(db.Event(name="city_changed", user_id=body.user_id,
                        payload={"city": user.city, "lat": body.lat, "lon": body.lon}))
+        plan = s.query(db.Plan).filter_by(user_id=body.user_id, status="active").first()
+        if plan:
+            stats = _replan_future_sessions(s, plan, user)   # 被拒不阻断城市更新本身
         city = user.city
-    # profile_hash 含城市坐标 → 必然生成新计划，旧计划自动作废；天气建议按新坐标生效
-    r = gen_plan(body.user_id)
-    if r.get("rejected"):
-        return {"ok": False, "message": r.get("reason", "计划生成失败")}
-    return {"ok": True, "plan_id": r["plan_id"], "city": city,
-            "message": f"已切换到{city}，训练计划已按新城市重新生成"}
+        plan_id = plan.plan_id if plan else None
+    if stats.get("rejected"):
+        stats = {}
+    return {"ok": True, "plan_id": plan_id, "city": city,
+            "message": f"已切换到{city}，今天之后的训练安排将按新城市天气执行"}
 
 
 @app.post("/v1/user/weight")

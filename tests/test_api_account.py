@@ -52,21 +52,35 @@ def test_register_login_flow():
         assert acc.password_hash != "run12345" and len(acc.salt) == 32
 
 
-def test_change_city_regenerates_plan():
+def test_change_city_keeps_plan_and_progress():
+    """切换城市与修改指标同一语义：不重建计划、不清进度，只更新坐标。
+
+    天气按坐标实时取，坐标更新后今天之后的周自动按新城市天气执行。
+    """
+    from datetime import date as _date
     _fresh_db()
     uid = c.post("/v1/account/register", json={"username": "cityuser", "password": "run12345"}).json()["user_id"]
-    old_plan = _onboard(uid)
+    plan_id = _onboard(uid)
+    # 先打一次卡，验证切换城市后打卡记录保留
+    sessions = c.get(f"/v1/plan/{plan_id}/week/1").json()["sessions"]
+    past = [s for s in sessions if s["date"] < _date.today().isoformat()]
+    if past:
+        c.post(f"/v1/session/{past[0]['session_id']}/log",
+               json={"status": "full", "actual_km": past[0]["target_km"], "duration_sec": 3000})
+
     r = c.post("/v1/user/city", json={"user_id": uid, "city": "成都", "lat": 30.57, "lon": 104.07})
     assert r.status_code == 200 and r.json()["ok"] is True
-    assert r.json()["plan_id"] != old_plan, "换城市必须生成新计划"
-    # 旧计划作废、用户坐标更新
+    assert r.json()["plan_id"] == plan_id, "换城市不再重建计划（进度不清零）"
     with db.SessionLocal() as s:
-        old = s.get(db.Plan, old_plan)
+        plan = s.get(db.Plan, plan_id)
         user = s.get(db.User, uid)
-        assert old.status == "superseded"
+        assert plan.status == "active", "原计划应保持 active，不再被作废"
         assert user.city == "成都" and abs(user.lat - 30.57) < 0.01
-    # 新计划可用
-    w = c.get(f"/v1/plan/{r.json()['plan_id']}/week/1")
+        if past:
+            log = s.query(db.SessionLog).filter_by(session_id=past[0]["session_id"]).first()
+            assert log is not None and log.status == "full", "已打卡记录必须保留"
+    # 计划仍可用
+    w = c.get(f"/v1/plan/{plan_id}/week/1")
     assert w.status_code == 200
 
 
