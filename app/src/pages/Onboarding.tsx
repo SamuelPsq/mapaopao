@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Slider } from "@/components/ui/slider"
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
 import { WheelPicker } from "@/components/WheelPicker"
 import { REGIONS, findCity } from "@/lib/cities"
 
@@ -40,6 +41,8 @@ export default function Onboarding() {
   })
   const [province, setProvince] = useState("上海")
   const [city, setCity] = useState("上海")
+  // 身高体重确认：填后不可修改，下一步前先二次确认
+  const [bodyConfirm, setBodyConfirm] = useState(false)
 
   function pickProvince(name: string) {
     setProvince(name)
@@ -226,11 +229,34 @@ export default function Onboarding() {
       )}
 
       {stepDef.key !== "city" && (
-        <Button className="w-full mt-8" size="lg" onClick={() => setStep(step + 1)}>下一步</Button>
+        <Button className="w-full mt-8" size="lg"
+          onClick={() => stepDef.key === "body" ? setBodyConfirm(true) : setStep(step + 1)}>
+          下一步
+        </Button>
       )}
       {step > 0 && (
         <Button variant="ghost" className="w-full mt-2" onClick={() => setStep(step - 1)}>上一步</Button>
       )}
+
+      {/* 身高体重二次确认：填后不可修改 */}
+      <AlertDialog open={bodyConfirm} onOpenChange={setBodyConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>身高数据填写后不可修改，请再次检查</AlertDialogTitle>
+            <AlertDialogDescription>
+              当前填写：身高 <b>{a.height_cm} cm</b>，体重 <b>{a.weight_kg} kg</b>
+              （BMI {(a.weight_kg / ((a.height_cm / 100) ** 2)).toFixed(1)}）。
+              身高是计划保守模式的判定依据之一，之后只能修改体重，请确认无误。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>返回修改</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { setBodyConfirm(false); setStep(step + 1) }}>
+              确认无误，继续
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Shell>
   )
 }

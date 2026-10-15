@@ -22,6 +22,8 @@ export default function Today() {
   const [err, setErr] = useState("")
   const [toast, setToast] = useState("")
   const [notTimeOpen, setNotTimeOpen] = useState(false)
+  // 「今天跑不了」的二次确认：确认后才记录并进入状态记录卡
+  const [skipConfirm, setSkipConfirm] = useState(false)
   // 打卡弹窗：完成了 / 只跑了一部分 / 超额完成 三个按钮统一走「里程 + 时分秒」弹窗
   const [logDialog, setLogDialog] = useState<null | { mode: "full" | "partial" | "over" }>(null)
   const [kmInput, setKmInput] = useState("")
@@ -280,7 +282,10 @@ export default function Today() {
       <div className="grid grid-cols-2 gap-2 mb-3">
         <Button onClick={() => openLogDialog("full")}>完成了</Button>
         <Button variant="secondary" onClick={() => openLogDialog("partial")}>只跑了一部分</Button>
-        <Button variant="outline" className="bg-card" onClick={() => log("skipped")}>今天跑不了</Button>
+        <Button variant="outline" className="bg-card" onClick={() => {
+          if (!isToday) { setNotTimeOpen(true); return }   // 时间对不上：不是不练，时候未到
+          setSkipConfirm(true)
+        }}>今天跑不了</Button>
         <Button className="bg-orange-500 hover:bg-orange-600 text-white border-0"
           onClick={() => openLogDialog("over")}>超额完成</Button>
       </div>
@@ -450,6 +455,25 @@ export default function Today() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogAction onClick={() => setNotTimeOpen(false)}>好的，到时候练</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* 「今天跑不了」二次确认：确认 → 记录并进入状态记录卡；点错了 → 关闭不记录 */}
+      <AlertDialog open={skipConfirm} onOpenChange={setSkipConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>确认无误？</AlertDialogTitle>
+            <AlertDialogDescription>
+              这节课将记为「今天跑不了」。跳过的课不用补，计划会按原计划继续，
+              之后进入 30 秒状态记录。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <Button variant="outline" onClick={() => setSkipConfirm(false)}>点错了</Button>
+            <AlertDialogAction onClick={() => { setSkipConfirm(false); log("skipped") }}>
+              确认，今天跑不了
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
