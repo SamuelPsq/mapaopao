@@ -183,7 +183,7 @@ export default function MetricsPage() {
               </div>
             </div>
             <div className="text-sm text-muted-foreground mt-2">累计周计划执行率（北极星）</div>
-            <div className="text-xs text-muted-foreground mt-1">完成 {done} / 快照 {planned} 次 · 快照口径，重排不美化</div>
+            <div className="text-xs text-muted-foreground mt-1">完成 {done} / 快照 {planned} 次</div>
           </div>
         </div>
 
