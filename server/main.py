@@ -157,6 +157,13 @@ class WeightIn(BaseModel):
     weight_kg: float
 
 
+class UserProfileIn(BaseModel):
+    """头像 / 昵称编辑（区别于画像 ProfileIn）。"""
+    user_id: str
+    nickname: str | None = None        # 展示名，1-20 字；不传则不改
+    avatar: str | None = None          # data:image/(png|jpeg|webp);base64,...，解码后 ≤150KB
+
+
 class AdvanceIn(BaseModel):
     user_id: str
     actual_km: float                       # 进阶判定那次跑步的里程
@@ -1092,6 +1099,63 @@ def assistant_chat(body: AssistantIn, request: Request):
     out = assistant.answer(body.user_id, body.message)
     db.track("llm_explain", body.user_id, scene="assistant_chat", source=out["from"])
     return out
+
+
+@app.get("/v1/assistant/history")
+def assistant_history(user_id: str):
+    """多轮对话历史：打开助手面板时拉取恢复（旧→新，最多 50 条）。"""
+    from server import assistant
+    return {"messages": assistant.load_history(user_id)}
+
+
+@app.get("/v1/user/me")
+def user_me(user_id: str):
+    """当前用户档案：头像/昵称/体测数据，供指标页用户卡片展示。"""
+    with db.SessionLocal() as s:
+        user = s.get(db.User, user_id)
+        if not user:
+            raise HTTPException(404, "用户不存在")
+        acc = s.query(db.Account).filter_by(user_id=user_id).first()
+        return {
+            "username": acc.username if acc else "",
+            "nickname": user.nickname or (acc.username if acc else ""),
+            "avatar": user.avatar or "",
+            "vdot": user.vdot,
+            "height_cm": user.height_cm,
+            "weight_kg": user.weight_kg,
+            "city": user.city,
+        }
+
+
+_AVATAR_PREFIXES = ("data:image/png;base64,", "data:image/jpeg;base64,", "data:image/webp;base64,")
+
+
+@app.post("/v1/user/profile")
+def user_profile(body: UserProfileIn):
+    """修改头像 / 昵称（指标页用户卡片入口），直接落 user 表。"""
+    nick = (body.nickname or "").strip()
+    if nick and not (1 <= len(nick) <= 20):
+        raise HTTPException(400, "昵称需要 1-20 个字")
+    avatar = body.avatar or ""
+    if avatar:
+        if not any(avatar.startswith(p) for p in _AVATAR_PREFIXES):
+            raise HTTPException(400, "头像格式只支持 png / jpeg / webp")
+        import base64
+        try:
+            raw = base64.b64decode(avatar.split(",", 1)[1])
+        except Exception:
+            raise HTTPException(400, "头像数据损坏，请重新选择图片")
+        if len(raw) > 150 * 1024:
+            raise HTTPException(400, "头像超过 150KB，请换小一点的图")
+    with db.SessionLocal.begin() as s:
+        user = s.get(db.User, body.user_id)
+        if not user:
+            raise HTTPException(404, "用户不存在")
+        if nick:
+            user.nickname = nick
+        if avatar:
+            user.avatar = avatar
+        return {"ok": True, "nickname": user.nickname, "avatar": bool(user.avatar)}
 
 
 def _apply_deload_week(s, user_id: str) -> bool:

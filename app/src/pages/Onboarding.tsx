@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useRef, useState } from "react"
 import { useNavigate } from "react-router"
 import { api, saveUser, savePlan } from "@/lib/api"
 import { Button } from "@/components/ui/button"
@@ -8,6 +8,7 @@ import { Slider } from "@/components/ui/slider"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
 import { WheelPicker } from "@/components/WheelPicker"
 import { REGIONS, findCity } from "@/lib/cities"
+import { UserRound } from "lucide-react"
 
 interface Answers {
   recent_km: number
@@ -45,6 +46,47 @@ export default function Onboarding() {
   const [bodyConfirm, setBodyConfirm] = useState(false)
   // 防误触：生成计划前确认参数摘要（单向：生成后计划重建、进度清零）
   const [genConfirm, setGenConfirm] = useState(false)
+  // 体测结束：计划已生成，进入上传头像环节（可跳过）
+  const [generated, setGenerated] = useState(false)
+  const [genUid, setGenUid] = useState("")
+  const [avatarData, setAvatarData] = useState("")
+  const [avatarBusy, setAvatarBusy] = useState(false)
+  const fileRef = useRef<HTMLInputElement>(null)
+
+  // 选图后压到 128px JPEG 再转 base64，控制体积（与指标页编辑同一套压缩）
+  function onPickAvatar(file: File | undefined) {
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = () => {
+      const img = new Image()
+      img.onload = () => {
+        const S = 128
+        const canvas = document.createElement("canvas")
+        canvas.width = S; canvas.height = S
+        const g = canvas.getContext("2d")!
+        const side = Math.min(img.width, img.height)
+        g.drawImage(img, (img.width - side) / 2, (img.height - side) / 2, side, side,
+          0, 0, S, S)
+        setAvatarData(canvas.toDataURL("image/jpeg", 0.8))
+      }
+      img.src = String(reader.result)
+    }
+    reader.readAsDataURL(file)
+  }
+
+  async function enterApp(skipAvatar: boolean) {
+    if (!skipAvatar && avatarData) {
+      setAvatarBusy(true)
+      try {
+        await api.post("/v1/user/profile", { user_id: genUid, avatar: avatarData })
+      } catch {
+        // 头像保存失败不阻断进入，指标页还能再传
+      } finally {
+        setAvatarBusy(false)
+      }
+    }
+    nav("/", { replace: true })
+  }
 
   function pickProvince(name: string) {
     setProvince(name)
@@ -82,12 +124,48 @@ export default function Onboarding() {
       const g = await api.post<{ plan_id: string; vdot: number; weeks: number }>(
         `/v1/plan/generate?user_id=${uid}`)
       savePlan(g.plan_id)
-      nav("/", { replace: true })
+      setGenUid(uid)
+      setGenerated(true)            // 体测结束：先上传头像（可跳过），再进今日卡
     } catch (e) {
       alert("生成失败：" + (e as Error).message)
     } finally {
       setBusy(false)
     }
+  }
+
+  if (generated) {
+    return (
+      <Shell>
+        <div className="text-5xl mb-4">🎉</div>
+        <h2 className="text-xl font-bold mb-2">16 周计划已生成！</h2>
+        <p className="text-sm text-muted-foreground mb-6">
+          上传一张头像，让计划更有你的印记；也可以跳过，之后随时在指标页补传。
+        </p>
+        <div className="flex flex-col items-center gap-4 mb-8">
+          <input ref={fileRef} type="file" accept="image/*" className="hidden"
+            onChange={e => onPickAvatar(e.target.files?.[0])} />
+          <button onClick={() => fileRef.current?.click()}
+            className="relative h-24 w-24 rounded-full overflow-hidden border-2 border-primary/30 active:scale-95 transition-transform">
+            {avatarData ? (
+              <img src={avatarData} alt="头像" className="h-full w-full object-cover" />
+            ) : (
+              <span className="h-full w-full bg-primary/10 text-primary flex items-center justify-center">
+                <UserRound className="h-10 w-10" />
+              </span>
+            )}
+            <span className="absolute inset-x-0 bottom-0 bg-black/45 text-white text-[11px] py-1">
+              {avatarData ? "重新选择" : "选择头像"}
+            </span>
+          </button>
+        </div>
+        <Button className="w-full" size="lg" disabled={avatarBusy}
+          onClick={() => enterApp(false)}>
+          {avatarBusy ? "正在保存头像…" : avatarData ? "保存头像，开始训练" : "开始训练"}
+        </Button>
+        <Button variant="ghost" className="w-full mt-2" disabled={avatarBusy}
+          onClick={() => enterApp(true)}>跳过，直接开始</Button>
+      </Shell>
+    )
   }
 
   if (reject) {

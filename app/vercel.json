@@ -1,0 +1,21 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "routes": [
+    {
+      "src": "/v1/(.*)",
+      "dest": "${MAPAOPAO_API}/v1/$1",
+      "env": ["MAPAOPAO_API"]
+    },
+    {
+      "src": "/jobs/(.*)",
+      "dest": "${MAPAOPAO_API}/jobs/$1",
+      "env": ["MAPAOPAO_API"]
+    },
+    {
+      "src": "/((?!assets/).*)",
+      "dest": "/index.html"
+    }
+  ]
+}

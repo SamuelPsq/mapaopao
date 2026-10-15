@@ -63,6 +63,7 @@ npm --prefix app run preview    # 本地验证产物（默认 4173 端口）
 ```
 
 - **前端**：`app/dist` 是纯静态文件，交给任意静态托管即可（Nginx / Vercel / 宝塔面板）。注意 SPA 路由需配置 fallback：所有 404 路径回退到 `index.html`。
+- **Vercel（零配置）**：项目根选 `app/`，`app/vercel.json` 已内置两条路由——`/v1/*`、`/jobs/*` 通过 `${MAPAOPAO_API}` 环境变量代理到线上后端（在 Vercel 项目 Settings → Environment Variables 里设置，例如 `MAPAOPAO_API=https://your-api.example.com`），其余路径回退 `index.html`。后端地址不必写进仓库。
 - **后端**：任意支持 ASGI 的主机运行 `uvicorn server.main:app --host 0.0.0.0 --port 8000`，生产库通过环境变量 `MAPAOPAO_DB_URL` 切到 PostgreSQL / MySQL。
 - **反向代理**：把 `/v1`、`/jobs` 转发到 8000 端口，静态资源走 dist；前端 `src/lib/api.ts` 里的 API 地址按需改为线上域名。
 - **安全提醒**：`.env` 只留在服务器上且权限收紧；生产环境务必关闭 Vite 代理，用 Nginx 统一收口，避免 8000 端口直接对外暴露。

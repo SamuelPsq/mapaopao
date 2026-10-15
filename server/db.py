@@ -37,6 +37,8 @@ class User(Base):
     conservative_factor: Mapped[float] = mapped_column(Float, default=1.0)
     height_cm: Mapped[float | None] = mapped_column(Float, nullable=True)   # BMI 规划修正用
     weight_kg: Mapped[float | None] = mapped_column(Float, nullable=True)
+    nickname: Mapped[str | None] = mapped_column(String(32), nullable=True)  # 展示名，默认同用户名
+    avatar: Mapped[str | None] = mapped_column(Text, nullable=True)          # 头像 base64 data URL
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
@@ -203,6 +205,16 @@ class AICase(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
+class AssistantMsg(Base):
+    """跑小助多轮对话历史：按用户存最近问答，重启/重开面板都能接上上文。"""
+    __tablename__ = "assistant_msg"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[str] = mapped_column(String(32), index=True)
+    role: Mapped[str] = mapped_column(String(16))                    # user / assistant
+    content: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
 def init_db() -> None:
     Base.metadata.create_all(engine)
     if DB_URL.startswith("sqlite"):
@@ -219,7 +231,9 @@ def init_db() -> None:
                         "ALTER TABLE session_log ADD COLUMN skip_kind VARCHAR(12)",
                         "ALTER TABLE status_report ADD COLUMN muscle_sore INTEGER",
                         "ALTER TABLE status_report ADD COLUMN breath_state VARCHAR(16)",
-                        "ALTER TABLE plan ADD COLUMN bmi_conservative INTEGER"):
+                        "ALTER TABLE plan ADD COLUMN bmi_conservative INTEGER",
+                        "ALTER TABLE user ADD COLUMN nickname VARCHAR(32)",
+                        "ALTER TABLE user ADD COLUMN avatar TEXT"):
                 try:
                     conn.execute(text(ddl))
                 except Exception:

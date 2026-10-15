@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useNavigate } from "react-router"
 import { api, loadUser, clearUser, loadUsername, savePlan } from "@/lib/api"
 import { Button } from "@/components/ui/button"
@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import ConfirmButton from "@/components/ConfirmButton"
-import { LogOut, UserRound, UserRoundX, SlidersHorizontal, Scale, Minus, Plus, ChevronUp, ChevronDown } from "lucide-react"
+import { LogOut, UserRound, UserRoundX, SlidersHorizontal, Scale, Minus, Plus, ChevronUp, ChevronDown, PencilLine } from "lucide-react"
 import { Shell, NavBar } from "./Today"
 
 interface Metrics {
@@ -16,6 +16,16 @@ interface Metrics {
   ai_decision: { tune_total: number; tune_applied: number; tune_rate: number; recommend_total: number; recommend_llm: number; kb_injections: number; kb_blocks_used: number; cases_recalled: number }
   llm_usage: { llm: number; template: number; rate: number }
   user: { avail_days: number; vdot: number; goal_race: string; height_cm: number | null; weight_kg: number | null; bmi: number | null } | null
+}
+
+interface Me {
+  username: string
+  nickname: string
+  avatar: string
+  vdot: number
+  height_cm: number | null
+  weight_kg: number | null
+  city: string
 }
 
 export default function MetricsPage() {
@@ -37,6 +47,52 @@ export default function MetricsPage() {
   const [weightBusy, setWeightBusy] = useState(false)
   const [weightConfirm, setWeightConfirm] = useState(false) // 防误触：确认更新体重
   const [toast, setToast] = useState("")
+  // 用户卡片 / 头像昵称编辑
+  const [me, setMe] = useState<Me | null>(null)
+  const [profileOpen, setProfileOpen] = useState(false)
+  const [nickInput, setNickInput] = useState("")
+  const [avatarData, setAvatarData] = useState("")
+  const [avatarBusy, setAvatarBusy] = useState(false)
+  const fileRef = useRef<HTMLInputElement>(null)
+
+  // 选图后压到 128px JPEG 再转 base64，控制体积 ≤150KB（后端还有一层校验）
+  function onPickAvatar(file: File | undefined) {
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = () => {
+      const img = new Image()
+      img.onload = () => {
+        const S = 128
+        const canvas = document.createElement("canvas")
+        canvas.width = S; canvas.height = S
+        const g = canvas.getContext("2d")!
+        const side = Math.min(img.width, img.height)
+        g.drawImage(img, (img.width - side) / 2, (img.height - side) / 2, side, side,
+          0, 0, S, S)
+        setAvatarData(canvas.toDataURL("image/jpeg", 0.8))
+      }
+      img.src = String(reader.result)
+    }
+    reader.readAsDataURL(file)
+  }
+
+  async function submitProfile() {
+    const nick = nickInput.trim()
+    if (!nick && !avatarData) { setToast("改点啥再保存～"); return }
+    setAvatarBusy(true)
+    try {
+      await api.post("/v1/user/profile",
+        { user_id: uid, nickname: nick || undefined, avatar: avatarData || undefined })
+      const fresh = await api.get<Me>(`/v1/user/me?user_id=${uid}`)
+      setMe(fresh)
+      setProfileOpen(false)
+      setToast("头像和昵称已更新")
+    } catch (e) {
+      setToast((e as Error).message.replace(/^\d+:\s*/, ""))
+    } finally {
+      setAvatarBusy(false)
+    }
+  }
 
   async function submitWeight() {
     const w = Number(weightInput)
@@ -59,6 +115,7 @@ export default function MetricsPage() {
   useEffect(() => {
     if (!uid) { nav("/login", { replace: true }); return }
     api.get<Metrics>(`/v1/metrics?user_id=${uid}`).then(setM).catch(console.error)
+    api.get<Me>(`/v1/user/me?user_id=${uid}`).then(setMe).catch(console.error)
   }, [uid, nav])
 
   async function deleteAccount() {
@@ -107,49 +164,70 @@ export default function MetricsPage() {
     <Shell>
       <h2 className="text-xl font-bold mb-5">指标看板</h2>
 
-      <div className="rounded-3xl border-2 bg-card shadow-sm mb-4">
-        <div className="pt-6 pb-5 text-center">
-          <div className="relative mx-auto h-32 w-32">
-            <svg viewBox="0 0 100 100" className="h-full w-full -rotate-90">
-              <circle cx="50" cy="50" r={R} fill="none" className="stroke-muted" strokeWidth="9" />
-              <circle cx="50" cy="50" r={R} fill="none" className="stroke-primary" strokeWidth="9"
-                strokeLinecap="round" strokeDasharray={CIRC}
-                strokeDashoffset={CIRC * (1 - Math.min(1, overall / 100))}
-                style={{ transition: "stroke-dashoffset .6s ease" }} />
-            </svg>
-            <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <span className="text-4xl font-black">{overall}%</span>
+      {/* 第一排：累计执行率（60% 宽，主指标）+ 用户卡片（40% 宽），同高 */}
+      <div className="flex gap-3 mb-4 items-stretch">
+        <div className="rounded-3xl border-2 bg-card shadow-sm flex-[3] min-w-0">
+          <div className="pt-6 pb-5 text-center">
+            <div className="relative mx-auto h-32 w-32">
+              <svg viewBox="0 0 100 100" className="h-full w-full -rotate-90">
+                <circle cx="50" cy="50" r={R} fill="none" className="stroke-muted" strokeWidth="9" />
+                <circle cx="50" cy="50" r={R} fill="none" className="stroke-primary" strokeWidth="9"
+                  strokeLinecap="round" strokeDasharray={CIRC}
+                  strokeDashoffset={CIRC * (1 - Math.min(1, overall / 100))}
+                  style={{ transition: "stroke-dashoffset .6s ease" }} />
+              </svg>
+              <div className="absolute inset-0 flex flex-col items-center justify-center">
+                <span className="text-4xl font-black">{overall}%</span>
+              </div>
             </div>
+            <div className="text-sm text-muted-foreground mt-2">累计周计划执行率（北极星）</div>
+            <div className="text-xs text-muted-foreground/70 mt-1">完成 {done} / 快照 {planned} 次 · 快照口径，重排不美化</div>
           </div>
-          <div className="text-sm text-muted-foreground mt-2">累计周计划执行率（北极星）</div>
-          <div className="text-xs text-muted-foreground/70 mt-1">完成 {done} / 快照 {planned} 次 · 快照口径，重排不美化</div>
         </div>
+
+        {/* 用户卡片：点击编辑头像 / 昵称（落库） */}
+        <button
+          onClick={() => { setNickInput(me?.nickname || ""); setAvatarData(""); setProfileOpen(true) }}
+          className="rounded-3xl border bg-card shadow-sm flex-[2] min-w-0 flex flex-col items-center justify-center gap-1.5 py-4 active:scale-[0.98] transition-transform">
+          {me?.avatar ? (
+            <img src={me.avatar} alt="头像" className="h-14 w-14 rounded-full object-cover border-2 border-primary/30" />
+          ) : (
+            <span className="h-14 w-14 rounded-full bg-primary/10 text-primary flex items-center justify-center">
+              <UserRound className="h-7 w-7" />
+            </span>
+          )}
+          <span className="text-sm font-semibold truncate max-w-[92%]">{me?.nickname || loadUsername() || "跑者"}</span>
+          <span className="text-[11px] text-muted-foreground flex items-center gap-1">
+            <PencilLine className="h-3 w-3" />点头像改资料
+          </span>
+        </button>
       </div>
 
-      <div className="rounded-2xl border bg-card p-4 mb-6 shadow-sm">
-        <div className="text-sm font-medium mb-1">护栏有效性</div>
-        <div className="text-3xl font-black">{Math.round(m.guard.effectiveness * 100)}%</div>
-        <div className="text-xs text-muted-foreground mt-1">
-          拦截 {m.guard.blocked} / 校验 {m.guard.total} 次 · 没有留痕，就永远证明不了护栏有用
+      {/* 次级指标：护栏 / AI 决策 / AI 文案 三列紧凑排布 */}
+      <div className="grid grid-cols-3 gap-2 mb-6">
+        <div className="rounded-2xl border bg-card p-3 shadow-sm">
+          <div className="text-[11px] text-muted-foreground">护栏有效性</div>
+          <div className="text-xl font-black mt-0.5">{Math.round(m.guard.effectiveness * 100)}%</div>
+          <div className="text-[10px] text-muted-foreground/80 mt-1 leading-snug">
+            拦截 {m.guard.blocked} / 校验 {m.guard.total} 次 · 留痕才可审计
+          </div>
         </div>
-      </div>
-
-      <div className="rounded-2xl border bg-card p-4 mb-6 shadow-sm">
-        <div className="text-sm font-medium mb-1">AI 决策</div>
-        <div className="text-3xl font-black">{Math.round(m.ai_decision.tune_rate * 100)}%</div>
-        <div className="text-xs text-muted-foreground mt-1">
-          AI 微调落地 {m.ai_decision.tune_applied}/{m.ai_decision.tune_total} 次 · 重排推荐 {m.ai_decision.recommend_total} 次（LLM {m.ai_decision.recommend_llm} 次）
+        <div className="rounded-2xl border bg-card p-3 shadow-sm">
+          <div className="text-[11px] text-muted-foreground">AI 决策</div>
+          <div className="text-xl font-black mt-0.5">{Math.round(m.ai_decision.tune_rate * 100)}%</div>
+          <div className="text-[10px] text-muted-foreground/80 mt-1 leading-snug">
+            微调 {m.ai_decision.tune_applied}/{m.ai_decision.tune_total} · 推荐 {m.ai_decision.recommend_total} 次
+          </div>
+          <div className="text-[10px] text-muted-foreground/60 mt-0.5 leading-snug">
+            知识库 {m.ai_decision.kb_blocks_used} 块 · 案例召回 {m.ai_decision.cases_recalled} 条
+          </div>
         </div>
-        <div className="text-xs text-muted-foreground/70 mt-0.5">
-          知识库注入 {m.ai_decision.kb_injections} 次 · 命中 {m.ai_decision.kb_blocks_used} 块原则 · 案例召回 {m.ai_decision.cases_recalled} 条 · RAG 与召回全程埋点可审计
-        </div>
-      </div>
-
-      <div className="rounded-2xl border bg-card p-4 mb-6 shadow-sm">
-        <div className="text-sm font-medium mb-1">AI 文案使用率</div>
-        <div className="text-3xl font-black">{Math.round(m.llm_usage.rate * 100)}%</div>
-        <div className="text-xs text-muted-foreground mt-1">
-          LLM 生成 {m.llm_usage.llm} 次 · 规则模板兜底 {m.llm_usage.template} 次 · 未配置密钥时自动降级，体验不断档
+        <div className="rounded-2xl border bg-card p-3 shadow-sm">
+          <div className="text-[11px] text-muted-foreground">AI 文案使用率</div>
+          <div className="text-xl font-black mt-0.5">{Math.round(m.llm_usage.rate * 100)}%</div>
+          <div className="text-[10px] text-muted-foreground/80 mt-1 leading-snug">
+            LLM {m.llm_usage.llm} 次 · 模板兜底 {m.llm_usage.template} 次 · 未配密钥自动降级
+          </div>
         </div>
       </div>
 
@@ -331,6 +409,45 @@ export default function MetricsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* 编辑头像 / 昵称：头像压缩成 128px base64 后落库 */}
+      <Dialog open={profileOpen} onOpenChange={setProfileOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>编辑个人资料</DialogTitle>
+            <DialogDescription>
+              头像和昵称会显示在指标页，并保存到账号数据里。
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col items-center gap-3 py-2">
+            <input ref={fileRef} type="file" accept="image/*" className="hidden"
+              onChange={e => onPickAvatar(e.target.files?.[0])} />
+            <button onClick={() => fileRef.current?.click()}
+              className="relative h-20 w-20 rounded-full overflow-hidden border-2 border-primary/30 active:scale-95 transition-transform">
+              {avatarData || me?.avatar ? (
+                <img src={avatarData || me?.avatar} alt="头像" className="h-full w-full object-cover" />
+              ) : (
+                <span className="h-full w-full bg-primary/10 text-primary flex items-center justify-center">
+                  <UserRound className="h-9 w-9" />
+                </span>
+              )}
+              <span className="absolute inset-x-0 bottom-0 bg-black/45 text-white text-[10px] py-0.5">换头像</span>
+            </button>
+            <div className="w-full">
+              <Label>昵称（1-20 字）</Label>
+              <Input value={nickInput} maxLength={20} placeholder="给自己起个跑名"
+                onChange={e => setNickInput(e.target.value)} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setProfileOpen(false)}>取消</Button>
+            <Button disabled={avatarBusy || (!nickInput.trim() && !avatarData)}
+              onClick={submitProfile}>
+              {avatarBusy ? "正在保存…" : "保存"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <AlertDialogContent>

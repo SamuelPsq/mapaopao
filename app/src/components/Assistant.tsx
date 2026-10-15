@@ -27,6 +27,7 @@ export default function Assistant() {
   const [input, setInput] = useState("")
   const [busy, setBusy] = useState(false)
   const [showWelcome, setShowWelcome] = useState(true)
+  const [historyLoaded, setHistoryLoaded] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -34,6 +35,24 @@ export default function Assistant() {
   }, [msgs, open])
 
   const uid = loadUser()
+
+  // 打开面板时恢复多轮对话历史（后端保留最近 50 条）；有历史就收起欢迎语
+  useEffect(() => {
+    if (!open || historyLoaded || !uid) return
+    setHistoryLoaded(true)
+    api.get<{ messages: { role: string; content: string }[] }>(
+      `/v1/assistant/history?user_id=${uid}`)
+      .then(r => {
+        if (!r.messages?.length) return
+        setMsgs(r.messages.map(m => ({
+          role: m.role === "user" ? ("user" as const) : ("bot" as const),
+          text: m.content,
+        })))
+        setShowWelcome(false)
+      })
+      .catch(() => {})
+  }, [open])
+
   if (!uid) return null          // 未登录不展示
 
   async function ask(text: string) {
