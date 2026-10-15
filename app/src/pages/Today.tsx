@@ -13,7 +13,7 @@ import { Slider } from "@/components/ui/slider"
 import { Label } from "@/components/ui/label"
 import { CityPicker } from "@/components/CityPicker"
 import type { CityInfo } from "@/lib/cities"
-import { CalendarDays, ChartNoAxesColumnIncreasing, CloudSun, Dumbbell, Flame, House, MapPin, Target, Timer, Wrench } from "lucide-react"
+import { CalendarDays, ChartNoAxesColumnIncreasing, CloudSun, Dumbbell, Flame, House, MapPin, MoonStar, Target, Timer, Wrench } from "lucide-react"
 
 export default function Today() {
   const nav = useNavigate()
@@ -267,6 +267,13 @@ export default function Today() {
           onClick={() => nav("/degrade")}>
           <Target className="h-4 w-4 shrink-0" />{card.degrade.message} —— 点此调整目标
         </button>
+      ) : null}
+
+      {/* 恢复护栏：连续两天睡眠/疲劳异常（只提示，不自动改课） */}
+      {card.recovery_alert ? (
+        <div className="w-full text-sm bg-amber-500/10 text-amber-700 rounded-2xl px-3.5 py-3 mb-4 font-medium flex items-center gap-2">
+          <MoonStar className="h-4 w-4 shrink-0" />{card.recovery_alert.message}
+        </div>
       ) : null}
 
       {/* 打卡按钮：三个都会弹窗填里程 + 总用时（时分秒） */}

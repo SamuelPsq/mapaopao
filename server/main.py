@@ -738,6 +738,8 @@ def today_card(user_id: str):
                                          "，点此查看调整方案"}
         # 劝降提示
         degrade = _degrade_check(s, plan, week_no)
+        # 恢复护栏：连续两天睡眠 <5 或疲劳 >7 → 提示（只提示，不自动改课）
+        recovery_alert = _recovery_alert(s, user_id, main)
         days_to_race = (plan.start_date + timedelta(days=16 * 7 - 1) - today).days
         if reason_src:
             db.track("llm_explain", user_id, scene="reason_line", source=reason_src)
@@ -749,7 +751,7 @@ def today_card(user_id: str):
             "today_has_run": bool(todays),
             "main_session": _session_dict(main, logs.get(main.session_id)) if main else None,
             "reason_line": reason, "weather_line": wx_line, "hard_days": hard_days,
-            "suggestion": suggestion, "degrade": degrade,
+            "suggestion": suggestion, "degrade": degrade, "recovery_alert": recovery_alert,
             "week_progress": {"key_done": done_key, "key_total": key_total,
                               "done": sum(1 for x in sessions if logs.get(x.session_id)
                                           and logs[x.session_id].status in ("full", "partial")),
@@ -782,6 +784,36 @@ def _degrade_check(s, plan: db.Plan, week_no: int) -> dict | None:
         msg = advice["advice"] if isinstance(advice, dict) else advice
         return {"triggered": True, "message": msg}
     return None
+
+
+def _recovery_alert(s, user_id: str, main) -> dict | None:
+    """恢复护栏：连续两个上报日睡眠 <5 或疲劳 >7 → 今日卡提示（只提示，不自动改课）。"""
+    cutoff = date.today() - timedelta(days=13)
+    rows = s.query(db.StatusReport).filter(
+        db.StatusReport.user_id == user_id,
+        db.StatusReport.date >= cutoff).all()
+    by_day: dict = {}
+    for r in rows:
+        if r.date not in by_day or r.id > by_day[r.date].id:
+            by_day[r.date] = r
+    days = sorted(by_day.values(), key=lambda r: r.date)[-2:]
+    if len(days) < 2 or (days[1].date - days[0].date) != timedelta(days=1):
+        return None   # 必须是日历上连续两天
+    if all(r.sleep_score < 5 for r in days):
+        kind = "sleep"
+    elif all(r.fatigue_score > 7 for r in days):
+        kind = "fatigue"
+    else:
+        return None
+    # 今天的课是强度课（T/I）时给「降一档」话术，轻松跑日给温和版
+    hard = bool(main) and main.pace_zone in ("threshold", "interval")
+    if kind == "sleep":
+        msg = ("连续两天睡眠严重不足，今天强度课建议降一档，或改轻松跑/休息"
+               if hard else "连续两天睡眠严重不足，今天以恢复为主，别硬撑")
+    else:
+        msg = ("连续两天自评疲劳偏高，今天强度课建议降一档，优先恢复"
+               if hard else "连续两天自评疲劳偏高，今天降低训练量，优先恢复")
+    return {"type": kind, "message": msg}
 
 
 @app.post("/v1/session/{session_id}/log")

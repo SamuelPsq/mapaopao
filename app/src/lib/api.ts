@@ -51,6 +51,7 @@ export interface TodayCard {
   hard_days: string[]
   suggestion: { trigger_src: string; message: string } | null
   degrade: { triggered: boolean; message: string } | null
+  recovery_alert: { type: string; message: string } | null
   week_progress: { key_done: number; key_total: number; done: number; total: number }
   total_km: number
   week_km: number

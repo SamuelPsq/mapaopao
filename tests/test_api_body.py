@@ -164,6 +164,63 @@ def test_status_report_new_fields_and_stretch_advice(monkeypatch):
         "skipped 场景应给恢复建议而不是拉伸动作清单"
 
 
+def _seed_user_with_plan(username):
+    uid = c.post("/v1/account/register", json={"username": username, "password": "run12345"}).json()["user_id"]
+    c.post("/v1/profile", json={
+        "user_id": uid, "recent_km": 10, "recent_sec": 3600, "avail_days": 4,
+        "goal_race": "half", "ability": "B_base", "injury_flag": "N",
+        "height_cm": 170, "weight_kg": 60, "city": "上海", "lat": 31.23, "lon": 121.47})
+    c.post(f"/v1/plan/generate?user_id={uid}")
+    return uid
+
+
+def _insert_reports(uid, rows):
+    """直接落库不同日期的身体上报（接口只能写今天）。"""
+    from datetime import date as _date, timedelta as _td
+    with db.SessionLocal.begin() as s:
+        for days_ago, sleep, fatigue in rows:
+            s.add(db.StatusReport(
+                user_id=uid, date=_date.today() - _td(days=days_ago),
+                soreness_part="none", sleep_score=sleep, fatigue_score=fatigue,
+                entry="popup"))
+
+
+def test_recovery_alert_sleep_two_days():
+    """连续两天睡眠 <5：今日卡返回 recovery_alert(type=sleep)；只提示不自动改课。"""
+    _fresh_db()
+    uid = _seed_user_with_plan("bodysleep")
+    _insert_reports(uid, [(1, 3, 5), (0, 4, 5)])
+    card = c.get("/v1/today", params={"user_id": uid}).json()
+    assert card["recovery_alert"] and card["recovery_alert"]["type"] == "sleep"
+    assert "睡眠" in card["recovery_alert"]["message"]
+    # 主课（强度课）应出现「降一档」话术
+    if card["main_session"] and card["main_session"]["pace_zone"] in ("threshold", "interval"):
+        assert "降一档" in card["recovery_alert"]["message"]
+    # 护栏不自动改课：主课仍在
+    assert card["main_session"] is not None
+
+
+def test_recovery_alert_fatigue_and_normal_case():
+    """连续两天疲劳 >7 → fatigue 告警；分数正常 → recovery_alert 为 None。"""
+    _fresh_db()
+    uid = _seed_user_with_plan("bodyfatigue")
+    _insert_reports(uid, [(1, 7, 9), (0, 7, 8)])
+    card = c.get("/v1/today", params={"user_id": uid}).json()
+    assert card["recovery_alert"] and card["recovery_alert"]["type"] == "fatigue"
+    assert "疲劳" in card["recovery_alert"]["message"]
+
+    # 只异常一天 → 不触发；分数正常 → 不触发
+    normal_uid = _seed_user_with_plan("bodynormal")
+    _insert_reports(normal_uid, [(1, 7, 4), (0, 6, 5)])
+    card = c.get("/v1/today", params={"user_id": normal_uid}).json()
+    assert card["recovery_alert"] is None
+
+    one_uid = _seed_user_with_plan("bodyoneday")
+    _insert_reports(one_uid, [(3, 2, 5), (0, 3, 5)])   # 间隔两天，不算「连续两天」
+    card = c.get("/v1/today", params={"user_id": one_uid}).json()
+    assert card["recovery_alert"] is None
+
+
 def test_week_review_exposes_bmi_conservative_flag():
     """BMI≥28 生成的计划：周审视接口应带 bmi_conservative=true，标准计划为 false。"""
     _fresh_db()
