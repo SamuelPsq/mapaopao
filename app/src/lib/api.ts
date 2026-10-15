@@ -5,6 +5,15 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
   const headers: Record<string, string> = { "Content-Type": "application/json" }
   if (token) headers.Authorization = `Bearer ${token}`
   const r = await fetch(BASE + path, { headers, ...init })
+  if (r.status === 401) {
+    // 凭证失效（token 被轮换/过期）：统一清本地会话并回登录页。
+    // 不统一处理的话，各页面表现不一致——今日卡显示裸 401 文案，指标页则永远停在「加载中…」。
+    clearUser()
+    if (!window.location.pathname.startsWith("/login")) {
+      window.location.assign("/login")
+    }
+    throw new Error("401: 登录状态已失效，请重新登录")
+  }
   if (!r.ok) {
     const text = await r.text()
     throw new Error(`${r.status}: ${text.slice(0, 200)}`)

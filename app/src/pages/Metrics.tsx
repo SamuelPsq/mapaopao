@@ -119,7 +119,9 @@ export default function MetricsPage() {
   }, [uid, nav])
 
   async function deleteAccount() {
-    const username = loadUsername()
+    // 数据源统一：优先用 /v1/user/me 返回的账号名，localStorage 只作兜底
+    //（否则 localStorage 被浏览器清理后会误报「本地缺少账号信息」）
+    const username = me?.username || loadUsername()
     if (!username) { setDeleteErr("本地缺少账号信息，请重新登录后再注销"); return }
     if (!password) { setDeleteErr("请输入密码确认身份"); return }
     setDeleting(true)

@@ -385,7 +385,7 @@ def register(body: AccountIn, request: Request):
                          password_hash=_hash_password(body.password, salt), token=token))
         s.add(db.Event(name="account_registered", user_id=user_id,
                        payload={"username": username}))
-    return {"ok": True, "user_id": user_id, "token": token}
+    return {"ok": True, "user_id": user_id, "has_plan": False, "token": token}
 
 
 @app.post("/v1/account/login")
