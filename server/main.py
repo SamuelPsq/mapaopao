@@ -1187,14 +1187,11 @@ def weather_refresh_job():
 
 
 @app.get("/v1/kb/tip")
-def kb_tip():
-    """「跑步知识」板块：从新手/禁忌知识子集随机抽一条，每次刷新换一条。"""
-    import random
+def kb_tip(user_id: str | None = None):
+    """「跑步知识」板块：随机抽一条新手向知识；连续不足打卡 ≥2 次时
+    优先推恢复/补跑主题（user_id 由中间件校验与 token 一致）。"""
     from server import rag
-    tips = rag.beginner_tips()
-    if not tips:
-        return {"id": "", "name": "", "text": ""}
-    return random.choice(tips)
+    return rag.pick_tip(user_id)
 
 
 @app.get("/v1/metrics")

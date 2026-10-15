@@ -281,3 +281,41 @@ def test_beginner_tips_subset_and_endpoint():
         assert len(seen) > 1, "多次调用应能抽到不同的知识块"
     finally:
         _main.AUTH_ENABLED = saved
+
+
+def test_kb_tip_prefers_recovery_theme_on_under_streak():
+    """连续不足打卡 ≥2 次时，/v1/kb/tip 应优先返回恢复/补跑主题条目。"""
+    from fastapi.testclient import TestClient
+    from server.main import app
+    from server import main as _main
+    saved = _main.AUTH_ENABLED
+    _main.AUTH_ENABLED = False
+    try:
+        _user_plan()
+        c = TestClient(app)
+        # 无打卡记录：不限主题
+        r = c.get("/v1/kb/tip", params={"user_id": "raguser"})
+        assert r.status_code == 200 and r.json()["text"]
+
+        # 两节课都「只跑了一部分」且 <50%（3/12、2/6）→ 连续不足 streak=2
+        with db.SessionLocal.begin() as s:
+            s.add(db.SessionLog(session_id="plan-raguser-W1-s1", status="partial",
+                                actual_km=2.0, actual_pace="", rpe=None))
+            s.add(db.SessionLog(session_id="plan-raguser-W1-s2", status="partial",
+                                actual_km=3.0, actual_pace="", rpe=None))
+        assert rag.consecutive_under_streak("raguser") == 2
+        for _ in range(20):
+            r = c.get("/v1/kb/tip", params={"user_id": "raguser"})
+            assert r.json()["id"] in rag.RECOVERY_TIP_IDS, "不足 streak 下必须只推恢复主题"
+
+        # 最新一节课改为全额完成 → streak 中断 → 恢复主题限制解除
+        with db.SessionLocal.begin() as s:
+            log = s.query(db.SessionLog).filter_by(session_id="plan-raguser-W1-s2").first()
+            log.status, log.actual_km = "full", 12.0
+        assert rag.consecutive_under_streak("raguser") == 0
+        seen = set()
+        for _ in range(20):
+            seen.add(c.get("/v1/kb/tip", params={"user_id": "raguser"}).json()["id"])
+        assert any(i not in rag.RECOVERY_TIP_IDS for i in seen) or len(seen) > 1
+    finally:
+        _main.AUTH_ENABLED = saved

@@ -193,6 +193,42 @@ def beginner_tips() -> list[dict]:
             for c in KB if BEGINNER_TAGS & set(c["tags"])]
 
 
+# 情境感知：连续不足打卡时优先展示的主题块（补缺口 / 恢复 / 忌抱佛脚）
+RECOVERY_TIP_IDS = {"kb_taboo_cram_train", "kb_gap", "kb_after_run", "kb_sleep"}
+UNDER_RATIO = 0.5     # 与 tune 触发阈值一致：actual/target < 50% 记不足
+
+
+def consecutive_under_streak(user_id: str) -> int:
+    """最近连续「不足打卡」次数：partial 且 <50%，或 skipped；从最新一天往回数。"""
+    with db.SessionLocal() as s:
+        rows = (s.query(db.Session, db.SessionLog)
+                  .join(db.SessionLog, db.SessionLog.session_id == db.Session.session_id)
+                  .join(db.Plan, db.Plan.plan_id == db.Session.plan_id)
+                  .filter(db.Plan.user_id == user_id, db.Plan.status == "active")
+                  .order_by(db.Session.date.desc()).limit(30).all())
+    streak = 0
+    for sess, log in rows:
+        ratio = (log.actual_km or 0.0) / sess.target_km if sess.target_km else 0.0
+        if log.status == "skipped" or (log.status == "partial" and ratio < UNDER_RATIO):
+            streak += 1
+        else:
+            break
+    return streak
+
+
+def pick_tip(user_id: str | None = None) -> dict:
+    """随机抽一条跑步知识；连续不足 ≥2 次时优先从恢复/补跑主题里抽。"""
+    import random
+    tips = beginner_tips()
+    if not tips:
+        return {"id": "", "name": "", "text": ""}
+    if user_id and consecutive_under_streak(user_id) >= 2:
+        themed = [t for t in tips if t["id"] in RECOVERY_TIP_IDS]
+        if themed:
+            return random.choice(themed)
+    return random.choice(tips)
+
+
 # ---------------------------------------------------------------- 案例库
 def _dev_bucket(ratio: float) -> float:
     """偏差率分桶：log 刻度，1.0=刚好完成，<1 不足，>1 超额。"""

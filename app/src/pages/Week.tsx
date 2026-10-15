@@ -21,12 +21,13 @@ export default function Week() {
   const [err, setErr] = useState("")
   const [tip, setTip] = useState<{ id: string; name: string; text: string } | null>(null)
 
-  // 跑步知识：每次进入/刷新页面随机抽一条新手向知识（禁忌 + 训练前中后）
+  // 跑步知识：每次进入/刷新随机抽一条；连续不足打卡时后端优先推恢复/补跑主题
   useEffect(() => {
-    api.get<{ id: string; name: string; text: string }>("/v1/kb/tip")
+    if (!uid) return
+    api.get<{ id: string; name: string; text: string }>(`/v1/kb/tip?user_id=${uid}`)
       .then(setTip)
       .catch(() => setTip(null))
-  }, [no])
+  }, [no, uid])
 
   const refresh = useCallback(async () => {
     if (!uid) { nav("/login", { replace: true }); return }
