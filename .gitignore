@@ -28,3 +28,4 @@ package-lock.json
 app/package-lock.json
 prd_text.txt
 backend.pid
+wb-*.json

@@ -2,6 +2,16 @@
 
 针对校园马拉松社团新人跑者：运动知识欠缺、专业训练建议与智能硬件强绑定、计划容易被天气/身体/时间打断。以 VDOT 强度体系为核心，规则引擎生成 16 周科学课表，AI 在严格边界内参与解释与微调，护栏层独立校验——**数值计算确定性，模型输出必验尸**。
 
+## 界面一览（实际运行截图）
+
+| 登录 / 注册 | 今日卡 | 打卡弹窗（默认值=今日课） |
+| --- | --- | --- |
+| ![登录](docs/screenshots/login.jpg) | ![今日卡](docs/screenshots/today.jpg) | ![打卡](docs/screenshots/checkin.jpg) |
+
+| 周审视（执行率 + AI 点评 + 跑步知识） | 指标看板（护栏有效性 / AI 埋点） | 跑小助 · AI 跑步助手（RAG 引用 + 就医提示） |
+| --- | --- | --- |
+| ![周审视](docs/screenshots/week.jpg) | ![指标](docs/screenshots/metrics.jpg) | ![AI助手](docs/screenshots/assistant.jpg) |
+
 ## 为什么是"规则引擎为主、LLM 为辅"
 
 训练量的数值错误会直接造成运动伤害，不允许概率性输出。所以：
