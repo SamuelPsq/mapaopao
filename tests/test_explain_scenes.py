@@ -68,3 +68,37 @@ def test_no_hallucination_still_guards_scenes():
     facts = {"week_no": 1, "phase": "load", "rate_pct": 60, "done": 3, "planned": 5}
     assert assert_no_hallucination("本周执行率 60%，完成 3 次", facts)
     assert not assert_no_hallucination("本周执行率 85%，超出预期", facts)
+
+
+def test_stretch_plan_moves_and_assertion_whitelist():
+    """拉伸 facts 结构化后，LLM 照抄具体动作（30 秒×2 等）能通过数值断言，编造数字仍被拦。"""
+    from server.explain import (assert_no_hallucination, stretch_advice_template,
+                                stretch_plan)
+
+    f = {"status": "full", "type_cn": "长距离", "target_km": 16.0}
+    plan = stretch_plan(f)
+    assert plan["skipped"] is False
+    names = [m["name"] for m in plan["moves"]]
+    assert any("泡沫轴" in n for n in names) and any("靠墙静蹲" in n for n in names)
+
+    facts = {**f, "plan": plan}
+    # 模板兜底文案含具体动作
+    tpl = stretch_advice_template(facts)
+    assert "泡沫轴" in tpl and "秒×" in tpl
+
+    # LLM 照抄动作清单里的数字 → 断言放行（这是本次改造的关键）
+    llm_ok = ("跑完先走 3–5 分钟让心率回落，再做：小腿后侧拉伸（扶墙弓步）30 秒×2；"
+              "髂胫束放松（泡沫轴）每侧 60 秒×1；靠墙静蹲 45 秒×2。"
+              "今晚睡眠尽量充足，恢复发生在休息里")
+    assert assert_no_hallucination(llm_ok, facts), "照抄 facts 里的动作数字必须放行"
+    # 编造动作时长（90 秒不在 facts 里）→ 拦下
+    llm_bad = "小腿后侧拉伸 90 秒×2，然后收工"
+    assert not assert_no_hallucination(llm_bad, facts)
+
+    # skipped 场景：恢复建议而非动作清单，分钟数（10）来自 facts 放行
+    fs = {"status": "skipped", "type_cn": "轻松跑", "target_km": 6.0}
+    ps = stretch_plan(fs)
+    assert ps["skipped"] is True
+    facts_s = {**fs, "plan": ps}
+    assert assert_no_hallucination("睡前全身静态拉伸 10 分钟×1，明天按原计划来", facts_s)
+    assert "省" in stretch_advice_template(facts_s) or "恢复" in stretch_advice_template(facts_s)

@@ -1159,9 +1159,14 @@ def status_report(body: StatusReportIn):
 
 @app.post("/v1/stretch")
 def stretch_advice(body: StretchIn):
-    """跑后拉伸建议：LLM 生成，规则模板兜底（数字全部来自 facts，过数值断言）。"""
-    from server.explain import render_scene, stretch_advice_template
-    facts = {"status": body.status, "type_cn": body.type_cn, "target_km": body.target_km}
+    """跑后拉伸建议：LLM 生成（按场景 prompt 列具体动作），规则模板兜底。
+
+    facts 里带 plan 结构化动作清单（数字为数值字段，数值断言放行 LLM 照抄具体动作）。
+    """
+    from server.explain import render_scene, stretch_advice_template, stretch_plan
+    facts = {"status": body.status, "type_cn": body.type_cn, "target_km": body.target_km,
+             "plan": stretch_plan({"status": body.status, "type_cn": body.type_cn,
+                                   "target_km": body.target_km})}
     out, src = render_scene("stretch_advice", facts, stretch_advice_template(facts))
     text = out["stretch"] if isinstance(out, dict) else out
     db.track("llm_explain", body.user_id, scene="stretch_advice", source=src)

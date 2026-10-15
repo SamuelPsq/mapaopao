@@ -183,23 +183,69 @@ def degrade_advice_template(f: dict) -> str:
             f"按当前进度直接跑{f['race']}会有风险")
 
 
-def stretch_advice_template(f: dict) -> str:
-    """跑后拉伸/恢复建议：按打卡状态给不同动作组合（数字全来自 facts）。"""
+def stretch_plan(f: dict) -> dict:
+    """跑后拉伸动作清单（规则引擎决定，数字全部结构化为数值字段）。
+
+    数字以数值类型给出而不内嵌在字符串里，是为了让 flatten_numbers 收进白名单：
+    LLM 照抄「30 秒×2」这类具体动作时，数值断言才会放行。
+    """
     km = f.get("target_km", 0)
     if f.get("status") == "skipped":
-        return ("今天没跑成，拉伸可以省掉，但恢复不能省：睡前 10 分钟静态拉伸 + 今晚尽量睡够，"
-                "明天的课按原计划来，不用补今天的量")
-    base = ["小腿后侧拉伸 30 秒×2", "股四头肌拉伸 30 秒×2", "臀部拉伸 30 秒×2"]
+        return {"skipped": True,
+                "moves": [{"name": "睡前全身静态拉伸", "min": 10, "sets": 1}],
+                "note": "今晚尽量睡够，明天的课按原计划来，不用补今天的量"}
+    moves = [
+        {"name": "小腿后侧拉伸（扶墙弓步）", "sec": 30, "sets": 2},
+        {"name": "股四头肌拉伸（站立勾脚）", "sec": 30, "sets": 2},
+        {"name": "臀部拉伸（仰卧抱膝）", "sec": 30, "sets": 2},
+    ]
     if f.get("type_cn") == "长距离" or km >= 15:
-        base += ["髂胫束放松（泡沫轴）每侧 1 分钟", "靠墙静蹲 45 秒×2"]
+        moves += [{"name": "髂胫束放松（泡沫轴）", "sec": 60, "sets": 1, "each_side": True},
+                  {"name": "靠墙静蹲", "sec": 45, "sets": 2}]
     elif f.get("type_cn") in ("间歇", "阈值跑"):
-        base += ["髂胫束放松（泡沫轴）每侧 1 分钟"]
+        moves += [{"name": "髂胫束放松（泡沫轴）", "sec": 60, "sets": 1, "each_side": True}]
     else:
-        base += ["大腿后侧拉伸 30 秒×2"]
-    return "跑完先走 3–5 分钟让心率回落，再做：" + "；".join(base) + "。今晚睡眠尽量充足，恢复发生在休息里"
+        moves += [{"name": "大腿后侧拉伸", "sec": 30, "sets": 2}]
+    return {"skipped": False, "cooldown_min_low": 3, "cooldown_min_high": 5,
+            "moves": moves, "note": "今晚睡眠尽量充足，恢复发生在休息里"}
+
+
+def _render_move(m: dict) -> str:
+    dur = f"{m['min']} 分钟" if "min" in m else f"{m['sec']} 秒"
+    side = "每侧" if m.get("each_side") else ""
+    return f"{m['name']}{side} {dur}×{m['sets']}"
+
+
+def stretch_advice_template(f: dict) -> str:
+    """跑后拉伸/恢复建议：按打卡状态给不同动作组合（数字全来自 facts）。"""
+    p = stretch_plan(f)
+    if p["skipped"]:
+        return ("今天没跑成，拉伸可以省掉，但恢复不能省：" + _render_move(p["moves"][0])
+                + "，" + p["note"])
+    return (f"跑完先走 {p['cooldown_min_low']}–{p['cooldown_min_high']} 分钟让心率回落，再做："
+            + "；".join(_render_move(m) for m in p["moves"]) + "。" + p["note"])
 
 
 # ---------------------------------------------------------------- LLM 调用
+# 场景级 prompt 覆盖：默认是通用文案层 prompt；拉伸场景需要列具体动作，单独给指令与句数预算
+SCENE_EXTRA: dict[str, dict] = {
+    "stretch_advice": {
+        "max_sentences": 6,
+        "system": (
+            "你是马拉松训练助手的跑后拉伸建议文案层。facts.plan 里已由规则引擎给定本节课后该做的"
+            "具体动作清单（moves：动作名、单组时长、组数）和冷身时长范围（cooldown_min_low–high）。\n"
+            "要求：\n"
+            "1. 开头一句冷身引导，用 cooldown_min_low–high 给定的分钟范围（如「先慢走 3–5 分钟」）；\n"
+            "2. 然后逐条列出 moves 里的动作，动作名、时长单位、秒数/分钟数、组数必须原样照抄"
+            "（顺序可微调，数字一个都不能改；each_side=true 的动作要带上「每侧」）；\n"
+            "3. 结尾一句恢复提示，用 facts.plan.note；\n"
+            "4. 口语化，像老跑友在跑道边叮嘱，全文不超过 6 句。\n"
+            "除 facts 里给定的数字外，禁止引入任何其他数字。"
+        ),
+    },
+}
+
+
 def _llm_call(scene: str, facts: dict) -> Optional[dict]:
     """调用兼容 OpenAI 协议的网关（DeepSeek / Kimi 等）。未配置或失败返回 None（走模板降级）。"""
     base = os.getenv("LLM_BASE_URL")
@@ -207,17 +253,20 @@ def _llm_call(scene: str, facts: dict) -> Optional[dict]:
     model = os.getenv("LLM_MODEL")
     if not (base and key and model):
         return None
+    extra = SCENE_EXTRA.get(scene, {})
+    system = extra.get("system") or (
+        "你是马拉松训练助手的文案层。所有数字已给定，禁止引入任何新数字。"
+        "用 calm_short 语气，每个字段最多 2 句。")
+    max_sentences = extra.get("max_sentences", 2)
     try:
         import httpx
         payload = {
             "model": model, "temperature": 0.3, "max_tokens": 300, "timeout": 3.0,
             "messages": [
-                {"role": "system", "content":
-                 "你是马拉松训练助手的文案层。所有数字已给定，禁止引入任何新数字。"
-                 "用 calm_short 语气，每个字段最多 2 句。"},
+                {"role": "system", "content": system},
                 {"role": "user", "content": json.dumps(
-                    {"task": scene, "facts": facts,
-                     "tone": "calm_short", "max_sentences": 2}, ensure_ascii=False)},
+                    {"task": scene, "facts": facts, "tone": "calm_short",
+                     "max_sentences": max_sentences}, ensure_ascii=False)},
             ],
             "response_format": {"type": "json_schema", "json_schema": {"name": scene, "schema": SCENE_SCHEMAS[scene]}},
         }
