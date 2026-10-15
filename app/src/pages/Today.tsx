@@ -14,7 +14,7 @@ import { Label } from "@/components/ui/label"
 import { CityPicker } from "@/components/CityPicker"
 import MonthCalendar from "@/components/MonthCalendar"
 import type { CityInfo } from "@/lib/cities"
-import { CalendarDays, ChartNoAxesColumnIncreasing, CloudSun, Dumbbell, Flame, House, Lightbulb, MapPin, MoonStar, PersonStanding, Target, Timer, TriangleAlert, Wrench } from "lucide-react"
+import { CalendarDays, ChartNoAxesColumnIncreasing, ChevronRight, CloudSun, Dumbbell, Flame, House, Lightbulb, MapPin, MoonStar, PersonStanding, Target, Timer, TriangleAlert, Wrench } from "lucide-react"
 
 export default function Today() {
   const nav = useNavigate()
@@ -324,14 +324,6 @@ export default function Today() {
         </div>
       ) : null}
 
-      {/* 重排建议 */}
-      {card.suggestion ? (
-        <button className="w-full text-left text-sm bg-primary/10 text-primary rounded-2xl px-3.5 py-3 mb-4 font-medium flex items-center gap-2"
-          onClick={() => nav(`/rearrange?trigger=${card.suggestion!.trigger_src}`)}>
-          <Wrench className="h-4 w-4 shrink-0" />{card.suggestion.message}
-        </button>
-      ) : null}
-
       {/* 劝降 */}
       {card.degrade?.triggered ? (
         <button className="w-full text-left text-sm bg-red-500/10 text-red-700 rounded-2xl px-3.5 py-3 mb-4 font-medium flex items-center gap-2"
@@ -355,6 +347,19 @@ export default function Today() {
           setSkipConfirm(true)
         }}>今天跑不了</Button>
       </div>
+
+      {/* 重排建议：跟在打卡按钮下方，实心按钮样式，一眼可点 */}
+      {card.suggestion ? (
+        <button
+          className="w-full text-sm font-semibold rounded-2xl px-3.5 py-3 mb-3 flex items-center justify-center gap-1.5
+                     bg-primary text-primary-foreground shadow-md shadow-primary/25
+                     active:scale-[0.98] transition-transform"
+          onClick={() => nav(`/rearrange?trigger=${card.suggestion!.trigger_src}`)}>
+          <Wrench className="h-4 w-4 shrink-0" />
+          <span className="truncate">{card.suggestion.message}</span>
+          <ChevronRight className="h-4 w-4 shrink-0" />
+        </button>
+      ) : null}
 
       {/* 本周进度 */}
       <div className="mt-6 rounded-2xl border bg-card p-4 shadow-sm">
