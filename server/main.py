@@ -143,7 +143,7 @@ class ProfileIn(BaseModel):
 
 
 class LogIn(BaseModel):
-    status: str                            # full / partial / skipped
+    status: str                            # full / partial / over（超额完成）/ skipped
     actual_km: float = 0.0
     actual_pace: str = ""                  # "5:30"，为空时可用 duration_sec 反算
     duration_sec: int = 0                  # 总用时（秒）
@@ -698,7 +698,7 @@ def today_card(user_id: str):
             future = [x for x in sessions if x.date > today and x.status == "planned"]
             main = future[0] if future else None
         done_key = sum(1 for x in sessions if x.is_key and
-                       (logs.get(x.session_id) and logs[x.session_id].status in ("full", "partial")))
+                       (logs.get(x.session_id) and logs[x.session_id].status in ("full", "over", "partial")))
         key_total = sum(1 for x in sessions if x.is_key)
         # 跑量：累计（全部 full/partial）+ 本周（当前周 full/partial），一次 join 算完
         log_rows = s.query(db.SessionLog, db.Session).join(
@@ -760,7 +760,7 @@ def today_card(user_id: str):
             "suggestion": suggestion, "degrade": degrade, "recovery_alert": recovery_alert,
             "week_progress": {"key_done": done_key, "key_total": key_total,
                               "done": sum(1 for x in sessions if logs.get(x.session_id)
-                                          and logs[x.session_id].status in ("full", "partial")),
+                                          and logs[x.session_id].status in ("full", "over", "partial")),
                               "total": sum(1 for x in sessions if x.status != "cancelled_by_rearrange"
                                            and x.status != "cancelled_before_week")},
         }
@@ -778,7 +778,7 @@ def _degrade_check(s, plan: db.Plan, week_no: int) -> dict | None:
         logs = {l.session_id: l.status for l in s.query(db.SessionLog).all()
                 if l.session_id in {x.session_id for x in sessions}}
         key_plan = sum(1 for x in sessions if x.is_key)
-        key_done = sum(1 for x in sessions if x.is_key and logs.get(x.session_id) in ("full", "partial"))
+        key_done = sum(1 for x in sessions if x.is_key and logs.get(x.session_id) in ("full", "over", "partial"))
         weeks.append({"key_plan": key_plan, "key_done": key_done, "week_no": wn})
     if should_suggest_degrade(weeks):
         total_plan = sum(w["key_plan"] for w in weeks)
@@ -876,7 +876,7 @@ def calendar_view(user_id: str, month: str):
             logged = [(x, logs[x.session_id]) for x in items if x.session_id in logs]
             if logged:
                 x, lg = sorted(logged, key=lambda p: p[1].logged_at)[-1]
-                if lg.status in ("full", "partial"):
+                if lg.status in ("full", "over", "partial"):
                     entry.update(kind="run", km=round(lg.actual_km, 1),
                                  pace=lg.actual_pace, type_cn=TYPE_CN.get(x.type, x.type))
                 elif lg.skip_kind == "strength":
@@ -908,8 +908,8 @@ def calendar_view(user_id: str, month: str):
 @app.post("/v1/session/{session_id}/log")
 def log_session(session_id: str, body: LogIn):
     """写 session_log；skipped / 超额完成 / 明显不足时自动触发候选预生成（不展示，先算好）。"""
-    if body.status not in ("full", "partial", "skipped"):
-        raise HTTPException(400, "status 必须是 full/partial/skipped")
+    if body.status not in ("full", "partial", "over", "skipped"):
+        raise HTTPException(400, "status 必须是 full/partial/over/skipped")
     with db.SessionLocal.begin() as s:
         sess = s.get(db.Session, session_id)
         if not sess:
@@ -923,7 +923,7 @@ def log_session(session_id: str, body: LogIn):
                             actual_km=body.actual_km, actual_pace=actual_pace,
                             duration_sec=body.duration_sec, rpe=body.rpe,
                             skip_kind=body.skip_kind if body.status == "skipped" else ""))
-        sess.status = {"full": "done", "partial": "partial", "skipped": "skipped"}[body.status]
+        sess.status = {"full": "done", "over": "done", "partial": "partial", "skipped": "skipped"}[body.status]
         s.add(db.Event(name="session_done", user_id=sess.plan_id and _uid_of(s, sess.plan_id),
                        payload={"session_id": session_id, "degree": body.status,
                                 "actual_km": body.actual_km, "week_no": sess.week_no,
@@ -931,9 +931,11 @@ def log_session(session_id: str, body: LogIn):
         plan = s.get(db.Plan, sess.plan_id)
         user = s.get(db.User, plan.user_id) if plan else None
         # 超额完成：实际里程明显超过目标（>110%），本周刺激已够，引导压缩剩余课表
-        over_done = (body.status == "full" and body.actual_km > sess.target_km * 1.1)
+        # 「完成了」和「超额完成」两个入口都按完成计（over 是前端单独按钮，语义同 full 且 km 更大）
+        ran_done = body.status in ("full", "over")
+        over_done = (ran_done and body.actual_km > sess.target_km * 1.1)
         # 大幅超额（>3km）：能力可能已超出当前计划，进阶询问交给前端二次确认
-        advance_prompt = (body.status == "full"
+        advance_prompt = (ran_done
                           and body.actual_km - sess.target_km > 3.0)
         # 明显不足：部分完成但低于目标 50%，缺口需要本周内重排补上
         under_done = (body.status == "partial" and sess.target_km > 0
@@ -941,7 +943,7 @@ def log_session(session_id: str, body: LogIn):
         # 能力重估：每 4 周，用实际配速回写 VDOT（只刷新未开始的周）。
         # 大幅超额时先不自动改——进阶与否交给用户二次确认（/v1/user/advance）
         vdot_note = None
-        if not advance_prompt and body.status in ("full", "partial") \
+        if not advance_prompt and body.status in ("full", "over", "partial") \
                 and body.actual_km > 0 and actual_pace and user:
             try:
                 m, sec = actual_pace.split(":")
@@ -1292,7 +1294,7 @@ def week_review(plan_id: str, week_no: int):
         planned_denom = len([x for x in (snap.snapshot_json.get("sessions", []) if snap else [])
                              if x.get("status") != "cancelled_before_week"])
         done = sum(1 for x in sessions if logs.get(x.session_id)
-                   and logs[x.session_id].status in ("full", "partial"))
+                   and logs[x.session_id].status in ("full", "over", "partial"))
         current_total = sum(1 for x in sessions
                             if x.status not in ("cancelled_by_rearrange", "cancelled_before_week"))
         # 下周预告
@@ -1474,7 +1476,7 @@ def metrics(user_id: str | None = None):
             key_planned = key_done = 0
             for x in planned:
                 log = s.query(db.SessionLog).filter_by(session_id=x["session_id"]).first()
-                ok = log and log.status in ("full", "partial")
+                ok = log and log.status in ("full", "over", "partial")
                 if x.get("is_key"):
                     key_planned += 1
                     if ok:

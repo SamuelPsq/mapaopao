@@ -109,3 +109,39 @@ def test_exact_target_is_not_over():
     body = r.json()
     assert "over_done" not in body
     assert "rearrange_ready" not in body
+
+
+def test_over_status_from_frontend_button():
+    """前端「超额完成」按钮发 status="over"：必须按完成受理，触发 over_done 与重排预生成。"""
+    _fresh_db()
+    uid = c.post("/v1/account/register", json={"username": "overbtn", "password": "run12345"}).json()["user_id"]
+    plan_id = _onboard(uid)
+    sess = _first_session(plan_id)
+    sid, target = sess["session_id"], sess["target_km"]
+    over_km = round(target * 1.5, 1)
+    r = c.post(f"/v1/session/{sid}/log", json={"status": "over",
+                                              "actual_km": over_km, "actual_pace": "",
+                                              "duration_sec": 1800, "rpe": None, "skip_kind": ""})
+    assert r.status_code == 200, f"over 状态不应再被 400 拒绝: {r.text}"
+    body = r.json()
+    assert body["over_done"] is True and body["over_note"]
+    assert body["rearrange_ready"] is True
+    with db.SessionLocal() as s:
+        log = s.query(db.SessionLog).filter_by(session_id=sid).first()
+        assert log.status == "over"
+        assert abs(log.actual_km - over_km) < 0.01
+        assert s.get(db.Session, sid).status == "done"
+
+
+def test_over_status_counts_as_done_in_metrics():
+    """「超额完成」计入执行率/关键课完成统计（周报、降载判定都读 session_log.status）。"""
+    _fresh_db()
+    uid = c.post("/v1/account/register", json={"username": "overcnt", "password": "run12345"}).json()["user_id"]
+    plan_id = _onboard(uid)
+    sess = _first_session(plan_id)
+    sid, target = sess["session_id"], sess["target_km"]
+    c.post(f"/v1/session/{sid}/log", json={"status": "over", "actual_km": round(target * 1.2, 1),
+                                          "actual_pace": "", "duration_sec": 1800, "rpe": None, "skip_kind": ""})
+    w1 = c.get(f"/v1/plan/{plan_id}/week/1").json()
+    done = [x for x in w1["sessions"] if x["session_id"] == sid][0]
+    assert done["status"] == "done", "over 打卡后课次状态应为 done"

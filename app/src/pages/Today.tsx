@@ -83,10 +83,17 @@ export default function Today() {
   async function log(status: "full" | "partial" | "over" | "skipped", actualKm?: number, durationSec?: number, skipKind?: "rest" | "strength") {
     if (!isToday) { setNotTimeOpen(true); return }          // 时间对不上：不是不练，时候未到
     const actual_km = actualKm ?? (status === "full" ? m!.target_km : 0)
-    const r = await api.post<{ vdot_update?: string; over_note?: string; under_note?: string; ai_tune_note?: string; rearrange_ready?: boolean; advance_prompt?: boolean; advance_pace?: string }>(
-      `/v1/session/${m!.session_id}/log`,
-      { status, actual_km, actual_pace: "", duration_sec: durationSec ?? 0, rpe: null,
-        skip_kind: skipKind ?? "" })
+    let r: { vdot_update?: string; over_note?: string; under_note?: string; ai_tune_note?: string; rearrange_ready?: boolean; advance_prompt?: boolean; advance_pace?: string }
+    try {
+      r = await api.post<typeof r>(
+        `/v1/session/${m!.session_id}/log`,
+        { status, actual_km, actual_pace: "", duration_sec: durationSec ?? 0, rpe: null,
+          skip_kind: skipKind ?? "" })
+    } catch (e) {
+      // 打卡失败必须让用户知道（早期版本静默失败，数据丢失且无感知）
+      setToast("记录失败：" + (e as Error).message)
+      return
+    }
     // 大幅超额（>3km）：先问要不要按真实跑力进阶重排（确认完再进问卷）
     if (r.advance_prompt) {
       pendingSurvey.current = { status, typeCn: m!.type_cn, km: actual_km }
@@ -94,7 +101,9 @@ export default function Today() {
       refresh()
       return
     }
-    setToast(status === "full" ? "已记录完成，继续保持 💪" : status === "partial" ? "已记录，部分完成也算数" : "已记录，别担心，不用补")
+    setToast(status === "full" ? "已记录完成，继续保持 💪"
+      : status === "over" ? "已记录超额完成，状态很好 🔥"
+      : status === "partial" ? "已记录，部分完成也算数" : "已记录，别担心，不用补")
     if (r.vdot_update) setToast(r.vdot_update)
     if (r.over_note) setToast(r.over_note)
     if (r.under_note) setToast(r.under_note)
