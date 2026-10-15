@@ -22,8 +22,12 @@ SYSTEM_PROMPT = (
     "2. 「用户情况」里的数字（VDOT、周数、配速、睡眠/疲劳分）是唯一事实来源，"
     "禁止引入任何新数字、新配速建议；配速类具体数字让用户去今日卡/周审视页看。\n"
     "3. 不做医疗诊断；关节锐痛、肿胀、步态改变等红灯信号，一律建议停跑并就医。\n"
-    "4. 语气像耐心的老跑友，口语化，先给结论再解释，150 字以内。"
+    "4. 引用了「伤病康复」出处条目时，回答结尾必须加上："
+    "「以上为科普参考，不构成医疗建议；症状持续或加重请及时就医。」\n"
+    "5. 语气像耐心的老跑友，口语化，先给结论再解释，150 字以内。"
 )
+
+DISCLAIMER = "以上为科普参考，不构成医疗建议；症状持续或加重请及时就医。"
 
 
 def _user_context(user_id: str) -> dict:
@@ -97,18 +101,25 @@ def fallback_answer(question: str, kb: list[dict]) -> str:
         return ("这个问题超出了我现在的知识库。换个问法试试——比如「睡眠不足还能训练吗」"
                 "「跑的时候怎么判断强度」「膝盖疼要不要停跑」。")
     parts = [f"[{c['source']}·{c['name']}] {c['text']}" for c in kb[:3]]
-    return "\n\n".join(parts)
+    text = "\n\n".join(parts)
+    if any(c["source"] == "伤病康复" for c in kb):
+        text += f"\n\n⚠️ {DISCLAIMER}"
+    return text
 
 
 def answer(user_id: str, question: str) -> dict:
     """问答主入口：召回 → LLM 生成（带出处校验）→ 兜底拼接。返回含 sources 供 UI 展示。"""
     question = (question or "").strip()[:300]
     kb = rag.retrieve(question, k=4)
+    medical = any(c["source"] == "伤病康复" for c in kb)
     context = _user_context(user_id)
     text = assistant_llm(question, context, kb)
+    if text and medical and "就医" not in text:
+        text += f"\n\n{DISCLAIMER}"      # LLM 漏带就医提示时兜底补上
     return {
         "answer": text if text else fallback_answer(question, kb),
         "from": "llm" if text else "kb",
+        "medical": medical,               # 伤病类回答：前端据此展示「仅供参考」警示条
         "sources": [{"source": c["source"], "name": c["name"], "score": c["score"]}
                     for c in kb],
     }

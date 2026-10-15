@@ -27,13 +27,28 @@ def _fresh_user(username):
 
 
 def test_kb_merged_from_two_docs():
-    """知识库合并自训练原则 + 跑者经验两个文档，召回结果带来源标注。"""
+    """知识库合并自训练原则 + 跑者经验 + 伤病康复三个文档，召回结果带来源标注。"""
     sources = {c.get("source") for c in rag.KB}
-    assert "训练原则" in sources and "跑者经验" in sources
+    assert {"训练原则", "跑者经验", "伤病康复"} <= sources
     hits = rag.retrieve("睡眠不足还能照常训练吗", k=4)
     assert hits, "经验类问题应能召回条目"
     assert all("source" in h and "name" in h for h in hits)
     assert any(h["source"] == "跑者经验" for h in hits), "应优先命中 UGC 经验条目"
+
+
+def test_injury_kb_and_medical_disclaimer(monkeypatch):
+    """伤病问题召回到「伤病康复」条目，且回答带就医提示（medical 标志 + 文案）。"""
+    from server import assistant
+    hits = rag.retrieve("跟腱疼，早上起床僵硬怎么办", k=4)
+    assert any(h["source"] == "伤病康复" for h in hits), "跟腱问题应命中伤病康复库"
+    for var in ("LLM_BASE_URL", "LLM_API_KEY", "LLM_MODEL"):
+        monkeypatch.delenv(var, raising=False)
+    out = assistant.answer("dummy_uid", "跟腱疼，早上起床僵硬怎么办？")
+    assert out["medical"] is True
+    assert "就医" in out["answer"], "伤病类回答必须带就医提示"
+    # 非伤病问题不挂 medical 标志
+    out2 = assistant.answer("dummy_uid", "没有手表怎么判断强度？")
+    assert out2["medical"] is False
 
 
 def test_assistant_chat_kb_fallback(monkeypatch):

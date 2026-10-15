@@ -134,6 +134,7 @@ _KB_EXTRA_FALLBACK = [
 _KB_DOCS = [
     ("training-principles.md", "训练原则"),
     ("running-experience.md", "跑者经验"),
+    ("injury-rehab.md", "伤病康复"),
 ]
 
 

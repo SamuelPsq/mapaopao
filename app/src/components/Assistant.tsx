@@ -7,6 +7,7 @@ interface Msg {
   text: string
   sources?: { source: string; name: string }[]
   from?: string
+  medical?: boolean
 }
 
 const SUGGESTIONS = [
@@ -43,9 +44,9 @@ export default function Assistant() {
     setBusy(true)
     setShowWelcome(false)
     try {
-      const r = await api.post<{ answer: string; sources: { source: string; name: string }[]; from: string }>(
+      const r = await api.post<{ answer: string; sources: { source: string; name: string }[]; from: string; medical?: boolean }>(
         "/v1/assistant/chat", { user_id: uid, message: q })
-      setMsgs(m => [...m, { role: "bot", text: r.answer, sources: r.sources, from: r.from }])
+      setMsgs(m => [...m, { role: "bot", text: r.answer, sources: r.sources, from: r.from, medical: r.medical }])
     } catch (e) {
       setMsgs(m => [...m, { role: "bot", text: "网络开小差了，稍后再问我一次～" }])
     } finally {
@@ -107,6 +108,11 @@ export default function Assistant() {
                   ? "max-w-[85%] rounded-2xl rounded-tr-sm bg-primary text-primary-foreground px-3.5 py-2.5 text-sm leading-relaxed"
                   : "max-w-[88%] rounded-2xl rounded-tl-sm bg-muted px-3.5 py-2.5 text-sm leading-relaxed whitespace-pre-wrap"}>
                   {m.text}
+                  {m.medical && (
+                    <div className="mt-2 text-[11px] leading-snug text-amber-700 bg-amber-500/10 border border-amber-500/20 rounded-lg px-2.5 py-1.5">
+                      ⚠️ 伤病内容仅供参考，不构成医疗建议；症状持续或加重，请及时就医（运动医学科 / 骨科）。
+                    </div>
+                  )}
                   {m.sources && m.sources.length > 0 && (
                     <div className="mt-1.5 pt-1.5 border-t border-border/60 flex flex-wrap gap-1">
                       {m.sources.map((s, j) => (
