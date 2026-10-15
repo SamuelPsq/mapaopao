@@ -372,7 +372,7 @@ function cityCoords(name: string): { lat: number; lon: number } {
 
 function Shell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen bg-background flex justify-center">
+    <div className="app-bg min-h-screen flex justify-center">
       <div className="w-full max-w-md px-5 py-8">
         <div className="mb-8">
           <div className="text-3xl font-black tracking-tight">马跑跑</div>

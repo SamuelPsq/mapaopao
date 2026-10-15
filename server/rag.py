@@ -174,9 +174,29 @@ def _load_kb() -> list[dict]:
 
 KB: list[dict] = _load_kb()
 
+
+# IDF：bigram 的文档频率倒排权重。高频场景词（如「跑后」出现在 N 个块）
+# 区分度低，应压权；稀有词（如口语「膝盖」）区分度高，应抬权。
+# 否则 tags 双倍权重会让高频场景词霸榜、压过用户真正的意图词（badcase：
+# 「跑后膝盖痛怎么办」召回了 3 条跑后经验而非膝伤条目）。
+def _build_idf(chunks: list[dict]) -> dict[str, float]:
+    df: dict[str, int] = {}
+    for c in chunks:
+        seen = _bigrams(c["text"]) | _bigrams("".join(c["tags"]))
+        for g in seen:
+            df[g] = df.get(g, 0) + 1
+    n = max(len(chunks), 1)
+    return {g: math.log((n + 1) / (d + 1)) + 1.0 for g, d in df.items()}
+
+
 def _bigrams(text: str) -> set[str]:
     text = re.sub(r"\s+", "", text)
     return {text[i:i + 2] for i in range(len(text) - 1)}
+
+
+_IDF = _build_idf(KB)
+# 查询里出现但知识库中不存在的 bigram（口语新词），按最稀有处理
+_IDF_MAX = math.log(len(KB) + 1) + 1.0 if KB else 1.0
 
 
 def _score(query: str, chunk: dict) -> float:
@@ -185,10 +205,17 @@ def _score(query: str, chunk: dict) -> float:
         return 0.0
     text_bg = _bigrams(chunk["text"])
     tag_str = "".join(chunk["tags"])
-    # 标签是人工标注的同义词入口，命中权重高于正文 bigram
-    hit = sum((2 if g in tag_str else 1) if (g in tag_str or g in text_bg) else 0
-              for g in q)
-    return hit / len(q)
+    # 标签是人工标注的同义词入口，命中权重高于正文 bigram；
+    # 每个 bigram 再乘 IDF：高频场景词权重低，稀有意图词权重高
+    total = sum(_IDF.get(g, _IDF_MAX) for g in q)
+    hit = 0.0
+    for g in q:
+        w = _IDF.get(g, _IDF_MAX)
+        if g in tag_str:
+            hit += 2 * w
+        elif g in text_bg:
+            hit += w
+    return hit / total
 
 
 def retrieve(query: str, k: int = 3) -> list[dict]:

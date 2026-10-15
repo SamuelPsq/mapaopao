@@ -716,7 +716,7 @@ function TimeWheel({ value, onChange }: {
 
 export function Shell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen bg-background flex justify-center">
+    <div className="app-bg min-h-screen flex justify-center">
       <div className="w-full max-w-md px-5 pt-8 pb-28">{children}</div>
     </div>
   )

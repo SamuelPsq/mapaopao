@@ -98,6 +98,22 @@
   }
 }
 
+/* 应用背景：暖纸底 + 顶部晨光晕染 + 底部跑道弧线意象。
+   纯 CSS（渐变 + 内联 SVG），零图片请求、零 JS，静息无动效（天然适配 reduced-motion）。
+   装饰层对比度刻意压到 5–9%，卡片白底不受影响 */
+@layer components {
+  .app-bg {
+    background-color: hsl(var(--background));
+    background-image:
+      radial-gradient(120% 55% at 50% -12%, hsl(var(--primary) / 0.09), transparent 62%),
+      radial-gradient(90% 45% at 88% 110%, hsl(32 95% 52% / 0.07), transparent 60%),
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='520' height='300' viewBox='0 0 520 300'%3E%3Cg fill='none' stroke='%23c2410c' stroke-opacity='0.05' stroke-width='12'%3E%3Ccircle cx='260' cy='470' r='430'/%3E%3Ccircle cx='260' cy='470' r='360'/%3E%3Ccircle cx='260' cy='470' r='290'/%3E%3C/g%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: 0 0, 0 0, center bottom;
+    background-size: auto, auto, min(520px, 100%) auto;
+  }
+}
+
 /* 尊重系统减少动效设置 */
 @media (prefers-reduced-motion: reduce) {
   *,

@@ -155,7 +155,8 @@ def answer(user_id: str, question: str) -> dict:
     if text and medical and "就医" not in text:
         text += f"\n\n{DISCLAIMER}"      # LLM 漏带就医提示时兜底补上
     if not text:
-        text = fallback_answer(question, kb, medical)
+        # 医疗提示由前端 medical 警示条统一展示，降级文案不再重复拼接
+        text = fallback_answer(question, kb, False)
     try:
         save_turn(user_id, question, text)          # 多轮记忆：本轮问答入库，下轮可见
     except Exception:

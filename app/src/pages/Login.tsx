@@ -43,7 +43,7 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen bg-background flex justify-center">
+    <div className="app-bg min-h-screen flex justify-center">
       <div className="w-full max-w-md px-6 pt-16 pb-8 flex flex-col">
         {/* 品牌 */}
         <div className="mb-10">
