@@ -62,6 +62,7 @@ class Plan(Base):
     profile_hash: Mapped[str] = mapped_column(String(16), default="")
     vdot: Mapped[int] = mapped_column(Integer, default=0)
     goal_race: Mapped[str] = mapped_column(String(8), default="full")
+    bmi_conservative: Mapped[bool] = mapped_column(Boolean, default=False)  # BMI≥28 生成的保守计划
     degrade_choice: Mapped[str] = mapped_column(String(16), nullable=True)  # half / defer / insist
 
 
@@ -215,7 +216,8 @@ def init_db() -> None:
                         "ALTER TABLE user ADD COLUMN weight_kg FLOAT",
                         "ALTER TABLE session_log ADD COLUMN duration_sec INTEGER",
                         "ALTER TABLE status_report ADD COLUMN muscle_sore INTEGER",
-                        "ALTER TABLE status_report ADD COLUMN breath_state VARCHAR(16)"):
+                        "ALTER TABLE status_report ADD COLUMN breath_state VARCHAR(16)",
+                        "ALTER TABLE plan ADD COLUMN bmi_conservative INTEGER"):
                 try:
                     conn.execute(text(ddl))
                 except Exception:

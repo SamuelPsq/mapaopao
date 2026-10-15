@@ -161,3 +161,25 @@ def test_status_report_new_fields_and_stretch_advice(monkeypatch):
     skipped_text = r.json()["text"]
     assert any(k in skipped_text for k in ("省", "恢复", "休息", "睡眠")), \
         "skipped 场景应给恢复建议而不是拉伸动作清单"
+
+
+def test_week_review_exposes_bmi_conservative_flag():
+    """BMI≥28 生成的计划：周审视接口应带 bmi_conservative=true，标准计划为 false。"""
+    _fresh_db()
+    heavy_uid = c.post("/v1/account/register", json={"username": "bodye", "password": "run12345"}).json()["user_id"]
+    c.post("/v1/profile", json={
+        "user_id": heavy_uid, "recent_km": 10, "recent_sec": 3600, "avail_days": 4,
+        "goal_race": "half", "ability": "B_base", "injury_flag": "N",
+        "height_cm": 165, "weight_kg": 80, "city": "上海", "lat": 31.23, "lon": 121.47})
+    heavy_plan = c.post(f"/v1/plan/generate?user_id={heavy_uid}").json()["plan_id"]
+    w = c.get(f"/v1/plan/{heavy_plan}/week/1").json()
+    assert w["bmi_conservative"] is True
+
+    normal_uid = c.post("/v1/account/register", json={"username": "bodyf", "password": "run12345"}).json()["user_id"]
+    c.post("/v1/profile", json={
+        "user_id": normal_uid, "recent_km": 10, "recent_sec": 3600, "avail_days": 4,
+        "goal_race": "half", "ability": "B_base", "injury_flag": "N",
+        "height_cm": 170, "weight_kg": 60, "city": "上海", "lat": 31.23, "lon": 121.47})
+    normal_plan = c.post(f"/v1/plan/generate?user_id={normal_uid}").json()["plan_id"]
+    w = c.get(f"/v1/plan/{normal_plan}/week/1").json()
+    assert w["bmi_conservative"] is False

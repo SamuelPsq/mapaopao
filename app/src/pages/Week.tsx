@@ -5,7 +5,7 @@ import { fmtKm } from "@/lib/format"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Shell, NavBar } from "./Today"
-import { ChevronLeft, ChevronRight, CloudSun, Flame, Lightbulb } from "lucide-react"
+import { ChevronLeft, ChevronRight, CloudSun, Flame, Lightbulb, ShieldCheck } from "lucide-react"
 
 const PHASE_CN: Record<string, string> = { load: "加载周", cut: "减量周", taper: "赛前减量" }
 const STATUS_CN: Record<string, string> = {
@@ -82,7 +82,15 @@ export default function Week() {
         {w.is_dropped ? (
           <Badge className="bg-amber-500 hover:bg-amber-500 gap-1"><Flame className="h-3 w-3" />本周降载</Badge>
         ) : null}
+        {w.bmi_conservative ? (
+          <Badge className="bg-sky-600 hover:bg-sky-600 gap-1"><ShieldCheck className="h-3 w-3" />保守规划周 · BMI 适配</Badge>
+        ) : null}
       </div>
+      {w.bmi_conservative ? (
+        <p className="text-xs text-muted-foreground/80 -mt-3 mb-5">
+          这份计划按 BMI 适配的保守模式生成：周跑量增幅减半、基线打 9 折——不是练得少，是给关节留适应时间。体重降到 BMI 28 以下后，在「指标 → 修改训练计划」可切回标准模板。
+        </p>
+      ) : null}
       {!w.is_current ? (
         <p className="text-xs text-muted-foreground/80 -mt-3 mb-5">
           非本周课表为预计量，会根据城市天气（高温、降雨硬约束）实时调整

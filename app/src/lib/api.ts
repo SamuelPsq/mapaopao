@@ -92,6 +92,7 @@ export interface WeekReview {
   phase: string
   planned_km: number
   is_dropped: boolean
+  bmi_conservative: boolean
   is_current: boolean
   comment: { text: string; source: string; note?: string | null }
   adherence: { done: number; planned_snapshot: number; rate: number }

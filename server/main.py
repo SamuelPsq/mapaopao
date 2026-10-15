@@ -620,7 +620,8 @@ def gen_plan(user_id: str):
         plan = db.Plan(plan_id=plan_id, user_id=user_id, version="v3.1",
                        target_distance="marathon" if user.goal_race == "full" else "half_marathon",
                        start_date=start, profile_hash=result["profile_hash"],
-                       vdot=user.vdot, goal_race=user.goal_race)
+                       vdot=user.vdot, goal_race=user.goal_race,
+                       bmi_conservative=bool(result.get("conservative")))
         s.add(plan)
         for w in result["weeks"]:
             pw_id = f"{plan_id}-W{w['week_no']}"
@@ -1185,6 +1186,7 @@ def week_review(plan_id: str, week_no: int):
                 pass
         return {"week_no": week_no, "phase": pw.phase, "planned_km": round(pw.planned_km, 1),
                 "is_dropped": pw.is_dropped,
+                "bmi_conservative": bool(getattr(plan, "bmi_conservative", False)),
                 "is_current": week_no == _current_week_no(plan, date.today()),
                 "comment": {"text": comment["comment"] if isinstance(comment, dict) else comment,
                             "source": csrc, "note": extra_note},
