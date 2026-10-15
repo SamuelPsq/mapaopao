@@ -129,7 +129,7 @@ function OptionCard({ opt, rank, highlight, ai }: { opt: PlanOption; rank: strin
             🤖 AI 推荐这个方案（{ai.source === "llm" ? "LLM + 知识库" : "规则"}）：{ai.reason}
           </div>
         ) : null}
-        <div className="space-y-2 text-sm">
+        <div className="space-y-2.5 text-sm">
           <Line k="为什么" v={opt.explain.reason} />
           <Line k="怎么改" v={opt.explain.what_changed} strong />
           <Line k="代价" v={opt.explain.cost} />
@@ -159,9 +159,13 @@ function OptionCard({ opt, rank, highlight, ai }: { opt: PlanOption; rank: strin
 
 function Line({ k, v, strong }: { k: string; v: string; strong?: boolean }) {
   return (
-    <div className="flex gap-2">
-      <span className="text-muted-foreground shrink-0 w-10">{k}</span>
-      <span className={strong ? "font-medium" : ""}>{v}</span>
+    <div className="flex gap-2.5 items-start">
+      {/* 标签用 nowrap 小徽章：三个字（为什么/怎么改）不再被挤成两行 */}
+      <span className="shrink-0 whitespace-nowrap text-[11px] leading-5 text-muted-foreground bg-muted rounded-md px-1.5">
+        {k}
+      </span>
+      {/* 「怎么改」是核心信息：加粗 + 主题色高亮 */}
+      <span className={`leading-5 ${strong ? "font-semibold text-primary" : ""}`}>{v}</span>
     </div>
   )
 }
