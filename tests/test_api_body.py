@@ -124,3 +124,40 @@ def test_today_card_has_total_km():
            json={"status": "full", "actual_km": sessions[0]["target_km"], "duration_sec": 3000})
     card = c.get("/v1/today", params={"user_id": uid}).json()
     assert card["total_km"] == round(sessions[0]["target_km"], 1)
+
+
+def test_status_report_new_fields_and_stretch_advice(monkeypatch):
+    """打卡问卷：训练中状态/肌肉酸痛新字段落库；拉伸建议接口（模板路径语义确定性）。"""
+    _fresh_db()
+    # 关掉 LLM 走模板路径，保证文案语义可断言（LLM 路径由 explain 专项测试覆盖）
+    from server import explain
+    monkeypatch.setattr(explain, "_llm_call", lambda *a, **k: None)
+    uid = c.post("/v1/account/register", json={"username": "bodyd", "password": "run12345"}).json()["user_id"]
+    c.post("/v1/profile", json={
+        "user_id": uid, "recent_km": 10, "recent_sec": 3600, "avail_days": 4,
+        "goal_race": "half", "ability": "B_base", "injury_flag": "N",
+        "city": "上海", "lat": 31.23, "lon": 121.47})
+
+    r = c.post("/v1/status/report", json={
+        "user_id": uid, "soreness_part": "none", "muscle_sore": True,
+        "breath_state": "gasp", "sleep_score": 6, "fatigue_score": 5, "entry": "popup"})
+    assert r.status_code == 200 and r.json()["ok"]
+    with db.SessionLocal() as s:
+        rep = s.query(db.StatusReport).filter_by(user_id=uid).first()
+        assert rep.muscle_sore is True and rep.breath_state == "gasp"
+
+    # 长距离 → 模板含泡沫轴放松
+    r = c.post("/v1/stretch", json={"user_id": uid, "status": "full",
+                                    "type_cn": "长距离", "target_km": 16.0})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["text"] and body["source"] in ("llm", "template")
+    if body["source"] == "template":
+        assert "泡沫轴" in body["text"]
+
+    # 今天跑不了 → 恢复建议而非拉伸动作（LLM 措辞不固定，只校验语义）
+    r = c.post("/v1/stretch", json={"user_id": uid, "status": "skipped",
+                                    "type_cn": "轻松跑", "target_km": 6.0})
+    skipped_text = r.json()["text"]
+    assert any(k in skipped_text for k in ("省", "恢复", "休息", "睡眠")), \
+        "skipped 场景应给恢复建议而不是拉伸动作清单"

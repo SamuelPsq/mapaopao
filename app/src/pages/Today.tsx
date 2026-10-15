@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { useLocation, useNavigate } from "react-router"
 import { api, loadUser, clearUser, savePlan, type TodayCard } from "@/lib/api"
 import { fmtKm } from "@/lib/format"
@@ -28,6 +28,17 @@ export default function Today() {
   const [dur, setDur] = useState({ h: 0, m: 30, s: 0 })
   // 大幅超额（>3km）后的进阶二次确认
   const [advance, setAdvance] = useState<null | { km: number; sec: number; pace: string }>(null)
+  // 进阶确认期间暂存问卷上下文，确认完再进入问卷
+  const pendingSurvey = useRef<null | { status: string; typeCn: string; km: number }>(null)
+  // 打卡后问卷：训练状态 / 肌肉酸痛 / 关节不适 / 睡眠 / 疲劳
+  const [survey, setSurvey] = useState<null | { status: string; typeCn: string; km: number }>(null)
+  const [breath, setBreath] = useState("talk")
+  const [muscle, setMuscle] = useState("no")
+  const [joint, setJoint] = useState("none")
+  const [sleep, setSleep] = useState(7)
+  const [fatigue, setFatigue] = useState(4)
+  // 跑后拉伸建议（LLM 生成，规则模板兜底）
+  const [stretch, setStretch] = useState<null | { text: string; source: string; suggestion: string }>(null)
 
   const refresh = useCallback(async () => {
     if (!uid) { nav("/login", { replace: true }); return }
@@ -68,8 +79,9 @@ export default function Today() {
     const r = await api.post<{ vdot_update?: string; over_note?: string; under_note?: string; ai_tune_note?: string; rearrange_ready?: boolean; advance_prompt?: boolean; advance_pace?: string }>(
       `/v1/session/${m!.session_id}/log`,
       { status, actual_km, actual_pace: "", duration_sec: durationSec ?? 0, rpe: null })
-    // 大幅超额（>3km）：先问要不要按真实跑力进阶重排
+    // 大幅超额（>3km）：先问要不要按真实跑力进阶重排（确认完再进问卷）
     if (r.advance_prompt) {
+      pendingSurvey.current = { status, typeCn: m!.type_cn, km: actual_km }
       setAdvance({ km: actual_km, sec: durationSec ?? 0, pace: r.advance_pace || "" })
       refresh()
       return
@@ -79,7 +91,8 @@ export default function Today() {
     if (r.over_note) setToast(r.over_note)
     if (r.under_note) setToast(r.under_note)
     if (r.ai_tune_note) setToast(r.ai_tune_note)
-    if (status === "skipped" || r.rearrange_ready) nav("/rearrange?trigger=schedule")
+    // 统一进入打卡后问卷（含「今天跑不了」）
+    setSurvey({ status, typeCn: m!.type_cn, km: actual_km })
     refresh()
   }
 
@@ -109,13 +122,15 @@ export default function Today() {
     log(logDialog.mode, Math.round(km * 10) / 10, durationSec)
   }
 
-  // 进阶确认：是 → 按真实跑力重排剩余周；否 → 保持原计划，提醒循序渐进
+  // 进阶确认：是 → 按真实跑力重排剩余周；否 → 保持原计划，提醒循序渐进。
+  // 两个分支结束后都进入打卡后问卷。
   async function confirmAdvance(yes: boolean) {
     if (!advance) return
     const a = advance
     setAdvance(null)
     if (!yes) {
       setToast("好——那就循序渐进，超额的部分当作状态好的奖励，后面的课按原计划来")
+      setSurvey(pendingSurvey.current)
       return
     }
     try {
@@ -124,6 +139,28 @@ export default function Today() {
       setToast(r.note || "已按照您的跑力重新安排")
     } catch (e) {
       setToast("重排失败：" + (e as Error).message)
+    }
+    setSurvey(pendingSurvey.current)
+    refresh()
+  }
+
+  // 问卷提交：状态上报（含训练状态/酸痛/睡眠/疲劳）→ 拉伸建议弹窗
+  async function submitSurvey() {
+    if (!survey) return
+    const sv = survey
+    setSurvey(null)
+    try {
+      const r = await api.post<{ suggestion: string | null }>("/v1/status/report", {
+        user_id: uid, soreness_part: joint, muscle_sore: muscle === "yes",
+        breath_state: breath, sleep_score: sleep, fatigue_score: fatigue, entry: "checkin",
+      })
+      const st = await api.post<{ text: string; source: string }>("/v1/stretch", {
+        user_id: uid, status: sv.status, type_cn: sv.typeCn, target_km: sv.km,
+      })
+      setStretch({ ...st, suggestion: r.suggestion || "" })
+      if (r.suggestion) setToast(r.suggestion)
+    } catch (e) {
+      setToast("状态上报失败：" + (e as Error).message)
     }
     refresh()
   }
@@ -232,9 +269,6 @@ export default function Today() {
           onClick={() => openLogDialog("over")}>超额完成</Button>
       </div>
 
-      {/* 身体上报（打卡即上报） */}
-      <ReportSheet onDone={(msg) => { setToast(msg); refresh() }} />
-
       {/* 本周进度 */}
       <div className="mt-6 rounded-2xl border bg-card p-4 shadow-sm">
         <div className="flex justify-between text-xs text-muted-foreground mb-2">
@@ -300,6 +334,93 @@ export default function Today() {
         </AlertDialogContent>
       </AlertDialog>
 
+      {/* 打卡后问卷：训练状态 / 酸痛 / 睡眠 / 疲劳（四个按钮统一入口） */}
+      <Dialog open={!!survey} onOpenChange={(o) => { if (!o) setSurvey(null) }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>今天的状态怎么样？</DialogTitle>
+            <DialogDescription>
+              30 秒答完，系统会结合你的回答调整后续建议（连续伤痛会自动触发降载护栏）。
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-5 py-2">
+            <div>
+              <Label className="text-xs text-muted-foreground">训练中是什么状态？</Label>
+              <RadioGroup value={breath} onValueChange={setBreath} className="mt-2">
+                {[["gasp", "喘粗气，说不出整句"], ["talk", "能边跑边说话"], ["easy", "强度很低，很轻松"]].map(([v, l]) => (
+                  <label key={v} className="flex items-center gap-2 py-1.5 cursor-pointer">
+                    <RadioGroupItem value={v} /><span className="text-sm">{l}</span>
+                  </label>
+                ))}
+              </RadioGroup>
+            </div>
+            <div>
+              <Label className="text-xs text-muted-foreground">训练结束后肌肉酸痛？</Label>
+              <RadioGroup value={muscle} onValueChange={setMuscle} className="mt-2">
+                <div className="flex gap-4">
+                  {[["no", "没有"], ["yes", "有酸痛"]].map(([v, l]) => (
+                    <label key={v} className="flex items-center gap-1.5 cursor-pointer">
+                      <RadioGroupItem value={v} /><span className="text-sm">{l}</span>
+                    </label>
+                  ))}
+                </div>
+              </RadioGroup>
+            </div>
+            <div>
+              <Label className="text-xs text-muted-foreground">关节不适？（膝盖 / 脚踝 / 小腿，连续上报会触发降载）</Label>
+              <RadioGroup value={joint} onValueChange={setJoint} className="mt-2">
+                <div className="flex gap-4">
+                  {[["none", "没有"], ["knee", "膝盖"], ["ankle", "脚踝"], ["calf", "小腿"]].map(([v, l]) => (
+                    <label key={v} className="flex items-center gap-1.5 cursor-pointer">
+                      <RadioGroupItem value={v} /><span className="text-sm">{l}</span>
+                    </label>
+                  ))}
+                </div>
+              </RadioGroup>
+            </div>
+            <div>
+              <Label>今日睡眠：{sleep}/10</Label>
+              <Slider value={[sleep]} min={1} max={10} onValueChange={([v]) => setSleep(v)} />
+            </div>
+            <div>
+              <Label>疲劳程度：{fatigue}/10</Label>
+              <Slider value={[fatigue]} min={1} max={10} onValueChange={([v]) => setFatigue(v)} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setSurvey(null)}>跳过</Button>
+            <Button onClick={submitSurvey}>提交并看拉伸建议</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 跑后拉伸提醒：LLM 生成，规则模板兜底 */}
+      <Dialog open={!!stretch} onOpenChange={(o) => { if (!o) setStretch(null) }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              🧘 别忘了拉伸
+              {stretch ? (
+                <Badge variant="secondary" className="text-[10px] px-1.5">
+                  {stretch.source === "llm" ? "AI 生成" : "规则生成"}
+                </Badge>
+              ) : null}
+            </DialogTitle>
+          </DialogHeader>
+          {stretch ? (
+            <div className="space-y-3 py-2">
+              <p className="text-sm text-muted-foreground leading-relaxed">{stretch.text}</p>
+              {stretch.suggestion ? (
+                <p className="text-xs bg-muted/60 rounded px-2.5 py-2 leading-relaxed">💡 {stretch.suggestion}</p>
+              ) : null}
+            </div>
+          ) : null}
+          <DialogFooter>
+            <Button onClick={() => setStretch(null)}>收到，这就去</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* 时间对不上时的弹窗：不是不练，时候未到 */}
       <AlertDialog open={notTimeOpen} onOpenChange={setNotTimeOpen}>
         <AlertDialogContent>
@@ -317,56 +438,6 @@ export default function Today() {
         </AlertDialogContent>
       </AlertDialog>
     </Shell>
-  )
-}
-
-function ReportSheet({ onDone }: { onDone: (msg: string) => void }) {
-  const uid = loadUser()!
-  const [open, setOpen] = useState(false)
-  const [part, setPart] = useState("none")
-  const [sleep, setSleep] = useState(7)
-  const [fatigue, setFatigue] = useState(4)
-
-  async function submit() {
-    const r = await api.post<{ suggestion: string | null }>("/v1/status/report", {
-      user_id: uid, soreness_part: part, sleep_score: sleep, fatigue_score: fatigue, entry: "checkin",
-    })
-    setOpen(false)
-    onDone(r.suggestion || "状态已上报，今天的建议会随之调整")
-  }
-
-  return (
-    <Sheet open={open} onOpenChange={setOpen}>
-      <SheetTrigger asChild>
-        <Button variant="ghost" className="w-full">📋 上报身体状态（酸痛 / 睡眠 / 疲劳）</Button>
-      </SheetTrigger>
-      <SheetContent side="bottom" className="rounded-t-2xl">
-        <SheetHeader><SheetTitle>身体状态上报</SheetTitle></SheetHeader>
-        <div className="space-y-6 px-1 py-4">
-          <div>
-            <Label>哪里酸痛？</Label>
-            <RadioGroup value={part} onValueChange={setPart} className="mt-2">
-              <div className="flex gap-4">
-                {[["none", "没有"], ["knee", "膝盖"], ["calf", "小腿"], ["ankle", "脚踝"]].map(([v, l]) => (
-                  <label key={v} className="flex items-center gap-1.5">
-                    <RadioGroupItem value={v} /><span className="text-sm">{l}</span>
-                  </label>
-                ))}
-              </div>
-            </RadioGroup>
-          </div>
-          <div>
-            <Label>睡眠：{sleep}/10</Label>
-            <Slider value={[sleep]} min={1} max={10} onValueChange={([v]) => setSleep(v)} />
-          </div>
-          <div>
-            <Label>疲劳：{fatigue}/10</Label>
-            <Slider value={[fatigue]} min={1} max={10} onValueChange={([v]) => setFatigue(v)} />
-          </div>
-          <Button className="w-full" onClick={submit}>提交（一次点击，打卡即上报）</Button>
-        </div>
-      </SheetContent>
-    </Sheet>
   )
 }
 

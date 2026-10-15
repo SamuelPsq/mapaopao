@@ -141,6 +141,7 @@ SCENE_SCHEMAS: dict[str, dict] = {
     "week_comment": _obj(comment={"type": "string"}),
     "degrade_advice": _obj(advice={"type": "string"}),
     "rearrange_recommend": _obj(choice={"type": "string"}, reason={"type": "string"}),
+    "stretch_advice": _obj(stretch={"type": "string"}),
 }
 
 
@@ -180,6 +181,22 @@ def week_comment_template(f: dict) -> str:
 def degrade_advice_template(f: dict) -> str:
     return (f"过去 3 周你完成了 {f['total_plan']} 次关键课里的 {f['total_done']} 次，"
             f"按当前进度直接跑{f['race']}会有风险")
+
+
+def stretch_advice_template(f: dict) -> str:
+    """跑后拉伸/恢复建议：按打卡状态给不同动作组合（数字全来自 facts）。"""
+    km = f.get("target_km", 0)
+    if f.get("status") == "skipped":
+        return ("今天没跑成，拉伸可以省掉，但恢复不能省：睡前 10 分钟静态拉伸 + 今晚尽量睡够，"
+                "明天的课按原计划来，不用补今天的量")
+    base = ["小腿后侧拉伸 30 秒×2", "股四头肌拉伸 30 秒×2", "臀部拉伸 30 秒×2"]
+    if f.get("type_cn") == "长距离" or km >= 15:
+        base += ["髂胫束放松（泡沫轴）每侧 1 分钟", "靠墙静蹲 45 秒×2"]
+    elif f.get("type_cn") in ("间歇", "阈值跑"):
+        base += ["髂胫束放松（泡沫轴）每侧 1 分钟"]
+    else:
+        base += ["大腿后侧拉伸 30 秒×2"]
+    return "跑完先走 3–5 分钟让心率回落，再做：" + "；".join(base) + "。今晚睡眠尽量充足，恢复发生在休息里"
 
 
 # ---------------------------------------------------------------- LLM 调用

@@ -140,6 +140,8 @@ class StatusReport(Base):
     user_id: Mapped[str] = mapped_column(String(32), index=True)
     date: Mapped[Date] = mapped_column(Date, index=True)
     soreness_part: Mapped[str] = mapped_column(String(16), default="")  # knee / calf / none ...
+    muscle_sore: Mapped[bool] = mapped_column(Boolean, default=False)   # 训练后肌肉酸痛（DOMS）
+    breath_state: Mapped[str] = mapped_column(String(16), default="")   # gasp 喘粗气 / talk 能说话 / easy 强度低
     sleep_score: Mapped[int] = mapped_column(Integer, default=5)
     fatigue_score: Mapped[int] = mapped_column(Integer, default=5)
     entry: Mapped[str] = mapped_column(String(12), default="checkin")   # checkin / popup
@@ -211,7 +213,9 @@ def init_db() -> None:
                 pass
             for ddl in ("ALTER TABLE user ADD COLUMN height_cm FLOAT",
                         "ALTER TABLE user ADD COLUMN weight_kg FLOAT",
-                        "ALTER TABLE session_log ADD COLUMN duration_sec INTEGER"):
+                        "ALTER TABLE session_log ADD COLUMN duration_sec INTEGER",
+                        "ALTER TABLE status_report ADD COLUMN muscle_sore INTEGER",
+                        "ALTER TABLE status_report ADD COLUMN breath_state VARCHAR(16)"):
                 try:
                     conn.execute(text(ddl))
                 except Exception:

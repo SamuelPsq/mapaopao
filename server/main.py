@@ -164,9 +164,18 @@ class AdvanceIn(BaseModel):
 class StatusReportIn(BaseModel):
     user_id: str
     soreness_part: str = "none"            # knee / calf / ankle / none
+    muscle_sore: bool = False              # 训练后肌肉酸痛（DOMS）
+    breath_state: str = ""                 # gasp 喘粗气 / talk 能边跑边说话 / easy 强度很低
     sleep_score: int = 5
     fatigue_score: int = 5
     entry: str = "checkin"
+
+
+class StretchIn(BaseModel):
+    user_id: str
+    status: str                            # full / partial / skipped
+    type_cn: str = ""                      # 轻松跑 / 长距离 …
+    target_km: float = 0.0
 
 
 class PreviewIn(BaseModel):
@@ -902,7 +911,9 @@ def status_report(body: StatusReportIn):
     forced_deload = False
     with db.SessionLocal.begin() as s:
         s.add(db.StatusReport(user_id=body.user_id, date=date.today(),
-                              soreness_part=body.soreness_part, sleep_score=body.sleep_score,
+                              soreness_part=body.soreness_part, muscle_sore=body.muscle_sore,
+                              breath_state=body.breath_state,
+                              sleep_score=body.sleep_score,
                               fatigue_score=body.fatigue_score, entry=body.entry))
         s.add(db.Event(name="status_reported", user_id=body.user_id,
                        payload=body.model_dump()))
@@ -922,6 +933,17 @@ def status_report(body: StatusReportIn):
             suggest = "已收到你的状态上报，今天的强度课建议降级或调整，点此查看方案"
     return {"ok": True, "injury_reports_14d": injury_14d, "suggestion": suggest,
             "forced_deload": forced_deload}
+
+
+@app.post("/v1/stretch")
+def stretch_advice(body: StretchIn):
+    """跑后拉伸建议：LLM 生成，规则模板兜底（数字全部来自 facts，过数值断言）。"""
+    from server.explain import render_scene, stretch_advice_template
+    facts = {"status": body.status, "type_cn": body.type_cn, "target_km": body.target_km}
+    out, src = render_scene("stretch_advice", facts, stretch_advice_template(facts))
+    text = out["stretch"] if isinstance(out, dict) else out
+    db.track("llm_explain", body.user_id, scene="stretch_advice", source=src)
+    return {"text": text, "source": src}
 
 
 def _apply_deload_week(s, user_id: str) -> bool:
