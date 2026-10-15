@@ -115,6 +115,7 @@ class SessionLog(Base):
     actual_pace: Mapped[str] = mapped_column(String(16), default="")
     duration_sec: Mapped[int] = mapped_column(Integer, default=0)  # 总用时（秒），打卡弹窗填
     rpe: Mapped[int] = mapped_column(Integer, nullable=True)
+    skip_kind: Mapped[str] = mapped_column(String(12), default="")   # skipped 时：rest 停练 / strength 室内力量
     logged_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
@@ -215,6 +216,7 @@ def init_db() -> None:
             for ddl in ("ALTER TABLE user ADD COLUMN height_cm FLOAT",
                         "ALTER TABLE user ADD COLUMN weight_kg FLOAT",
                         "ALTER TABLE session_log ADD COLUMN duration_sec INTEGER",
+                        "ALTER TABLE session_log ADD COLUMN skip_kind VARCHAR(12)",
                         "ALTER TABLE status_report ADD COLUMN muscle_sore INTEGER",
                         "ALTER TABLE status_report ADD COLUMN breath_state VARCHAR(16)",
                         "ALTER TABLE plan ADD COLUMN bmi_conservative INTEGER"):

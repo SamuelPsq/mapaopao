@@ -148,6 +148,7 @@ class LogIn(BaseModel):
     actual_pace: str = ""                  # "5:30"，为空时可用 duration_sec 反算
     duration_sec: int = 0                  # 总用时（秒）
     rpe: int | None = None
+    skip_kind: str = ""                    # skipped 时记录：rest 停练 / strength 室内力量
 
 
 class WeightIn(BaseModel):
@@ -821,6 +822,89 @@ def _recovery_alert(s, user_id: str, main) -> dict | None:
     return {"type": kind, "message": msg}
 
 
+SORENESS_CN = {"knee": "膝盖", "ankle": "脚踝", "calf": "小腿", "hip": "髋部", "none": ""}
+
+
+@app.get("/v1/calendar")
+def calendar_view(user_id: str, month: str):
+    """月历视图：每天标注跑量/配速、休息日，以及停练原因（伤病 / 天气 / 力量训练）。"""
+    try:
+        month_start = date.fromisoformat(f"{month}-01")
+    except ValueError:
+        raise HTTPException(400, "month 格式应为 YYYY-MM")
+    if month_start.month == 12:
+        month_end = date(month_start.year + 1, 1, 1) - timedelta(days=1)
+    else:
+        month_end = date(month_start.year, month_start.month + 1, 1) - timedelta(days=1)
+    today = date.today()
+    with db.SessionLocal() as s:
+        user = s.get(db.User, user_id)
+        if not user:
+            raise HTTPException(404, "用户不存在")
+        plan = _active_plan(s, user_id)
+        sess_rows: list = []
+        logs: dict = {}
+        if plan:
+            sess_rows = s.query(db.Session).filter(
+                db.Session.plan_id == plan.plan_id,
+                db.Session.date >= month_start, db.Session.date <= month_end).all()
+            ids = {x.session_id for x in sess_rows}
+            logs = {l.session_id: l for l in s.query(db.SessionLog).all()
+                    if l.session_id in ids}
+        # 当月身体上报（伤病停练的判断依据）
+        reps = {r.date: r for r in s.query(db.StatusReport).filter(
+            db.StatusReport.user_id == user_id,
+            db.StatusReport.date >= month_start, db.StatusReport.date <= month_end)}
+        # 天气硬约束日（get_week_weather 带周缓存，逐日取不会放大请求）
+        wx_bad: dict = {}
+        d = month_start
+        while d <= month_end:
+            wd = get_week_weather(user.lat, user.lon, d).get(d.isoformat())
+            if wd and wd.hard_constraint:
+                wx_bad[d] = "雷电/大雨" if (wd.is_thunder or wd.precip >= 10) else "空气质量不佳"
+            d += timedelta(days=1)
+        by_day: dict = {}
+        for x in sess_rows:
+            by_day.setdefault(x.date, []).append(x)
+        from server.tune import TYPE_CN
+        days = []
+        d = month_start
+        while d <= month_end:
+            entry = {"date": d.isoformat(), "kind": "none", "km": None,
+                     "pace": "", "reason": "", "type_cn": ""}
+            items = by_day.get(d, [])
+            logged = [(x, logs[x.session_id]) for x in items if x.session_id in logs]
+            if logged:
+                x, lg = sorted(logged, key=lambda p: p[1].logged_at)[-1]
+                if lg.status in ("full", "partial"):
+                    entry.update(kind="run", km=round(lg.actual_km, 1),
+                                 pace=lg.actual_pace, type_cn=TYPE_CN.get(x.type, x.type))
+                elif lg.skip_kind == "strength":
+                    entry.update(kind="strength", type_cn=TYPE_CN.get(x.type, x.type))
+                else:
+                    rep = reps.get(d)
+                    part = SORENESS_CN.get(rep.soreness_part, "") if rep else ""
+                    if part:
+                        entry.update(kind="injury", reason=f"伤病停练·{part}",
+                                     type_cn=TYPE_CN.get(x.type, x.type))
+                    elif d in wx_bad:
+                        entry.update(kind="weather", reason=wx_bad[d],
+                                     type_cn=TYPE_CN.get(x.type, x.type))
+                    else:
+                        entry.update(kind="skip", type_cn=TYPE_CN.get(x.type, x.type))
+            elif items:
+                x = sorted(items, key=lambda v: not v.is_key)[0]
+                if x.type == "rest" or x.target_km == 0:
+                    entry["kind"] = "rest"
+                elif d > today:
+                    entry.update(kind="future", type_cn=TYPE_CN.get(x.type, x.type))
+                else:
+                    entry.update(kind="missed", type_cn=TYPE_CN.get(x.type, x.type))
+            days.append(entry)
+            d += timedelta(days=1)
+        return {"month": month, "today": today.isoformat(), "days": days}
+
+
 @app.post("/v1/session/{session_id}/log")
 def log_session(session_id: str, body: LogIn):
     """写 session_log；skipped / 超额完成 / 明显不足时自动触发候选预生成（不展示，先算好）。"""
@@ -837,7 +921,8 @@ def log_session(session_id: str, body: LogIn):
             actual_pace = sec_to_pace(round(body.duration_sec / body.actual_km))
         s.add(db.SessionLog(session_id=session_id, status=body.status,
                             actual_km=body.actual_km, actual_pace=actual_pace,
-                            duration_sec=body.duration_sec, rpe=body.rpe))
+                            duration_sec=body.duration_sec, rpe=body.rpe,
+                            skip_kind=body.skip_kind if body.status == "skipped" else ""))
         sess.status = {"full": "done", "partial": "partial", "skipped": "skipped"}[body.status]
         s.add(db.Event(name="session_done", user_id=sess.plan_id and _uid_of(s, sess.plan_id),
                        payload={"session_id": session_id, "degree": body.status,

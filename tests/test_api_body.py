@@ -241,3 +241,51 @@ def test_week_review_exposes_bmi_conservative_flag():
     normal_plan = c.post(f"/v1/plan/generate?user_id={normal_uid}").json()["plan_id"]
     w = c.get(f"/v1/plan/{normal_plan}/week/1").json()
     assert w["bmi_conservative"] is False
+
+
+def test_skip_kind_and_calendar_view():
+    """跳过方式（停练/力量）落库；/v1/calendar 正确分类 run/rest/strength/skip。"""
+    from datetime import date as _date
+    _fresh_db()
+    uid = _seed_user_with_plan("bodycal")
+    plan_id = c.get(f"/v1/today?user_id={uid}").json()["plan_id"]
+    sessions = c.get(f"/v1/plan/{plan_id}/week/1").json()["sessions"]
+
+    today_sess = next((s for s in sessions if s["date"] == _date.today().isoformat()), None)
+    rest_days = [s for s in sessions if s["type"] == "rest"]
+    # 找 3 节课：今天打卡、一节报力量、一节报停练
+    targets = [s for s in sessions if s["type"] != "rest" and
+               (today_sess is None or s["session_id"] != today_sess["session_id"])][:2]
+    if today_sess is not None and len(targets) >= 1:
+        c.post(f"/v1/session/{today_sess['session_id']}/log",
+               json={"status": "full", "actual_km": today_sess["target_km"], "duration_sec": 3000})
+        c.post(f"/v1/session/{targets[0]['session_id']}/log",
+               json={"status": "skipped", "skip_kind": "strength"})
+    if len(targets) >= 2:
+        c.post(f"/v1/session/{targets[1]['session_id']}/log",
+               json={"status": "skipped", "skip_kind": "rest"})
+        # 给停练那天补一条酸痛上报 → 月历应归类为伤病停练
+        with db.SessionLocal.begin() as s:
+            s.add(db.StatusReport(user_id=uid, date=_date.fromisoformat(targets[1]["date"]),
+                                  soreness_part="knee", sleep_score=6, fatigue_score=4))
+
+    month = _date.today().strftime("%Y-%m")
+    cal = c.get("/v1/calendar", params={"user_id": uid, "month": month}).json()
+    assert cal["month"] == month and len(cal["days"]) >= 28
+    by_date = {d["date"]: d for d in cal["days"]}
+    if today_sess is not None:
+        d = by_date[today_sess["date"]]
+        assert d["kind"] == "run" and d["km"] == round(today_sess["target_km"], 1) and d["pace"]
+    if len(targets) >= 2:
+        d_str = by_date[targets[0]["date"]]
+        assert d_str["kind"] == "strength", "标记力量的跳过应显示为室内力量"
+        d_rest = by_date[targets[1]["date"]]
+        assert d_rest["kind"] == "injury" and "膝盖" in d_rest["reason"], \
+            "有酸痛上报的停练应红标注伤病原因"
+    # 休息日
+    if rest_days:
+        assert by_date[rest_days[0]["date"]]["kind"] == "rest"
+    # skip_kind 落库校验
+    with db.SessionLocal() as s:
+        row = s.query(db.SessionLog).filter_by(skip_kind="strength").first()
+        assert row is not None

@@ -12,6 +12,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Slider } from "@/components/ui/slider"
 import { Label } from "@/components/ui/label"
 import { CityPicker } from "@/components/CityPicker"
+import MonthCalendar from "@/components/MonthCalendar"
 import type { CityInfo } from "@/lib/cities"
 import { CalendarDays, ChartNoAxesColumnIncreasing, CloudSun, Dumbbell, Flame, House, MapPin, MoonStar, Target, Timer, Wrench } from "lucide-react"
 
@@ -22,8 +23,12 @@ export default function Today() {
   const [err, setErr] = useState("")
   const [toast, setToast] = useState("")
   const [notTimeOpen, setNotTimeOpen] = useState(false)
-  // 「今天跑不了」的二次确认：确认后才记录并进入状态记录卡
+  // 「今天跑不了」的二次确认：确认后再记录并进入状态记录卡
   const [skipConfirm, setSkipConfirm] = useState(false)
+  // 跳过的方式：彻底休息 / 室内力量训练（记入月历）
+  const [skipKindOpen, setSkipKindOpen] = useState(false)
+  // 月历弹窗
+  const [calendarOpen, setCalendarOpen] = useState(false)
   // 打卡弹窗：完成了 / 只跑了一部分 / 超额完成 三个按钮统一走「里程 + 时分秒」弹窗
   const [logDialog, setLogDialog] = useState<null | { mode: "full" | "partial" | "over" }>(null)
   const [kmInput, setKmInput] = useState("")
@@ -75,12 +80,13 @@ export default function Today() {
   const todayStr = new Date().toLocaleDateString("sv-SE")   // YYYY-MM-DD（本地时区）
   const isToday = !!m && m.date === todayStr                // 主课是不是今天的课
 
-  async function log(status: "full" | "partial" | "skipped", actualKm?: number, durationSec?: number) {
+  async function log(status: "full" | "partial" | "skipped", actualKm?: number, durationSec?: number, skipKind?: "rest" | "strength") {
     if (!isToday) { setNotTimeOpen(true); return }          // 时间对不上：不是不练，时候未到
     const actual_km = actualKm ?? (status === "full" ? m!.target_km : 0)
     const r = await api.post<{ vdot_update?: string; over_note?: string; under_note?: string; ai_tune_note?: string; rearrange_ready?: boolean; advance_prompt?: boolean; advance_pace?: string }>(
       `/v1/session/${m!.session_id}/log`,
-      { status, actual_km, actual_pace: "", duration_sec: durationSec ?? 0, rpe: null })
+      { status, actual_km, actual_pace: "", duration_sec: durationSec ?? 0, rpe: null,
+        skip_kind: skipKind ?? "" })
     // 大幅超额（>3km）：先问要不要按真实跑力进阶重排（确认完再进问卷）
     if (r.advance_prompt) {
       pendingSurvey.current = { status, typeCn: m!.type_cn, km: actual_km }
@@ -183,6 +189,14 @@ export default function Today() {
         {card.is_dropped ? (
           <Badge className="bg-amber-500 hover:bg-amber-500 gap-1"><Flame className="h-3 w-3" />本周降载</Badge>
         ) : null}
+      </div>
+
+      {/* 查看月记录 */}
+      <div className="flex justify-end -mb-2">
+        <button onClick={() => setCalendarOpen(true)}
+          className="text-xs text-primary flex items-center gap-1 py-1 active:scale-95 transition-transform">
+          <CalendarDays className="h-3.5 w-3.5" />查看月记录
+        </button>
       </div>
 
       {/* 跑量数据：页面最主要元素（纯数据，无卡片） */}
@@ -471,12 +485,39 @@ export default function Today() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <Button variant="outline" onClick={() => setSkipConfirm(false)}>点错了</Button>
-            <AlertDialogAction onClick={() => { setSkipConfirm(false); log("skipped") }}>
+            <AlertDialogAction onClick={() => { setSkipConfirm(false); setSkipKindOpen(true) }}>
               确认，今天跑不了
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* 跳过方式记录：停练 or 室内力量（月历上会区分展示） */}
+      <Dialog open={skipKindOpen} onOpenChange={(o) => { if (!o) setSkipKindOpen(false) }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>今天是怎么安排的？</DialogTitle>
+            <DialogDescription>
+              记一笔，月历里就能看到这些天你不是「偷懒」，是在恢复或变强。
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid grid-cols-2 gap-2 py-2">
+            <Button variant="outline" className="h-16 flex-col gap-1 bg-card"
+              onClick={() => { setSkipKindOpen(false); log("skipped", undefined, undefined, "rest") }}>
+              <span className="text-base font-bold">彻底休息</span>
+              <span className="text-[11px] text-muted-foreground font-normal">恢复也是训练</span>
+            </Button>
+            <Button className="h-16 flex-col gap-1" variant="secondary"
+              onClick={() => { setSkipKindOpen(false); log("skipped", undefined, undefined, "strength") }}>
+              <span className="text-base font-bold">室内力量训练</span>
+              <span className="text-[11px] text-muted-foreground font-normal">核心/下肢力量</span>
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* 月历：当月每天的跑量/配速与停练原因 */}
+      <MonthCalendar open={calendarOpen} onOpenChange={setCalendarOpen} uid={uid} />
     </Shell>
   )
 }
