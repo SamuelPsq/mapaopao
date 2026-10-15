@@ -463,6 +463,34 @@ if os.environ.get("MAPAOPAO_DEV") == "1":
         threading.Thread(target=_die, daemon=True).start()
         return {"ok": True, "message": "后端 0.3 秒后挂起"}
 
+    @app.post("/dev/restart")
+    def dev_restart():
+        """【仅开发演示】一键重启后端：拉起看护进程（等端口释放后启动新实例），
+        本进程延迟 1.5 秒后自行退出。恢复期间前端轮询 /v1 探活，约 5 秒自动恢复。
+        仅在环境变量 MAPAOPAO_DEV=1 时注册，生产环境没有这个接口。"""
+        import subprocess
+        import sys
+        import threading
+
+        root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        flags = 0
+        if os.name == "nt":
+            flags = (subprocess.CREATE_NEW_PROCESS_GROUP
+                     | getattr(subprocess, "DETACHED_PROCESS", 0))
+        subprocess.Popen([sys.executable, os.path.join(root, "server", "dev_restart.py"),
+                          str(os.getpid())],
+                         cwd=root, env=dict(os.environ, MAPAOPAO_DEV="1"),
+                         creationflags=flags,
+                         stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                         stderr=subprocess.DEVNULL, close_fds=True)
+
+        def _die():
+            time.sleep(1.5)      # 看护进程已启动、响应已发出
+            os._exit(0)
+
+        threading.Thread(target=_die, daemon=True).start()
+        return {"ok": True, "message": "后端正在重启，约 5 秒后自动恢复"}
+
 
 @app.post("/v1/account/delete")
 def delete_account(body: AccountIn):
