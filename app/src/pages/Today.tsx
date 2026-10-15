@@ -394,7 +394,9 @@ export default function Today() {
                 偏差超过 30%。是临时起意，还是这节课的强度和你不匹配？</> : null}
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter className="flex-col gap-2">
+          {/* sm 断点以上 footer 默认变横排，两个 w-full 按钮会撑破弹窗（溢出屏幕），
+              这里强制纵向排列 */}
+          <AlertDialogFooter className="!flex-col gap-2">
             <Button variant="outline" className="w-full"
               onClick={() => answerDevAsk("impulse")}>临时起意 —— 只记录，原计划不变</Button>
             <AlertDialogAction className="w-full"

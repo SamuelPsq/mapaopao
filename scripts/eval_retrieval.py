@@ -115,7 +115,7 @@ def main():
     print(f"加载 embedding 模型：{MODEL} ...")
     model = SentenceTransformer(MODEL)
 
-    rows, a1 = a3 = b1 = b3 = n = 0
+    a1 = a3 = b1 = b3 = n = 0
     lines = []
     for q, exp in QUERIES:
         ra = bigram_rank(q, kb)
