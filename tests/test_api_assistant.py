@@ -89,3 +89,46 @@ def test_assistant_endpoint_and_validation():
     assert isinstance(body["sources"], list)
     r = c.post("/v1/assistant/chat", json={"user_id": uid, "message": "   "})
     assert r.status_code == 400
+
+
+def test_assistant_history_isolated_between_users():
+    """多账号隔离：A 的聊天记录绝不能被 B 看到。"""
+    db.Base.metadata.drop_all(db.engine)
+    db.Base.metadata.create_all(db.engine)
+    uid_a = _fresh_user("iso_a")
+    uid_b = _fresh_user("iso_b")
+    c.post(f"/v1/plan/generate?user_id={uid_a}")
+    c.post("/v1/assistant/chat", json={"user_id": uid_a, "message": "为什么我计划里大半是轻松跑？"})
+    assert c.get(f"/v1/assistant/history?user_id={uid_a}").json()["messages"], "A 应有历史"
+    assert c.get(f"/v1/assistant/history?user_id={uid_b}").json()["messages"] == [], "B 绝不能看到 A 的对话"
+
+
+def test_logout_clears_assistant_history():
+    """退出登录即物理清空该账号的跑小助聊天记录（用户要求：退出即清）。"""
+    db.Base.metadata.drop_all(db.engine)
+    db.Base.metadata.create_all(db.engine)
+    uid = _fresh_user("chatter1")
+    c.post(f"/v1/plan/generate?user_id={uid}")
+    c.post("/v1/assistant/chat", json={"user_id": uid, "message": "睡眠不足还能照常训练吗？"})
+    assert c.get(f"/v1/assistant/history?user_id={uid}").json()["messages"], "退出前应有历史"
+    token = c.post("/v1/account/login",
+                   json={"username": "chatter1", "password": "run12345"}).json()["token"]
+    r = c.post("/v1/account/logout", headers={"Authorization": f"Bearer {token}"})
+    assert r.status_code == 200
+    assert c.get(f"/v1/assistant/history?user_id={uid}").json()["messages"] == [], "退出后历史必须清空"
+    # 再次登录是全新会话，不带旧记录
+    c.post("/v1/account/login", json={"username": "chatter1", "password": "run12345"})
+    assert c.get(f"/v1/assistant/history?user_id={uid}").json()["messages"] == []
+
+
+def test_delete_account_clears_assistant_msg():
+    """注销账号时聊天记录一并级联删除，不留孤儿数据。"""
+    db.Base.metadata.drop_all(db.engine)
+    db.Base.metadata.create_all(db.engine)
+    uid = _fresh_user("deleter1")
+    c.post(f"/v1/plan/generate?user_id={uid}")
+    c.post("/v1/assistant/chat", json={"user_id": uid, "message": "厌跑怎么办？"})
+    r = c.post("/v1/account/delete", json={"username": "deleter1", "password": "run12345"})
+    assert r.status_code == 200
+    with db.SessionLocal() as s:
+        assert s.query(db.AssistantMsg).filter_by(user_id=uid).count() == 0

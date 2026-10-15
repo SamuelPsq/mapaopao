@@ -149,4 +149,6 @@ export function clearUser() {
   localStorage.removeItem("mpaopao_plan")
   localStorage.removeItem("mpaopao_username")
   localStorage.removeItem("mpaopao_token")
+  // 通知挂根部、路由切换不卸载的组件（如跑小助）立即清空本账号状态，防串话
+  window.dispatchEvent(new Event("mpaopao:logout"))
 }

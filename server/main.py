@@ -432,13 +432,19 @@ def login(body: AccountIn, request: Request):
 
 @app.post("/v1/account/logout")
 def logout(request: Request):
-    """退出登录：凭 token 找到账号并作废凭证；token 已失效也幂等返回 ok。"""
+    """退出登录：凭 token 找到账号并作废凭证；token 已失效也幂等返回 ok。
+
+    同时物理删除该账号的跑小助对话记录：聊天记录属会话敏感数据，
+    用户要求「退出即清」，避免换账号/换设备后能看到别人的对话。
+    """
     token = _bearer_token(request)
     if token:
         with db.SessionLocal.begin() as s:
             acc = s.query(db.Account).filter_by(token=token).first()
             if acc:
                 acc.token = None
+                s.query(db.AssistantMsg).filter_by(
+                    user_id=acc.user_id).delete(synchronize_session=False)
     return {"ok": True}
 
 
@@ -472,6 +478,7 @@ def delete_account(body: AccountIn):
         s.query(db.RearrangeEvent).filter_by(user_id=user_id).delete(synchronize_session=False)
         s.query(db.StatusReport).filter_by(user_id=user_id).delete(synchronize_session=False)
         s.query(db.Event).filter_by(user_id=user_id).delete(synchronize_session=False)
+        s.query(db.AssistantMsg).filter_by(user_id=user_id).delete(synchronize_session=False)
         s.query(db.Account).filter_by(username=username).delete(synchronize_session=False)
         s.query(db.User).filter_by(user_id=user_id).delete(synchronize_session=False)
     return {"ok": True}

@@ -36,6 +36,24 @@ export default function Assistant() {
 
   const uid = loadUser()
 
+  // 账号隔离①：uid 变化（退出后换账号登录）即重置面板，防止上一账号的对话残留
+  useEffect(() => {
+    setMsgs([])
+    setShowWelcome(true)
+    setHistoryLoaded(false)
+  }, [uid])
+
+  // 账号隔离②：退出登录（含 401 被踢出）时由 clearUser 广播事件，面板立即清空
+  useEffect(() => {
+    const reset = () => {
+      setMsgs([])
+      setShowWelcome(true)
+      setHistoryLoaded(false)
+    }
+    window.addEventListener("mpaopao:logout", reset)
+    return () => window.removeEventListener("mpaopao:logout", reset)
+  }, [])
+
   // 打开面板时恢复多轮对话历史（后端保留最近 50 条）；有历史就收起欢迎语
   useEffect(() => {
     if (!open || historyLoaded || !uid) return
