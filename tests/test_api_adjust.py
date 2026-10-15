@@ -1,4 +1,4 @@
-"""接口级回归：修改训练计划（训练天数 / 训练强度档位）。"""
+"""接口级回归：修改训练计划（训练天数 / 训练强度档位）——只重排今天之后的课，进度保留。"""
 import os
 import tempfile
 
@@ -34,34 +34,59 @@ def _week_sessions(plan_id, week=1):
     return c.get(f"/v1/plan/{plan_id}/week/{week}").json()["sessions"]
 
 
-def test_adjust_avail_days_regenerates_plan():
-    """改训练天数：新计划生成、旧计划作废、课次数随天数变化。"""
+def test_adjust_avail_days_replans_future_keeps_progress():
+    """改训练天数：不重建计划（plan_id 不变、旧计划不作废），只重排今天之后的课，进度保留。"""
+    from datetime import date as _date
     _fresh_db()
     uid = c.post("/v1/account/register", json={"username": "adjd", "password": "run12345"}).json()["user_id"]
-    old_plan = _onboard(uid)
-    old_n = len(_week_sessions(old_plan))
+    plan_id = _onboard(uid)                       # 4 天/周
+    today = _date.today()
+    with db.SessionLocal() as s:
+        past = [x for x in s.query(db.Session).filter_by(plan_id=plan_id).all()
+                if x.date <= today and x.status == "planned"]
+        old_planned_total = s.query(db.Session).filter_by(plan_id=plan_id, status="planned").count()
+    assert past, "本周应至少有今天及之前的课用来验证进度保留"
+    for x in past:                                # 先把今天及之前的课打完卡
+        r = c.post(f"/v1/session/{x.session_id}/log",
+                   json={"status": "full", "actual_km": x.target_km, "duration_sec": 1800})
+        assert r.status_code == 200, r.text
     r = c.post("/v1/plan/adjust", json={"user_id": uid, "avail_days": 6})
     assert r.status_code == 200 and r.json()["ok"] is True and r.json()["changed"] is True
-    new_plan = r.json()["plan_id"]
-    assert new_plan != old_plan
+    # 计划本体不变：不新建、不作废、plan_id 保持
+    assert r.json()["plan_id"] == plan_id
     assert r.json()["avail_days"] == 6
     with db.SessionLocal() as s:
-        assert s.get(db.Plan, old_plan).status == "superseded"
+        assert s.get(db.Plan, plan_id).status == "active", "重排不应作废旧计划"
         assert s.get(db.User, uid).avail_days == 6
-    assert len(_week_sessions(new_plan)) > old_n, "天数增加课次数应增加"
+        # 已打卡记录全部保留
+        done_now = s.query(db.Session).filter_by(plan_id=plan_id, status="done").count()
+        assert done_now == len(past), "今天及之前的打卡记录必须原样保留"
+        new_planned_total = s.query(db.Session).filter_by(plan_id=plan_id, status="planned").count()
+    assert new_planned_total > old_planned_total - len(past), \
+        "4 天 → 6 天（课次上限 4→5），未来课次应增加而非减少"
 
 
 def test_adjust_intensity_changes_vdot_and_pace():
-    """增加一级强度：VDOT +2，目标配速变化，计划重建。"""
+    """增加一级强度：VDOT +2，今天之后课程的配速刷新，计划 plan_id 不变。"""
+    from datetime import date as _date
     _fresh_db()
     uid = c.post("/v1/account/register", json={"username": "adjv", "password": "run12345"}).json()["user_id"]
-    old_plan = _onboard(uid)
+    plan_id = _onboard(uid)
     old_vdot = c.get(f"/v1/metrics?user_id={uid}").json()["user"]["vdot"]
-    old_pace = _week_sessions(old_plan)[-1]["target_pace"]   # 最后一节课在本周末尾，必然 >= 今天
+    today = _date.today()
+    with db.SessionLocal() as s:
+        fut = [x for x in s.query(db.Session).filter_by(plan_id=plan_id, status="planned").all()
+               if x.date > today]
+        assert fut, "应有今天之后的课用来验证配速刷新"
+        old_pace = fut[0].target_pace
     r = c.post("/v1/plan/adjust", json={"user_id": uid, "intensity_shift": 1})
     assert r.status_code == 200 and r.json()["vdot"] == old_vdot + 2
-    new_pace = _week_sessions(r.json()["plan_id"])[-1]["target_pace"]
-    assert new_pace != old_pace, "强度变化必须体现在目标配速上"
+    assert r.json()["plan_id"] == plan_id, "强度调整不应重建计划"
+    with db.SessionLocal() as s:
+        fut2 = [x for x in s.query(db.Session).filter_by(plan_id=plan_id, status="planned").all()
+                if x.date > today]
+        new_pace = fut2[0].target_pace
+    assert new_pace != old_pace, "强度变化必须体现在今天之后课程的目标配速上"
     m = c.get(f"/v1/metrics?user_id={uid}").json()
     assert m["user"]["vdot"] == old_vdot + 2
 

@@ -477,8 +477,11 @@ def change_city(body: CityIn):
 
 @app.post("/v1/user/weight")
 def update_weight(body: WeightIn):
-    """实时修改体重：回写 user 行并返回最新 BMI；BMI 进规划修正（生成时生效）。
-    BMI≥28 时建议重新生成计划（保守模式：周增幅减半），由用户主动触发。"""
+    """实时修改体重：回写 user 行并返回最新 BMI；今天之后的课按新 BMI 自动重排（不清进度）。
+
+    BMI≥28 时自动启用保守规划（周增幅减半），只影响今天之后的课程，
+    今天及之前的课次与打卡记录原样保留。
+    """
     if not (30 <= body.weight_kg <= 300):
         raise HTTPException(400, "体重需在 30–300 kg 之间")
     with db.SessionLocal.begin() as s:
@@ -494,9 +497,18 @@ def update_weight(body: WeightIn):
         crossed = (old_bmi is None or old_bmi < 28) and bmi is not None and bmi >= 28
         s.add(db.Event(name="weight_updated", user_id=body.user_id,
                        payload={"weight_kg": body.weight_kg, "bmi": bmi}))
+        # 有进行中的计划且跨过 BMI 28 阈值（进或出保守区间）→ 立即重排今天之后的课
+        stats: dict = {}
+        plan = s.query(db.Plan).filter_by(user_id=body.user_id, status="active").first()
+        left_conservative = (old_bmi is not None and old_bmi >= 28
+                             and (bmi is None or bmi < 28))
+        if plan and (crossed or left_conservative):
+            stats = _replan_future_sessions(s, plan, user)
+        if stats.get("rejected"):
+            stats = {}                     # 重排被护栏拒绝不阻断体重更新本身
     out: dict = {"ok": True, "weight_kg": body.weight_kg, "bmi": bmi}
     if crossed:
-        out["advice"] = "BMI 已达到 28，系统将为你的关节负荷启用保守规划（周增幅减半），点「修改训练计划」即可生效"
+        out["advice"] = "BMI 已达到 28，今天之后的训练计划已自动切换为保守规划（周增幅减半），今天及之前的记录不受影响"
     return out
 
 
@@ -544,7 +556,8 @@ class PlanAdjustIn(BaseModel):
 def adjust_plan(body: PlanAdjustIn):
     """修改训练计划：调整每周训练天数 / 增减一级训练强度（一级 = VDOT ±2，只影响目标配速）。
 
-    与切换城市同一语义：旧计划作废，按新参数重新生成 16 周计划，进度清零。
+    语义：不重建计划、不清零进度——今天及之前的课次与打卡记录原样保留，
+    只把今天之后的课程按新参数重新规划（模板里有就更新、没有就取消、多出且在今天之后补上）。
     """
     from server.knowledge.rules import VDOT_MIN, VDOT_MAX, session_cap
     if body.intensity_shift not in (-1, 0, 1):
@@ -555,7 +568,6 @@ def adjust_plan(body: PlanAdjustIn):
             raise HTTPException(404, "用户不存在")
         changes = []
         new_days = user.avail_days
-        days_note = ""
         if body.avail_days is not None:
             if body.avail_days == user.avail_days:
                 pass
@@ -564,7 +576,7 @@ def adjust_plan(body: PlanAdjustIn):
             else:
                 new_days = body.avail_days
                 if session_cap(new_days) == session_cap(user.avail_days):
-                    # 课次上限相同 → 新课表与现有课表逐节相同，重建只会清空进度
+                    # 课次上限相同 → 新课表与现有课表逐节相同，无需重排
                     old_days = user.avail_days
                     user.avail_days = new_days
                     s.add(db.Event(name="plan_adjusted", user_id=body.user_id,
@@ -586,23 +598,29 @@ def adjust_plan(body: PlanAdjustIn):
                            f"（{'增加' if body.intensity_shift > 0 else '减少'}一级，目标配速随之{'加快' if body.intensity_shift > 0 else '放慢'}）")
         if not changes:
             return {"ok": True, "changed": False, "message": "没有需要修改的内容"}
+        plan = s.query(db.Plan).filter_by(user_id=body.user_id, status="active").first()
+        if not plan:
+            # 还没有进行中的计划：只更新偏好，下次生成计划时生效
+            user.avail_days, user.vdot = new_days, new_vdot
+            s.add(db.Event(name="plan_adjusted", user_id=body.user_id,
+                           payload={"avail_days": new_days, "vdot": new_vdot,
+                                    "changes": changes, "no_active_plan": True}))
+            return {"ok": True, "changed": False,
+                    "message": "已修改：" + "；".join(changes) + "。生成训练计划时按新参数排课"}
+        # 先更新画像，再用新画像重排今天之后的课（同一事务，Rejected 则整体回滚）
         user.avail_days, user.vdot = new_days, new_vdot
-        # 强度不在 profile_hash 里 → 先把旧计划作废，gen_plan 才不会幂等 dedup 掉
-        s.query(db.Plan).filter(db.Plan.user_id == body.user_id,
-                                db.Plan.status == "active").update({"status": "superseded"})
+        stats = _replan_future_sessions(s, plan, user)
+        if stats.get("rejected"):
+            raise HTTPException(400, stats["reason"])
         s.add(db.Event(name="plan_adjusted", user_id=body.user_id,
                        payload={"avail_days": new_days, "vdot": new_vdot,
-                                "changes": changes}))
-    r = gen_plan(body.user_id)
-    if r.get("rejected"):
-        return {"ok": False, "message": r.get("reason", "计划生成失败")}
-    # 目标配速按真实 VDOT 刷新（generate_plan 内部用的是占位配速，与切换城市后同一处理）
-    with db.SessionLocal.begin() as s:
-        plan = s.get(db.Plan, r["plan_id"])
-        _refresh_future_weeks(s, plan, 0, new_vdot)
-    return {"ok": True, "changed": True, "plan_id": r["plan_id"],
+                                "changes": changes, **stats}))
+        plan_id = plan.plan_id                        # 出 session 前先取值，避免 detached
+    return {"ok": True, "changed": True, "plan_id": plan_id,
             "vdot": new_vdot, "avail_days": new_days,
-            "message": "已修改：" + "；".join(changes) + "。训练计划已重新生成，进度从头开始。"}
+            "message": "已修改：" + "；".join(changes)
+                       + f"。今天及之前的训练记录全部保留，今天之后的课已重新规划"
+                         f"（调整 {stats['updated']} 节、新增 {stats['added']} 节、取消 {stats['dropped']} 节）"}
 
 
 @app.post("/v1/plan/generate")
@@ -1042,6 +1060,71 @@ def _refresh_future_weeks(s, plan: db.Plan, from_week_no: int, new_vdot: int) ->
         lo, hi = zones.get(r.pace_zone, zones["easy"])
         r.target_pace = f"{sec_to_pace(lo)}–{sec_to_pace(hi)}" if lo != hi else sec_to_pace(lo)
     plan.vdot = new_vdot
+
+
+def _replan_future_sessions(s, plan: db.Plan, user: db.User) -> dict:
+    """按当前画像（天数/VDOT/体重/BMI）重新生成模板，只重排「今天之后」的课。
+
+    今天及以前的课次与全部打卡记录原样保留，进度不清零：
+    - 模板里还有的节次 → 原行更新（type/关键课/配速区/里程/配速）
+    - 模板里没有的节次（如减了训练天数）→ 物理删除（未来课无打卡，安全）
+    - 模板新增的节次（如加了训练天数）→ 今天之后的日期才补排
+    同时按剩余课次重算本周及未来周的计划里程，刷新计划的 vdot / BMI 保守标记。
+    """
+    profile = Profile(recent_km=5, recent_sec=1800, avail_days=user.avail_days,
+                      goal_race=user.goal_race, ability=user.ability_tier,
+                      injury_flag=user.injury_flag, city=user.city, lat=user.lat,
+                      lon=user.lon, max_duration=user.max_duration,
+                      height_cm=user.height_cm, weight_kg=user.weight_kg)
+    result = generate_plan(profile, vdot_override=user.vdot)
+    if isinstance(result, Reject):
+        return {"rejected": True, "reason": result.reason}
+    today = date.today()
+    cur_week = max(1, min(((today - plan.start_date).days // 7) + 1, 16))
+    template = {(w["week_no"], sess["seq"]): sess
+                for w in result["weeks"] for sess in w["sessions"]}
+    updated = added = dropped = 0
+    seen: set = set()
+    for r in s.query(db.Session).filter(db.Session.plan_id == plan.plan_id).all():
+        if r.date <= today or r.status != "planned":
+            continue                                       # 今天及以前：一律不动
+        key = (r.week_no, r.seq)
+        seen.add(key)
+        t = template.get(key)
+        if t is None:
+            s.delete(r)                                    # 新课表没有这一节 → 取消
+            dropped += 1
+            continue
+        r.type, r.is_key, r.pace_zone = t["type"], t["is_key"], t["pace_zone"]
+        r.target_km, r.target_pace = t["target_km"], t["target_pace"]
+        r.source = "adjust_replan"
+        updated += 1
+    # 新课表多出来的节次：只有今天之后的日期才补排（不往过去补课）
+    for (week_no, seq), t in template.items():
+        if (week_no, seq) in seen or week_no < cur_week:
+            continue
+        d = plan.start_date + timedelta(days=7 * (week_no - 1) + t["offset"] - 1)
+        if d <= today:
+            continue
+        s.add(db.Session(session_id=uuid.uuid4().hex[:16],
+                         plan_week_id=f"{plan.plan_id}-W{week_no}", plan_id=plan.plan_id,
+                         week_no=week_no, seq=seq, date=d, type=t["type"],
+                         is_key=t["is_key"], pace_zone=t["pace_zone"],
+                         target_km=t["target_km"], target_pace=t["target_pace"],
+                         source="adjust_replan", status="planned"))
+        added += 1
+    # 本周及未来周的计划里程按剩余课次重算（过去周永远冻结）
+    for w in result["weeks"]:
+        if w["week_no"] < cur_week:
+            continue
+        pw = s.query(db.PlanWeek).filter_by(plan_id=plan.plan_id, week_no=w["week_no"]).first()
+        if pw:
+            rows = s.query(db.Session).filter(db.Session.plan_id == plan.plan_id,
+                                              db.Session.week_no == w["week_no"]).all()
+            pw.planned_km = round(sum(x.target_km for x in rows), 1)
+    plan.vdot = user.vdot
+    plan.bmi_conservative = bool(result.get("conservative"))
+    return {"updated": updated, "added": added, "dropped": dropped}
 
 
 @app.post("/v1/status/report")

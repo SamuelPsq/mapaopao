@@ -251,7 +251,7 @@ export default function MetricsPage() {
         <SlidersHorizontal className="h-4 w-4 mr-1.5" />修改训练计划
       </Button>
 
-      {/* 修改体重：实时生效，BMI≥28 时建议重新生成保守计划 */}
+      {/* 修改体重：实时生效，BMI 跨过 28 时自动重排今天之后的课（保守模式） */}
       <Button variant="outline" className="w-full mt-2 bg-card"
         onClick={() => { setWeightInput(m.user?.weight_kg ? String(m.user.weight_kg) : ""); setWeightOpen(true) }}>
         <Scale className="h-4 w-4 mr-1.5" />修改体重
@@ -287,7 +287,7 @@ export default function MetricsPage() {
           <DialogHeader>
             <DialogTitle>修改训练计划</DialogTitle>
             <DialogDescription>
-              修改后训练计划会按新参数重新生成，当前进度清零。强度只影响目标配速，VDOT 算法的课表结构不变。
+              今天及之前的训练记录全部保留，今天之后的课程按新参数重新规划。强度只影响目标配速，VDOT 算法的课表结构不变。
             </DialogDescription>
           </DialogHeader>
           {m.user ? (
@@ -329,26 +329,26 @@ export default function MetricsPage() {
             <Button disabled={adjBusy ||
                 (adjDays === m.user?.avail_days && adjShift === 0)}
               onClick={() => setAdjConfirm(true)}>
-              {adjBusy ? "正在重新生成…" : "确认修改"}
+              {adjBusy ? "正在调整…" : "确认修改"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* 防误触：确认修改训练计划（单向：按新参数重建，当前进度清零） */}
+      {/* 防误触：确认修改训练计划（单向：今天之后的课按新参数重排，进度保留） */}
       <AlertDialog open={adjConfirm} onOpenChange={setAdjConfirm}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>确认按新参数重建计划？</AlertDialogTitle>
+            <AlertDialogTitle>确认按新参数调整计划？</AlertDialogTitle>
             <AlertDialogDescription>
               每周训练 {adjDays ?? m.user?.avail_days} 天，强度档位
               {adjShift === 0 ? "不变" : adjShift === 1 ? " +1 级（VDOT +2）" : " -1 级（VDOT -2）"}。
-              计划会按新参数重新生成，当前进度清零；已完成的打卡记录保留。
+              今天及之前的打卡记录全部保留，只有今天之后的课程会重新规划。
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>点错了</AlertDialogCancel>
-            <AlertDialogAction onClick={() => { setAdjConfirm(false); submitAdjust() }}>确认重建</AlertDialogAction>
+            <AlertDialogAction onClick={() => { setAdjConfirm(false); submitAdjust() }}>确认调整</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -359,7 +359,7 @@ export default function MetricsPage() {
           <DialogHeader>
             <DialogTitle>修改体重</DialogTitle>
             <DialogDescription>
-              体重实时生效：BMI 会在下次生成计划时参与规划修正（BMI≥28 自动启用保守模式，周增幅减半）。
+              体重实时生效：BMI 跨过 28 时，今天之后的计划自动切换保守模式（周增幅减半），今天及之前的记录不受影响。
               {m.user?.height_cm ? <>当前身高 {m.user.height_cm} cm。</> : ""}
             </DialogDescription>
           </DialogHeader>
