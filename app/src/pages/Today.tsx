@@ -183,40 +183,49 @@ export default function Today() {
         ) : null}
       </div>
 
-      {/* 总跑量：今日训练卡上方 */}
-      <div className="flex items-center justify-between rounded-2xl border bg-card px-4 py-2.5 mb-3 shadow-sm">
-        <span className="text-xs text-muted-foreground">🏃 累计总跑量</span>
-        <span className="text-sm font-bold">{fmtKm(card.total_km || 0)} <span className="text-xs font-normal text-muted-foreground">km</span></span>
+      {/* 跑量数据：页面最主要元素（纯数据，无卡片） */}
+      <div className="mb-6">
+        <div className="flex items-baseline justify-between">
+          <span className="text-xs text-muted-foreground">累计总跑量</span>
+          <span className="text-5xl font-black tracking-tight leading-none">
+            {fmtKm(card.total_km || 0)}<span className="text-base font-bold text-muted-foreground ml-1">km</span>
+          </span>
+        </div>
+        <div className="flex items-baseline justify-between mt-2.5">
+          <span className="text-xs text-muted-foreground">本周跑量</span>
+          <span className="text-2xl font-bold tracking-tight leading-none">
+            {fmtKm(card.week_km || 0)}<span className="text-xs font-normal text-muted-foreground ml-1">km</span>
+          </span>
+        </div>
       </div>
 
-      {/* 主课卡 */}
+      {/* 主课卡：次主要元素，窄卡片小字号 */}
       {m ? (
-        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-primary to-[hsl(28,95%,45%)] text-primary-foreground shadow-lg shadow-primary/25 mb-4">
-          <div className="absolute -right-6 -top-8 h-32 w-32 rounded-full bg-white/10" />
-          <div className="absolute -right-14 top-10 h-40 w-40 rounded-full bg-white/5" />
-          <div className="relative px-5 pt-5 pb-5">
-            <div className="flex items-center justify-between mb-3">
-              <div className="text-xs font-medium text-white/85">
+        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary to-[hsl(28,95%,45%)] text-primary-foreground shadow-md shadow-primary/20 mb-4">
+          <div className="absolute -right-6 -top-8 h-24 w-24 rounded-full bg-white/10" />
+          <div className="relative px-4 py-3.5">
+            <div className="flex items-center justify-between mb-1.5">
+              <div className="text-[11px] font-medium text-white/85">
                 {!isToday ? "下一节 · " : ""}{m.dow} · {m.is_key ? "关键课" : "辅助课"}
               </div>
-              {m.is_key ? <Badge className="bg-white/20 hover:bg-white/20 text-white border-0">关键课</Badge> : null}
+              {m.is_key ? <Badge className="bg-white/20 hover:bg-white/20 text-white border-0 text-[10px] px-1.5">关键课</Badge> : null}
             </div>
-            <div className="text-3xl font-black tracking-tight">
-              {m.type_cn} <span className="text-xl font-bold">{fmtKm(m.target_km)} km</span>
+            <div className="text-xl font-black tracking-tight">
+              {m.type_cn} <span className="text-sm font-bold">{fmtKm(m.target_km)} km</span>
             </div>
-            <div className="flex gap-2 mt-3">
-              <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-2.5 py-1 text-xs">
+            <div className="flex gap-1.5 mt-2">
+              <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-2 py-0.5 text-[11px]">
                 <Timer className="h-3 w-3" />约 {durationMin} 分钟
               </span>
-              <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-2.5 py-1 text-xs">
+              <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-2 py-0.5 text-[11px]">
                 配速 {m.target_pace}
               </span>
             </div>
-            {card.reason_line ? <div className="text-xs text-white/80 mt-3 border-t border-white/15 pt-3">{card.reason_line}</div> : null}
+            {card.reason_line ? <div className="text-[11px] text-white/80 mt-2 border-t border-white/15 pt-2">{card.reason_line}</div> : null}
           </div>
         </div>
       ) : (
-        <div className="rounded-3xl border bg-card px-5 py-6 text-sm text-muted-foreground shadow-sm mb-4">今天没有排课，好好休息。</div>
+        <div className="rounded-2xl border bg-card px-4 py-4 text-sm text-muted-foreground shadow-sm mb-4">今天没有排课，好好休息。</div>
       )}
 
       {/* 力量训练提醒：不进周计划，空闲日提示即可 */}

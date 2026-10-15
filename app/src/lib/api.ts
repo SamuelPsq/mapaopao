@@ -53,6 +53,7 @@ export interface TodayCard {
   degrade: { triggered: boolean; message: string } | null
   week_progress: { key_done: number; key_total: number; done: number; total: number }
   total_km: number
+  week_km: number
 }
 
 export interface CandSession {

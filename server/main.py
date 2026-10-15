@@ -694,12 +694,14 @@ def today_card(user_id: str):
         done_key = sum(1 for x in sessions if x.is_key and
                        (logs.get(x.session_id) and logs[x.session_id].status in ("full", "partial")))
         key_total = sum(1 for x in sessions if x.is_key)
-        # 累计总跑量：全部已完成打卡（full/partial）的实际里程之和
-        all_logs = s.query(db.SessionLog).join(
+        # 跑量：累计（全部 full/partial）+ 本周（当前周 full/partial），一次 join 算完
+        log_rows = s.query(db.SessionLog, db.Session).join(
             db.Session, db.Session.session_id == db.SessionLog.session_id).filter(
             db.Session.plan_id == plan.plan_id,
             db.SessionLog.status.in_(("full", "partial"))).all()
-        total_km = round(sum(l.actual_km or 0.0 for l in all_logs), 1)
+        total_km = round(sum(l.actual_km or 0.0 for l, _ in log_rows), 1)
+        week_km = round(sum((l.actual_km or 0.0) for l, se in log_rows
+                            if se.week_no == week_no), 1)
         # 天气行
         wx_line = ""
         hard_days = []
@@ -743,7 +745,7 @@ def today_card(user_id: str):
             "user_id": user_id, "plan_id": plan.plan_id, "week_no": week_no,
             "week_phase": pw.phase if pw else "load", "is_dropped": pw.is_dropped if pw else False,
             "weekday": _dow(today), "days_to_race": max(0, days_to_race),
-            "vdot": user.vdot, "city": user.city, "total_km": total_km,
+            "vdot": user.vdot, "city": user.city, "total_km": total_km, "week_km": week_km,
             "today_has_run": bool(todays),
             "main_session": _session_dict(main, logs.get(main.session_id)) if main else None,
             "reason_line": reason, "weather_line": wx_line, "hard_days": hard_days,

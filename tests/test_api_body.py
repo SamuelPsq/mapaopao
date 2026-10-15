@@ -124,6 +124,7 @@ def test_today_card_has_total_km():
            json={"status": "full", "actual_km": sessions[0]["target_km"], "duration_sec": 3000})
     card = c.get("/v1/today", params={"user_id": uid}).json()
     assert card["total_km"] == round(sessions[0]["target_km"], 1)
+    assert card["week_km"] == round(sessions[0]["target_km"], 1)
 
 
 def test_status_report_new_fields_and_stretch_advice(monkeypatch):
