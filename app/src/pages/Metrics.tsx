@@ -88,7 +88,7 @@ export default function MetricsPage() {
       setProfileOpen(false)
       setToast("头像和昵称已更新")
     } catch (e) {
-      setToast((e as Error).message.replace(/^\d+:\s*/, ""))
+      setToast((e as Error).message)
     } finally {
       setAvatarBusy(false)
     }
@@ -131,7 +131,7 @@ export default function MetricsPage() {
       clearUser()
       nav("/login", { replace: true })
     } catch (e) {
-      setDeleteErr((e as Error).message.replace(/^\d+:\s*/, ""))
+      setDeleteErr((e as Error).message)
     } finally {
       setDeleting(false)
     }
@@ -150,7 +150,7 @@ export default function MetricsPage() {
       setAdjustOpen(false)
       setToast(r.message || "已保存")
     } catch (e) {
-      setToast((e as Error).message.replace(/^\d+:\s*/, ""))
+      setToast((e as Error).message)
     } finally {
       setAdjBusy(false)
     }

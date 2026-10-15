@@ -29,13 +29,13 @@ export default function Login() {
       saveToken(r.token)
       nav(r.has_plan ? "/" : "/onboarding", { replace: true })
     } catch (e) {
-      const msg = (e as Error).message
-      if (mode === "login" && msg.startsWith("401:")) {
+      const err = e as Error & { status?: number }
+      if (mode === "login" && err.status === 401) {
         // 用户名或密码错误：只提示，不跳转
         alert("用户名或密码输入错误，请重试")
         setErr("")
       } else {
-        setErr(msg.replace(/^\d+:\s*/, ""))
+        setErr(err.message)
       }
     } finally {
       setBusy(false)

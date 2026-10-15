@@ -14,6 +14,7 @@ import uuid
 from datetime import date, datetime, timedelta
 
 from fastapi import FastAPI, HTTPException, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
@@ -46,6 +47,27 @@ def _load_dotenv() -> None:
 _load_dotenv()
 
 app = FastAPI(title="马跑跑", version="v3.1")
+
+
+@app.exception_handler(HTTPException)
+async def _http_error_handler(_, exc: HTTPException):
+    """统一错误响应结构：{error: 用户看得懂的话}，不再暴露 FastAPI 默认的 {detail: ...}。"""
+    return JSONResponse(status_code=exc.status_code, content={"error": str(exc.detail)})
+
+
+@app.exception_handler(RequestValidationError)
+async def _validation_error_handler(_, __: RequestValidationError):
+    """参数校验失败（422）：默认结构是一串 loc/msg 机器字段，换成一句人话。"""
+    return JSONResponse(status_code=422,
+                        content={"error": "提交的内容格式不对，请检查填写后重试"})
+
+
+@app.exception_handler(Exception)
+async def _unexpected_error_handler(_, exc: Exception):
+    """未预期异常（500）：不向用户泄露内部细节，给兜底人话，细节留服务端日志。"""
+    import logging
+    logging.getLogger("mapaopao").exception("unhandled error: %s", exc)
+    return JSONResponse(status_code=500, content={"error": "服务器开小差了，请稍后再试"})
 
 # CORS 收紧：默认只放行本地开发源，生产通过反代同源访问；多源用逗号分隔的 env 配置
 CORS_ORIGINS = [o.strip() for o in os.getenv(
@@ -569,7 +591,7 @@ def adjust_plan(body: PlanAdjustIn):
     """
     from server.knowledge.rules import VDOT_MIN, VDOT_MAX, session_cap
     if body.intensity_shift not in (-1, 0, 1):
-        raise HTTPException(400, "intensity_shift 只能是 -1/0/1")
+        raise HTTPException(400, "强度调整参数有误，请重试")
     with db.SessionLocal.begin() as s:
         user = s.get(db.User, body.user_id)
         if not user:
@@ -892,7 +914,7 @@ def calendar_view(user_id: str, month: str):
     try:
         month_start = date.fromisoformat(f"{month}-01")
     except ValueError:
-        raise HTTPException(400, "month 格式应为 YYYY-MM")
+        raise HTTPException(400, "月份格式不对，应为 2026-01 这样的形式")
     if month_start.month == 12:
         month_end = date(month_start.year + 1, 1, 1) - timedelta(days=1)
     else:
@@ -970,7 +992,7 @@ def calendar_view(user_id: str, month: str):
 def log_session(session_id: str, body: LogIn):
     """写 session_log；skipped / 超额完成 / 明显不足时自动触发候选预生成（不展示，先算好）。"""
     if body.status not in ("full", "partial", "over", "skipped"):
-        raise HTTPException(400, "status 必须是 full/partial/over/skipped")
+        raise HTTPException(400, "打卡状态填写有误，请重试")
     with db.SessionLocal.begin() as s:
         sess = s.get(db.Session, session_id)
         if not sess:
@@ -1535,7 +1557,7 @@ def week_review(plan_id: str, week_no: int):
 def degrade_goal(plan_id: str, body: DegradeIn):
     """劝降三选项：half 改半马重排未来周 / defer 延期一期 / insist 保持但本周降载。"""
     if body.to not in ("half", "defer", "insist"):
-        raise HTTPException(400, "to 必须是 half/defer/insist")
+        raise HTTPException(400, "选项填写有误，请重试")
     with db.SessionLocal.begin() as s:
         plan = s.get(db.Plan, plan_id)
         if not plan:

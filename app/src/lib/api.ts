@@ -12,11 +12,18 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
     if (!window.location.pathname.startsWith("/login")) {
       window.location.assign("/login")
     }
-    throw new Error("401: 登录状态已失效，请重新登录")
+    throw Object.assign(new Error("登录状态已失效，请重新登录"), { status: 401 })
   }
   if (!r.ok) {
-    const text = await r.text()
-    throw new Error(`${r.status}: ${text.slice(0, 200)}`)
+    // 后端统一返回 {error: 人话}；旧结构 {detail}/{message} 兼容；非 JSON（网关错误页）走兜底文案
+    let message = "请求失败，请稍后再试"
+    try {
+      const j = await r.json()
+      if (typeof j?.error === "string") message = j.error
+      else if (typeof j?.detail === "string") message = j.detail
+      else if (typeof j?.message === "string") message = j.message
+    } catch { /* 响应体不是 JSON，保留兜底文案 */ }
+    throw Object.assign(new Error(message), { status: r.status })
   }
   return r.json() as Promise<T>
 }
