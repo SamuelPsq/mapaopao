@@ -17,7 +17,7 @@ export default function Login() {
 
   async function submit() {
     setErr("")
-    if (!username.trim() || !password) { setErr("请输入用户名和密码"); return }
+    if (!username.trim() || !password) { setErr("请输入账号和密码"); return }
     setBusy(true)
     try {
       const path = mode === "login" ? "/v1/account/login" : "/v1/account/register"
@@ -70,7 +70,7 @@ export default function Login() {
 
         <div className="space-y-4">
           <div>
-            <Label>用户名</Label>
+            <Label>账号</Label>
             <Input value={username} placeholder="3-20 个字符"
               onChange={(e) => setUsername(e.target.value)} className="mt-1.5 bg-card" />
           </div>

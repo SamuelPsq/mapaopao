@@ -434,6 +434,11 @@ export default function MetricsPage() {
               <span className="absolute inset-x-0 bottom-0 bg-black/45 text-white text-[10px] py-0.5">换头像</span>
             </button>
             <div className="w-full">
+              <Label>账号（登录用，不可修改）</Label>
+              <Input value={me?.username || ""} readOnly disabled
+                className="bg-muted text-muted-foreground cursor-not-allowed" />
+            </div>
+            <div className="w-full">
               <Label>昵称（1-20 字）</Label>
               <Input value={nickInput} maxLength={20} placeholder="给自己起个跑名"
                 onChange={e => setNickInput(e.target.value)} />
