@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState, type ChangeEvent } from "react"
 import { useLocation, useNavigate } from "react-router"
 import { api, loadUser, clearUser, savePlan, type TodayCard } from "@/lib/api"
 import { fmtKm } from "@/lib/format"
@@ -14,7 +14,22 @@ import { Label } from "@/components/ui/label"
 import { CityPicker } from "@/components/CityPicker"
 import MonthCalendar from "@/components/MonthCalendar"
 import type { CityInfo } from "@/lib/cities"
-import { CalendarDays, ChartNoAxesColumnIncreasing, ChevronRight, CloudSun, Dumbbell, Flame, House, Lightbulb, MapPin, MoonStar, PersonStanding, Target, Timer, TriangleAlert, Wrench } from "lucide-react"
+import { CalendarDays, ChartNoAxesColumnIncreasing, ChevronRight, CloudSun, Dumbbell, Flame, House, Lightbulb, MapPin, MoonStar, PersonStanding, ScanLine, Target, Timer, TriangleAlert, Wrench } from "lucide-react"
+
+// 「智能识别成绩」识别结果：数字由视觉模型读出、服务端代码校验过区间与配速合理性
+interface VisionResult {
+  distance_km: number
+  duration_sec: number
+  pace: string
+  vdot: number
+  current_vdot: number
+  note: string
+}
+
+function fmtDur(sec: number): string {
+  const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60
+  return `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`
+}
 
 export default function Today() {
   const nav = useNavigate()
@@ -37,6 +52,12 @@ export default function Today() {
   const [dur, setDur] = useState({ h: 0, m: 30, s: 0 })
   // 大幅超额（>3km）后的进阶二次确认
   const [advance, setAdvance] = useState<null | { km: number; sec: number; pace: string }>(null)
+  // 智能识别成绩：拍照/上传 → AI 读图出数字 → 用户确认后走 /v1/user/advance 重排
+  const [visionOpen, setVisionOpen] = useState(false)
+  const [visionImg, setVisionImg] = useState<null | { file: File; url: string }>(null)
+  const [visionBusy, setVisionBusy] = useState(false)
+  const [visionApplyBusy, setVisionApplyBusy] = useState(false)
+  const [visionResult, setVisionResult] = useState<null | VisionResult>(null)
   // 进阶确认期间暂存问卷上下文，确认完再进入问卷
   const pendingSurvey = useRef<null | { status: string; typeCn: string; km: number }>(null)
   // 打卡后问卷：训练状态 / 肌肉酸痛 / 关节不适 / 睡眠 / 疲劳
@@ -128,6 +149,65 @@ export default function Today() {
       setDur({ h: Math.floor(est / 3600), m: Math.floor((est % 3600) / 60), s: est % 60 })
     }
     setLogOpen(true)
+  }
+
+  // ---- 智能识别成绩：选图 → 识别 → 确认应用 ----
+  function resetVision() {
+    if (visionImg) URL.revokeObjectURL(visionImg.url)
+    setVisionImg(null)
+    setVisionResult(null)
+  }
+
+  function pickImage(e: ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0]
+    if (!f) return
+    resetVision()
+    setVisionImg({ file: f, url: URL.createObjectURL(f) })
+  }
+
+  async function runVision() {
+    if (!visionImg) return
+    setVisionBusy(true)
+    try {
+      const form = new FormData()
+      form.append("file", visionImg.file)
+      setVisionResult(await api.postForm<VisionResult>(`/v1/vision/vdot?user_id=${uid}`, form))
+    } catch (e) {
+      setToast((e as Error).message)
+    } finally {
+      setVisionBusy(false)
+    }
+  }
+
+  // 确认应用：复用 /v1/user/advance（进阶确认）的既有逻辑——VDOT 差 <1.5 不重排、
+  // 只刷新未开始的周，不在这里另起一套应用规则
+  async function applyVision() {
+    if (!visionResult) return
+    setVisionApplyBusy(true)
+    try {
+      const r = await api.post<{ ok: boolean; note: string }>("/v1/user/advance", {
+        user_id: uid, actual_km: visionResult.distance_km, duration_sec: visionResult.duration_sec })
+      setToast(r.note || "已按照您的跑力重新安排")
+      setVisionOpen(false)
+      resetVision()
+      refresh()
+    } catch (e) {
+      setToast((e as Error).message)
+    } finally {
+      setVisionApplyBusy(false)
+    }
+  }
+
+  // 识别有误：带着识别出的数字回到手动打卡弹窗，用户改完按正常流程记录
+  function fixVision() {
+    if (!visionResult) return
+    setVisionOpen(false)
+    setKmInput(String(visionResult.distance_km))
+    setDur({ h: Math.floor(visionResult.duration_sec / 3600),
+              m: Math.floor((visionResult.duration_sec % 3600) / 60),
+              s: visionResult.duration_sec % 60 })
+    resetVision()
+    openCheckin()
   }
 
   // 填完里程 + 时分秒后的提交：偏差 >±30% 先问原因，否则直接记录
@@ -348,6 +428,12 @@ export default function Today() {
         }}>今天跑不了</Button>
       </div>
 
+      {/* 智能识别成绩：在打卡按钮和天气调整建议之间——拍完照/传完图确认后按真实跑力重排 */}
+      <Button variant="outline" className="w-full mb-3 bg-card flex items-center gap-1.5"
+        onClick={() => setVisionOpen(true)}>
+        <ScanLine className="h-4 w-4" /> 智能识别成绩
+      </Button>
+
       {/* 重排建议：跟在打卡按钮下方，实心按钮样式，一眼可点。
           字号粗细一致，只有「点此…」行动词加粗，引导点击又不吵 */}
       {card.suggestion ? (
@@ -411,6 +497,62 @@ export default function Today() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setLogOpen(false)}>取消</Button>
             <Button className="border-0" onClick={submitLog}>确认记录</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 智能识别成绩弹窗：选图 → AI 读数 → 确认应用（走 advance 既有重排逻辑） */}
+      <Dialog open={visionOpen} onOpenChange={(o) => { setVisionOpen(o); if (!o) resetVision() }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>智能识别成绩</DialogTitle>
+            <DialogDescription>
+              拍一张成绩单、运动手表或跑步 App 的截图，AI 读出距离和总用时，折算成你的跑力（VDOT）。
+              识别结果需要确认后才会生效。
+            </DialogDescription>
+          </DialogHeader>
+          {!visionResult ? (
+            <div className="py-2 space-y-3">
+              <label className="block cursor-pointer rounded-2xl border-2 border-dashed border-muted-foreground/30
+                                px-4 py-6 text-center text-sm text-muted-foreground active:scale-[0.99] transition-transform">
+                <ScanLine className="h-6 w-6 mx-auto mb-1.5" />
+                {visionImg ? "已选择图片，可点这里重选" : "点击拍照或上传图片"}
+                <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={pickImage} />
+              </label>
+              {visionImg ? (
+                <img src={visionImg.url} alt="成绩截图预览"
+                     className="w-full max-h-52 object-contain rounded-xl border bg-background" />
+              ) : null}
+            </div>
+          ) : (
+            <div className="py-2 space-y-2 text-sm">
+              <div className="rounded-xl bg-muted/50 px-3.5 py-3 space-y-1.5">
+                <p>识别距离：<b>{fmtKm(visionResult.distance_km)} km</b></p>
+                <p>总用时：<b>{fmtDur(visionResult.duration_sec)}</b>（折算配速 {visionResult.pace}）</p>
+                <p>跑力折算：VDOT <b>{visionResult.current_vdot}</b> → <b>{visionResult.vdot}</b></p>
+                {visionResult.note ? <p className="text-xs text-muted-foreground">读图：{visionResult.note}</p> : null}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                确认后未开始的训练周会按新的跑力重新安排，已完成的不受影响。
+              </p>
+            </div>
+          )}
+          <DialogFooter>
+            {!visionResult ? (
+              <>
+                <Button variant="outline" onClick={() => setVisionOpen(false)}>取消</Button>
+                <Button className="border-0" disabled={!visionImg || visionBusy} onClick={runVision}>
+                  {visionBusy ? "识别中…" : "开始识别"}
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button variant="outline" disabled={visionApplyBusy} onClick={fixVision}>识别有误，手动修正</Button>
+                <Button className="border-0" disabled={visionApplyBusy} onClick={applyVision}>
+                  {visionApplyBusy ? "正在按跑力重排…" : "确认，按此重新安排"}
+                </Button>
+              </>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>

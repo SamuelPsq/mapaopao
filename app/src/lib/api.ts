@@ -4,7 +4,10 @@ const BASE = ""
 // 普通用户看不懂——统一成人话；GET 自动重试（递增退避），写操作不自动重试，避免重复提交。
 async function req<T>(path: string, init?: RequestInit): Promise<T> {
   const token = localStorage.getItem("mpaopao_token")
-  const headers: Record<string, string> = { "Content-Type": "application/json" }
+  const headers: Record<string, string> = {}
+  // FormData（图片上传）不能手动设 Content-Type——浏览器要带 boundary 自行设置；
+  // 其余请求照旧 JSON
+  if (!(init?.body instanceof FormData)) headers["Content-Type"] = "application/json"
   if (token) headers.Authorization = `Bearer ${token}`
   const isGet = (init?.method ?? "GET") === "GET"
   const tries = isGet ? 3 : 1
@@ -47,6 +50,8 @@ export const api = {
   get: <T>(path: string) => req<T>(path),
   post: <T>(path: string, body?: unknown) =>
     req<T>(path, { method: "POST", body: body === undefined ? undefined : JSON.stringify(body) }),
+  postForm: <T>(path: string, form: FormData) =>
+    req<T>(path, { method: "POST", body: form }),
 }
 
 // ---------- 类型 ----------

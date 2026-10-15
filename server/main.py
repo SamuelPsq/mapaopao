@@ -13,7 +13,7 @@ import time
 import uuid
 from datetime import date, datetime, timedelta
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, File, HTTPException, Query, Request, UploadFile
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -597,6 +597,39 @@ def advance_level(body: AdvanceIn):
                                 "actual_km": body.actual_km,
                                 "duration_sec": body.duration_sec}))
     return {"ok": True, "vdot": new_v, "pace": sec_to_pace(pace_sec), "note": note}
+
+
+@app.post("/v1/vision/vdot")
+async def vision_vdot(user_id: str = Query(...), file: UploadFile = File(...)):
+    """拍照/上传识别成绩 → 提取距离+用时 → 折算 VDOT。
+
+    防幻觉分工：视觉模型只负责读图出数字，数值校验（量纲/区间/配速合理性）在
+    vision.extract_result 里由代码完成，校验不过直接拒用。应用侧只把结果透传给
+    用户确认，确认后走 /v1/user/advance 的既有逻辑（VDOT 差 <1.5 不重排、只刷新
+    未开始的周），不在这里另起一套应用规则。
+    """
+    from server.vision import ALLOWED_MIME, MAX_BYTES, extract_result
+    mime = (file.content_type or "").lower()
+    if mime not in ALLOWED_MIME:
+        raise HTTPException(415, "只支持 JPG / PNG / WebP 格式的图片")
+    image = await file.read()
+    if not image:
+        raise HTTPException(400, "图片是空的，请重新选择")
+    if len(image) > MAX_BYTES:
+        raise HTTPException(413, "图片太大了（超过 10MB），请压缩后再上传")
+    got = extract_result(image, mime)
+    if not got:
+        raise HTTPException(422, "没能从图片里识别出有效的跑步成绩，请换一张更清晰的照片，或直接在今日打卡里手动输入")
+    with db.SessionLocal() as s:
+        user = s.get(db.User, user_id)
+        if not user:
+            raise HTTPException(404, "用户不存在")
+        current = user.vdot
+    pace_sec = round(got["duration_sec"] / got["distance_km"])
+    return {"ok": True,
+            "distance_km": got["distance_km"], "duration_sec": got["duration_sec"],
+            "pace": sec_to_pace(pace_sec), "vdot": implied_vdot(got["distance_km"], got["duration_sec"]),
+            "current_vdot": current, "note": got["note"], "img_type": got["type"]}
 
 
 class PlanAdjustIn(BaseModel):
