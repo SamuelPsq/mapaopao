@@ -29,8 +29,10 @@ export default function Today() {
   const [skipKindOpen, setSkipKindOpen] = useState(false)
   // 月历弹窗
   const [calendarOpen, setCalendarOpen] = useState(false)
-  // 打卡弹窗：完成了 / 只跑了一部分 / 超额完成 三个按钮统一走「里程 + 时分秒」弹窗
-  const [logDialog, setLogDialog] = useState<null | { mode: "full" | "partial" | "over" }>(null)
+  // 打卡弹窗：单一「今日打卡」入口，里程/总用时默认值 = 当天课程的目标值
+  const [logOpen, setLogOpen] = useState(false)
+  // 偏差 >±30% 后的原因询问：临时起意（不动计划）/ 强度不匹配（按数据调整计划）
+  const [devAsk, setDevAsk] = useState<null | { km: number; sec: number }>(null)
   const [kmInput, setKmInput] = useState("")
   const [dur, setDur] = useState({ h: 0, m: 30, s: 0 })
   // 大幅超额（>3km）后的进阶二次确认
@@ -80,7 +82,7 @@ export default function Today() {
   const todayStr = new Date().toLocaleDateString("sv-SE")   // YYYY-MM-DD（本地时区）
   const isToday = !!m && m.date === todayStr                // 主课是不是今天的课
 
-  async function log(status: "full" | "partial" | "over" | "skipped", actualKm?: number, durationSec?: number, skipKind?: "rest" | "strength") {
+  async function log(status: "full" | "partial" | "over" | "skipped", actualKm?: number, durationSec?: number, skipKind?: "rest" | "strength", devReason?: "impulse" | "mismatch") {
     if (!isToday) { setNotTimeOpen(true); return }          // 时间对不上：不是不练，时候未到
     const actual_km = actualKm ?? (status === "full" ? m!.target_km : 0)
     let r: { vdot_update?: string; over_note?: string; under_note?: string; ai_tune_note?: string; rearrange_ready?: boolean; advance_prompt?: boolean; advance_pace?: string }
@@ -88,7 +90,7 @@ export default function Today() {
       r = await api.post<typeof r>(
         `/v1/session/${m!.session_id}/log`,
         { status, actual_km, actual_pace: "", duration_sec: durationSec ?? 0, rpe: null,
-          skip_kind: skipKind ?? "" })
+          skip_kind: skipKind ?? "", dev_reason: devReason ?? "" })
     } catch (e) {
       // 打卡失败必须让用户知道（早期版本静默失败，数据丢失且无感知）
       setToast("记录失败：" + (e as Error).message)
@@ -113,30 +115,44 @@ export default function Today() {
     refresh()
   }
 
-  // 打开打卡弹窗：完成了预填目标里程和预计用时
-  function openLogDialog(mode: "full" | "partial" | "over") {
+  // 打开打卡弹窗：里程默认目标值、总用时默认按目标配速估算，用户可手动调整
+  function openCheckin() {
     if (!isToday) { setNotTimeOpen(true); return }
-    setKmInput(mode === "full" && m ? String(m.target_km) : "")
+    setKmInput(m ? String(m.target_km) : "")
     if (m) {
       const est = Math.round(m.target_km * paceSec(m.target_pace))
       setDur({ h: Math.floor(est / 3600), m: Math.floor((est % 3600) / 60), s: est % 60 })
     }
-    setLogDialog({ mode })
+    setLogOpen(true)
   }
 
-  // 填完里程 + 时分秒后的提交
+  // 填完里程 + 时分秒后的提交：偏差 >±30% 先问原因，否则直接记录
   function submitLog() {
-    if (!logDialog || !m) return
+    if (!m) return
     const km = Number(kmInput)
     const target = m.target_km
     const durationSec = dur.h * 3600 + dur.m * 60 + dur.s
     if (!Number.isFinite(km) || km <= 0) { setToast("请输入大于 0 的公里数"); return }
     if (durationSec <= 0) { setToast("请填一下总用时（时分秒）"); return }
-    if (logDialog.mode === "over" && km <= target) { setToast(`超额完成要大于目标 ${fmtKm(target)} km 哦`); return }
-    if (logDialog.mode === "partial" && km >= target) { setToast(`只跑了一部分应该小于目标 ${fmtKm(target)} km，超过了就选「超额完成」`); return }
-    setLogDialog(null)
+    if (Math.abs(km - target) > target * 0.3) {
+      // 偏差过大：先弄清是临时起意还是强度不匹配，再决定动不动计划
+      setLogOpen(false)
+      setKmInput("")
+      setDevAsk({ km: Math.round(km * 10) / 10, sec: durationSec })
+      return
+    }
+    setLogOpen(false)
     setKmInput("")
-    log(logDialog.mode, Math.round(km * 10) / 10, durationSec)
+    log(km >= target ? "full" : "partial", Math.round(km * 10) / 10, durationSec)
+  }
+
+  // 偏差原因回答：临时起意 → 只记录不动计划；强度不匹配 → 按真实跑量动态调整计划
+  function answerDevAsk(reason: "impulse" | "mismatch") {
+    const d = devAsk
+    setDevAsk(null)
+    if (!d) return
+    if (reason === "mismatch") setToast("会根据今日跑量调整训练计划哦")
+    log(d.km >= m!.target_km ? "full" : "partial", d.km, d.sec, undefined, reason)
   }
 
   // 进阶确认：是 → 按真实跑力重排剩余周；否 → 保持原计划，提醒循序渐进。
@@ -301,16 +317,13 @@ export default function Today() {
         </div>
       ) : null}
 
-      {/* 打卡按钮：三个都会弹窗填里程 + 总用时（时分秒） */}
+      {/* 打卡按钮：今日打卡（默认值=今日课程，可手改）+ 今天跑不了 */}
       <div className="grid grid-cols-2 gap-2 mb-3">
-        <Button onClick={() => openLogDialog("full")}>完成了</Button>
-        <Button variant="secondary" onClick={() => openLogDialog("partial")}>只跑了一部分</Button>
+        <Button className="bg-orange-500 hover:bg-orange-600 text-white border-0" onClick={openCheckin}>今日打卡</Button>
         <Button variant="outline" className="bg-card" onClick={() => {
           if (!isToday) { setNotTimeOpen(true); return }   // 时间对不上：不是不练，时候未到
           setSkipConfirm(true)
         }}>今天跑不了</Button>
-        <Button className="bg-orange-500 hover:bg-orange-600 text-white border-0"
-          onClick={() => openLogDialog("over")}>超额完成</Button>
       </div>
 
       {/* 本周进度 */}
@@ -331,13 +344,13 @@ export default function Today() {
       <NavBar weekNo={card.week_no} />
       {toast ? <div className="fixed bottom-20 left-1/2 -translate-x-1/2 bg-foreground text-background text-sm px-4 py-2 rounded-full shadow-lg max-w-xs text-center z-50">{toast}</div> : null}
 
-      {/* 打卡弹窗：里程 + 总用时（时分秒滚轮） */}
-      <Dialog open={!!logDialog} onOpenChange={(o) => { if (!o) setLogDialog(null) }}>
+      {/* 打卡弹窗：里程 + 总用时（时分秒滚轮），默认值即今日课程目标 */}
+      <Dialog open={logOpen} onOpenChange={setLogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{{ full: "完成了 · 记录今天的训练", partial: "只跑了一部分 · 实际跑了多少？", over: "超额完成 · 实际跑了多少？" }[logDialog?.mode || "full"]}</DialogTitle>
+            <DialogTitle>今日打卡 · 实际跑了多少？</DialogTitle>
             <DialogDescription>
-              {m ? <>这节课目标是 <b>{fmtKm(m.target_km)} km</b>。填实际里程和总用时，系统会自动换算配速，并影响接下来的排期。</> : null}
+              {m ? <>这节课目标是 <b>{fmtKm(m.target_km)} km</b>。已按目标预填，可直接改。填实际里程和总用时，系统会自动换算配速，并影响接下来的排期。</> : null}
             </DialogDescription>
           </DialogHeader>
           <div className="py-2 space-y-4">
@@ -354,12 +367,31 @@ export default function Today() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setLogDialog(null)}>取消</Button>
-            <Button className={logDialog?.mode === "over" ? "bg-orange-500 hover:bg-orange-600 text-white border-0" : ""}
+            <Button variant="outline" onClick={() => setLogOpen(false)}>取消</Button>
+            <Button className="bg-orange-500 hover:bg-orange-600 text-white border-0"
               onClick={submitLog}>确认记录</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* 偏差 >±30%：问原因是临时起意还是强度不匹配，决定动不动训练计划 */}
+      <AlertDialog open={!!devAsk} onOpenChange={(o) => { if (!o) setDevAsk(null) }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>今天的训练量和计划差了不少</AlertDialogTitle>
+            <AlertDialogDescription>
+              {devAsk && m ? <>计划 {fmtKm(m.target_km)} km，你填了 <b>{fmtKm(devAsk.km)} km</b>，
+                偏差超过 30%。是临时起意，还是这节课的强度和你不匹配？</> : null}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-col gap-2">
+            <Button variant="outline" className="w-full"
+              onClick={() => answerDevAsk("impulse")}>临时起意 —— 只记录，原计划不变</Button>
+            <AlertDialogAction className="w-full bg-orange-500 hover:bg-orange-600"
+              onClick={() => answerDevAsk("mismatch")}>强度不匹配 —— 按今日跑量调整训练计划</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* 大幅超额后的进阶确认 */}
       <AlertDialog open={!!advance} onOpenChange={(o) => { if (!o) setAdvance(null) }}>
@@ -639,6 +671,11 @@ function TimeWheel({ value, onChange }: {
     { key: "m" as const, label: "分", max: 59, unit: "分" },
     { key: "s" as const, label: "秒", max: 59, unit: "秒" },
   ]
+  // 打开弹窗时把已选值（默认值=课程估算用时）滚进可视区，否则预填了也看不见
+  useEffect(() => {
+    document.querySelectorAll("[data-timewheel-selected]").forEach((el) =>
+      el.scrollIntoView({ block: "center" }))
+  }, [])
   return (
     <div className="flex h-[180px] rounded-xl border overflow-hidden mt-1.5">
       {cols.map((c) => (
@@ -646,6 +683,7 @@ function TimeWheel({ value, onChange }: {
           <div className="text-center text-[10px] text-muted-foreground/70 sticky top-0 bg-background/90 py-0.5">{c.unit}</div>
           {Array.from({ length: c.max + 1 }, (_, i) => (
             <button key={i} type="button"
+              {...(value[c.key] === i ? { "data-timewheel-selected": "1" } : {})}
               onClick={() => onChange({ ...value, [c.key]: i })}
               className={`w-full py-2 text-center text-sm transition-colors
                 ${value[c.key] === i ? "text-primary font-bold bg-primary/5" : "text-muted-foreground"}`}>

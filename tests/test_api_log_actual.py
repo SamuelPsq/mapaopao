@@ -145,3 +145,47 @@ def test_over_status_counts_as_done_in_metrics():
     w1 = c.get(f"/v1/plan/{plan_id}/week/1").json()
     done = [x for x in w1["sessions"] if x["session_id"] == sid][0]
     assert done["status"] == "done", "over 打卡后课次状态应为 done"
+
+
+def test_dev_reason_impulse_keeps_plan_unchanged():
+    """偏差 >±30% 且用户选择「临时起意」：只记录，VDOT/计划不动（即使数据暗示能力大变）。"""
+    _fresh_db()
+    uid = c.post("/v1/account/register", json={"username": "impulseu", "password": "run12345"}).json()["user_id"]
+    plan_id = _onboard(uid)
+    with db.SessionLocal() as s:
+        base_vdot = s.get(db.User, uid).vdot
+    sess = _first_session(plan_id)
+    sid = sess["session_id"]
+    # 5km @5:00/km 相对新手基线是巨大突破（隐含 VDOT 约 56，偏移 >>1.5），且不超 3km 进阶线
+    r = c.post(f"/v1/session/{sid}/log", json={"status": "full", "actual_km": 5.0,
+                                              "actual_pace": "", "duration_sec": 1500,
+                                              "rpe": None, "skip_kind": "", "dev_reason": "impulse"})
+    assert r.status_code == 200
+    assert "vdot_update" not in r.json(), "临时起意不应触发能力重估"
+    with db.SessionLocal() as s:
+        log = s.query(db.SessionLog).filter_by(session_id=sid).first()
+        assert abs(log.actual_km - 5.0) < 0.01                    # 数据照常落库
+        assert s.get(db.User, uid).vdot == base_vdot              # 计划保持不变
+
+
+def test_dev_reason_mismatch_adjusts_plan():
+    """用户选择「强度不匹配」：按真实跑量动态调整计划，重估门槛从 1.5 降到 0.5。"""
+    payload = {"status": "full", "actual_km": 3.0, "actual_pace": "",
+               "duration_sec": 990, "rpe": None, "skip_kind": ""}
+    # 对照组：同样数据（隐含 VDOT 47，偏移仅 1）不带原因标记 → 低于 1.5 门槛，不重估
+    _fresh_db()
+    uid = c.post("/v1/account/register", json={"username": "mismatchctl", "password": "run12345"}).json()["user_id"]
+    plan_id = _onboard(uid)
+    with db.SessionLocal() as s:
+        base_vdot = s.get(db.User, uid).vdot
+    r1 = c.post(f"/v1/session/{_first_session(plan_id)['session_id']}/log", json={**payload, "dev_reason": ""})
+    assert "vdot_update" not in r1.json(), "无原因标记时小偏移不应重估（对照组）"
+    # 实验组：选「强度不匹配」→ 放宽到 0.5 门槛，偏移 1 也要重估
+    _fresh_db()
+    uid = c.post("/v1/account/register", json={"username": "mismatches", "password": "run12345"}).json()["user_id"]
+    plan_id = _onboard(uid)
+    r2 = c.post(f"/v1/session/{_first_session(plan_id)['session_id']}/log", json={**payload, "dev_reason": "mismatch"})
+    assert r2.status_code == 200
+    assert "vdot_update" in r2.json(), "强度不匹配应按数据调整计划"
+    with db.SessionLocal() as s:
+        assert s.get(db.User, uid).vdot == base_vdot + 1

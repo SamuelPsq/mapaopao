@@ -149,6 +149,7 @@ class LogIn(BaseModel):
     duration_sec: int = 0                  # 总用时（秒）
     rpe: int | None = None
     skip_kind: str = ""                    # skipped 时记录：rest 停练 / strength 室内力量
+    dev_reason: str = ""                   # 偏差 >±30% 时前端询问：impulse 临时起意 / mismatch 强度不匹配
 
 
 class WeightIn(BaseModel):
@@ -940,16 +941,20 @@ def log_session(session_id: str, body: LogIn):
         # 明显不足：部分完成但低于目标 50%，缺口需要本周内重排补上
         under_done = (body.status == "partial" and sess.target_km > 0
                       and body.actual_km < sess.target_km * 0.5)
-        # 能力重估：每 4 周，用实际配速回写 VDOT（只刷新未开始的周）。
+        # 能力重估：用实际配速回写 VDOT（只刷新未开始的周）。
         # 大幅超额时先不自动改——进阶与否交给用户二次确认（/v1/user/advance）
+        # dev_reason=impulse（临时起意）：用户明确说不代表真实能力，不动计划；
+        # dev_reason=mismatch（强度不匹配）：用户主动要求按数据调整，降低重估门槛（≥0.5 即刷新）
         vdot_note = None
-        if not advance_prompt and body.status in ("full", "over", "partial") \
+        if not advance_prompt and body.dev_reason != "impulse" \
+                and body.status in ("full", "over", "partial") \
                 and body.actual_km > 0 and actual_pace and user:
             try:
                 m, sec = actual_pace.split(":")
                 pace_sec = int(m) * 60 + int(sec)
                 new_v = implied_vdot(body.actual_km, pace_sec * body.actual_km)
-                if abs(new_v - user.vdot) >= 1.5:
+                threshold = 0.5 if body.dev_reason == "mismatch" else 1.5
+                if abs(new_v - user.vdot) >= threshold:
                     old = user.vdot
                     user.vdot = new_v
                     _refresh_future_weeks(s, plan, sess.week_no, new_v)
