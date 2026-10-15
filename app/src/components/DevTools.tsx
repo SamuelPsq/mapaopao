@@ -4,7 +4,8 @@ import { api } from "../lib/api"
 
 /** 断网/挂起/重启后端演示工具：验证「连不上服务器，请检查网络后重试」降级文案与 GET 自动重试。
  *  仅 vite 开发模式可见（import.meta.env.DEV），build 产物里整个组件不渲染。
- *  后端接口仅在 MAPAOPAO_DEV=1 时注册；/dev 由 vite 代理到 8000 端口。 */
+ *  /dev/shutdown 由 vite 代理到后端（需 MAPAOPAO_DEV=1 启动才有此接口）；
+ *  /dev/restart 由 vite 中间件直接处理——后端全挂时它也已死，重启开关必须由 dev server 代劳。 */
 export default function DevTools() {
   const [offline, setOffline] = useState(false)
   const [dead, setDead] = useState(false)
@@ -110,7 +111,7 @@ export default function DevTools() {
         <span className="text-[10px] leading-snug text-muted-foreground/80 bg-background/80 rounded px-1.5 py-1 max-w-[180px]">
           {restarting
             ? "后端正在重启，约 5 秒后自动恢复，请稍候…"
-            : "点「重启后端」一键恢复，或终端执行 uvicorn server.main:app --port 8000（需带 MAPAOPAO_DEV=1）"}
+            : "点「重启后端」一键恢复——重启开关由前端 dev server 托管，后端全挂也能拉起"}
         </span>
       )}
     </div>
