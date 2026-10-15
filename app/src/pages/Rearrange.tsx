@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from "react-router"
 import { api, loadUser, type PreviewResp, type PlanOption, STRATEGY_CN } from "@/lib/api"
 import { fmtKm } from "@/lib/format"
 import { Button } from "@/components/ui/button"
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Shell } from "./Today"
@@ -14,6 +15,8 @@ export default function Rearrange() {
   const [data, setData] = useState<PreviewResp | null>(null)
   const [err, setErr] = useState("")
   const [busy, setBusy] = useState(false)
+  // 防误触：接受方案前先确认（单向：替换本周剩余课表）
+  const [accepting, setAccepting] = useState<null | "main" | "alt">(null)
   const t0 = useRef(Date.now())
 
   useEffect(() => {
@@ -65,11 +68,29 @@ export default function Rearrange() {
             </div>
           )}
           <div className="grid grid-cols-3 gap-2 mt-6">
-            <Button disabled={busy} onClick={() => decide("accept")}>接受主方案</Button>
-            <Button variant="secondary" disabled={busy || !data.alt} onClick={() => decide("accept", true)}>用备选</Button>
+            <Button disabled={busy} onClick={() => setAccepting("main")}>接受主方案</Button>
+            <Button variant="secondary" disabled={busy || !data.alt} onClick={() => setAccepting("alt")}>用备选</Button>
             <Button variant="outline" disabled={busy} onClick={() => decide("manual")}>我自己改</Button>
           </div>
           <Button variant="ghost" className="w-full mt-2" disabled={busy} onClick={() => decide("reject")}>保持原计划</Button>
+
+          {/* 防误触：接受方案会替换本周剩余课表，先确认 */}
+          <AlertDialog open={!!accepting} onOpenChange={(o) => { if (!o) setAccepting(null) }}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>确认采用{accepting === "alt" ? "备选" : "主"}方案？</AlertDialogTitle>
+                <AlertDialogDescription>
+                  本周剩余课表将被替换，已完成的打卡记录保留；之后想再调整，可以重新触发重排。
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>点错了</AlertDialogCancel>
+                <AlertDialogAction onClick={() => { const a = accepting; setAccepting(null); if (a) decide("accept", a === "alt") }}>
+                  确认采用
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </>
       )}
 

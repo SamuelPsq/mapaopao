@@ -43,6 +43,8 @@ export default function Onboarding() {
   const [city, setCity] = useState("上海")
   // 身高体重确认：填后不可修改，下一步前先二次确认
   const [bodyConfirm, setBodyConfirm] = useState(false)
+  // 防误触：生成计划前确认参数摘要（单向：生成后计划重建、进度清零）
+  const [genConfirm, setGenConfirm] = useState(false)
 
   function pickProvince(name: string) {
     setProvince(name)
@@ -219,7 +221,7 @@ export default function Onboarding() {
           <p className="text-sm text-center text-muted-foreground">
             已选：<b className="text-foreground">{province} · {city}</b>
           </p>
-          <Button className="w-full" size="lg" disabled={busy} onClick={() => finish(city)}>
+          <Button className="w-full" size="lg" disabled={busy} onClick={() => setGenConfirm(true)}>
             {busy ? "正在生成 16 周计划…" : "生成我的训练计划"}
           </Button>
           <p className="text-xs text-muted-foreground text-center">
@@ -237,6 +239,28 @@ export default function Onboarding() {
       {step > 0 && (
         <Button variant="ghost" className="w-full mt-2" onClick={() => setStep(step - 1)}>上一步</Button>
       )}
+
+      {/* 生成计划前确认：参数摘要，单向操作 */}
+      <AlertDialog open={genConfirm} onOpenChange={setGenConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>确认生成 16 周训练计划？</AlertDialogTitle>
+            <AlertDialogDescription>
+              目标赛事：<b>{a.goal_race === "full" ? "全程马拉松" : "半程马拉松"}</b>；
+              每周训练 <b>{a.avail_days} 天</b>；
+              身高 <b>{a.height_cm} cm</b> / 体重 <b>{a.weight_kg} kg</b>（身高之后不可修改）；
+              城市 <b>{city}</b>。
+              生成后计划按 VDOT 规则引擎排定；后续改训练天数/强度会重建计划、进度清零。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>点错了</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { setGenConfirm(false); finish(city) }}>
+              确认生成
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* 身高体重二次确认：填后不可修改 */}
       <AlertDialog open={bodyConfirm} onOpenChange={setBodyConfirm}>

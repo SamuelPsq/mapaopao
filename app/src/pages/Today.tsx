@@ -485,6 +485,8 @@ function CitySheet({ current, onDone }: { current: string; onDone: (msg: string)
   const uid = loadUser()!
   const [open, setOpen] = useState(false)
   const [busy, setBusy] = useState(false)
+  // 防误触：切换城市会重建计划、进度清零，选定城市后再确认一次
+  const [pending, setPending] = useState<CityInfo | null>(null)
 
   async function submit(sel: CityInfo) {
     setBusy(true)
@@ -515,7 +517,7 @@ function CitySheet({ current, onDone }: { current: string; onDone: (msg: string)
         <div className="px-1 py-4">
           {busy
             ? <p className="text-sm text-muted-foreground text-center py-12">正在按新城市天气重新生成计划…</p>
-            : <CityPicker current={current} onConfirm={submit} />}
+            : <CityPicker current={current} onConfirm={(sel) => setPending(sel)} />}
           {!busy && (
             <p className="text-xs text-muted-foreground mt-4">
               切换后将按新城市的天气（体感温度、降雨硬约束）重新生成配套训练计划，当前计划进度会清零。
@@ -523,6 +525,24 @@ function CitySheet({ current, onDone }: { current: string; onDone: (msg: string)
           )}
         </div>
       </SheetContent>
+
+      {/* 防误触：确认切换城市 */}
+      <AlertDialog open={!!pending} onOpenChange={(o) => { if (!o) setPending(null) }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>确认切换到{pending?.name}？</AlertDialogTitle>
+            <AlertDialogDescription>
+              当前训练计划将按{pending?.name}的天气（体感温度、降雨硬约束）重新生成，当前进度清零；已完成的打卡记录保留。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>点错了</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { const p = pending; setPending(null); if (p) submit(p) }}>
+              确认切换
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Sheet>
   )
 }

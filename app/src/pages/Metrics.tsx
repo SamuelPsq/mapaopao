@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import ConfirmButton from "@/components/ConfirmButton"
 import { LogOut, UserRound, UserRoundX, SlidersHorizontal, Scale, Minus, Plus, ChevronUp, ChevronDown } from "lucide-react"
 import { Shell, NavBar } from "./Today"
 
@@ -30,9 +31,11 @@ export default function MetricsPage() {
   const [adjDays, setAdjDays] = useState<number | null>(null)
   const [adjShift, setAdjShift] = useState(0)
   const [adjBusy, setAdjBusy] = useState(false)
+  const [adjConfirm, setAdjConfirm] = useState(false)     // 防误触：确认重建计划
   const [weightOpen, setWeightOpen] = useState(false)
   const [weightInput, setWeightInput] = useState("")
   const [weightBusy, setWeightBusy] = useState(false)
+  const [weightConfirm, setWeightConfirm] = useState(false) // 防误触：确认更新体重
   const [toast, setToast] = useState("")
 
   async function submitWeight() {
@@ -179,14 +182,18 @@ export default function MetricsPage() {
 
       {/* 账号：退出登录 / 切换账号（数据保留在服务端，重新登录可继续） */}
       <div className="mt-6 grid grid-cols-2 gap-2">
-        <Button variant="outline" className="bg-card"
-          onClick={() => { api.post("/v1/account/logout").catch(() => {}); clearUser(); nav("/login") }}>
+        <ConfirmButton variant="outline" className="bg-card" title="确认退出登录？"
+          description="退出后需要重新登录才能查看训练计划；训练数据都保留在账号下，不会丢失。"
+          confirmText="退出登录"
+          onConfirm={() => { api.post("/v1/account/logout").catch(() => {}); clearUser(); nav("/login") }}>
           <LogOut className="h-4 w-4 mr-1.5" />退出登录
-        </Button>
-        <Button variant="outline" className="bg-card"
-          onClick={() => { api.post("/v1/account/logout").catch(() => {}); clearUser(); nav("/login") }}>
+        </ConfirmButton>
+        <ConfirmButton variant="outline" className="bg-card" title="切换账号？"
+          description="将退出当前账号并回到登录页，用另一个账号登录即可；原账号的训练数据保留在服务端。"
+          confirmText="切换账号"
+          onConfirm={() => { api.post("/v1/account/logout").catch(() => {}); clearUser(); nav("/login") }}>
           <UserRound className="h-4 w-4 mr-1.5" />切换账号
-        </Button>
+        </ConfirmButton>
       </div>
       <Button className="w-full mt-2 bg-orange-500 hover:bg-orange-600 text-white"
         onClick={() => { setPassword(""); setDeleteErr(""); setDeleteOpen(true) }}>
@@ -243,12 +250,30 @@ export default function MetricsPage() {
             <Button variant="outline" onClick={() => setAdjustOpen(false)}>取消</Button>
             <Button disabled={adjBusy ||
                 (adjDays === m.user?.avail_days && adjShift === 0)}
-              onClick={submitAdjust}>
+              onClick={() => setAdjConfirm(true)}>
               {adjBusy ? "正在重新生成…" : "确认修改"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* 防误触：确认修改训练计划（单向：按新参数重建，当前进度清零） */}
+      <AlertDialog open={adjConfirm} onOpenChange={setAdjConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>确认按新参数重建计划？</AlertDialogTitle>
+            <AlertDialogDescription>
+              每周训练 {adjDays ?? m.user?.avail_days} 天，强度档位
+              {adjShift === 0 ? "不变" : adjShift === 1 ? " +1 级（VDOT +2）" : " -1 级（VDOT -2）"}。
+              计划会按新参数重新生成，当前进度清零；已完成的打卡记录保留。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>点错了</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { setAdjConfirm(false); submitAdjust() }}>确认重建</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* 修改体重弹窗 */}
       <Dialog open={weightOpen} onOpenChange={setWeightOpen}>
@@ -280,12 +305,32 @@ export default function MetricsPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setWeightOpen(false)}>取消</Button>
-            <Button disabled={weightBusy} onClick={submitWeight}>
+            <Button disabled={weightBusy} onClick={() => setWeightConfirm(true)}>
               {weightBusy ? "正在保存…" : "确认修改"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* 防误触：确认修改体重 */}
+      <AlertDialog open={weightConfirm} onOpenChange={setWeightConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>确认更新体重？</AlertDialogTitle>
+            <AlertDialogDescription>
+              体重将更新为 <b>{weightInput} kg</b>
+              {m.user?.height_cm && Number(weightInput) > 0
+                ? <>（BMI {(Number(weightInput) / ((m.user.height_cm / 100) ** 2)).toFixed(1)}）
+                    ，会影响后续计划的保守模式判定</>
+                : ""}，之后随时可以再次修改。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>点错了</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { setWeightConfirm(false); submitWeight() }}>确认更新</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <AlertDialogContent>
