@@ -112,7 +112,7 @@ class SessionLog(Base):
     __tablename__ = "session_log"
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     session_id: Mapped[str] = mapped_column(ForeignKey("session.session_id"), index=True)
-    status: Mapped[str] = mapped_column(String(12))             # full / partial / skipped
+    status: Mapped[str] = mapped_column(String(12))             # full / over / partial / skipped
     actual_km: Mapped[float] = mapped_column(Float, default=0.0)
     actual_pace: Mapped[str] = mapped_column(String(16), default="")
     duration_sec: Mapped[int] = mapped_column(Integer, default=0)  # 总用时（秒），打卡弹窗填

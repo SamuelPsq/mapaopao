@@ -289,3 +289,37 @@ def test_skip_kind_and_calendar_view():
     with db.SessionLocal() as s:
         row = s.query(db.SessionLog).filter_by(skip_kind="strength").first()
         assert row is not None
+
+
+def test_over_status_counts_in_total_and_week_km():
+    """回归：超额完成(over)的里程必须计入今日卡 total_km / week_km，口径与月历一致。
+
+    bug：/v1/today 聚合跑量时漏了 "over"，导致超额打卡后今日卡与月历对不上。
+    """
+    from datetime import date as _date
+    _fresh_db()
+    uid = _seed_user_with_plan("bodyover")
+    plan_id = c.get(f"/v1/today?user_id={uid}").json()["plan_id"]
+    sessions = c.get(f"/v1/plan/{plan_id}/week/1").json()["sessions"]
+    target = max(sessions, key=lambda s: s["target_km"])
+    over_km = round(target["target_km"] * 1.3, 1)   # 明显超额，保证 status=over 生效
+
+    r = c.post(f"/v1/session/{target['session_id']}/log",
+               json={"status": "over", "actual_km": over_km, "duration_sec": 5400})
+    assert r.status_code == 200
+    with db.SessionLocal() as s:
+        log = s.query(db.SessionLog).filter_by(session_id=target["session_id"]).first()
+        assert log.status == "over", "log 接口应原样落 over 状态"
+
+    card = c.get("/v1/today", params={"user_id": uid}).json()
+    assert card["total_km"] == over_km, "累计总跑量必须包含超额完成里程"
+    # 若打卡的课在当前计划周，本周跑量也必须包含它
+    with db.SessionLocal() as s:
+        sess_row = s.get(db.Session, target["session_id"])
+        if sess_row.week_no == card["week_no"]:
+            assert card["week_km"] == over_km, "本周跑量必须包含超额完成里程"
+
+    month = _date.fromisoformat(target["date"]).strftime("%Y-%m")
+    cal = c.get("/v1/calendar", params={"user_id": uid, "month": month}).json()
+    day = next(d for d in cal["days"] if d["date"] == target["date"])
+    assert day["kind"] == "run" and day["km"] == over_km, "月历口径应与今日卡一致"

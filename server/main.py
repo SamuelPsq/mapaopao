@@ -726,11 +726,11 @@ def today_card(user_id: str):
         done_key = sum(1 for x in sessions if x.is_key and
                        (logs.get(x.session_id) and logs[x.session_id].status in ("full", "over", "partial")))
         key_total = sum(1 for x in sessions if x.is_key)
-        # 跑量：累计（全部 full/partial）+ 本周（当前周 full/partial），一次 join 算完
+        # 跑量：累计（全部 full/over/partial，口径与月历一致）+ 本周（当前周），一次 join 算完
         log_rows = s.query(db.SessionLog, db.Session).join(
             db.Session, db.Session.session_id == db.SessionLog.session_id).filter(
             db.Session.plan_id == plan.plan_id,
-            db.SessionLog.status.in_(("full", "partial"))).all()
+            db.SessionLog.status.in_(("full", "over", "partial"))).all()
         total_km = round(sum(l.actual_km or 0.0 for l, _ in log_rows), 1)
         week_km = round(sum((l.actual_km or 0.0) for l, se in log_rows
                             if se.week_no == week_no), 1)
