@@ -1,6 +1,9 @@
-import { useState, type ReactNode } from "react"
+import { useState, type ComponentProps, type ReactNode } from "react"
+import type { VariantProps } from "class-variance-authority"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
-import { Button, type ButtonProps } from "@/components/ui/button"
+import { Button, buttonVariants } from "@/components/ui/button"
+
+type ButtonProps = ComponentProps<"button"> & VariantProps<typeof buttonVariants> & { asChild?: boolean }
 
 interface ConfirmButtonProps extends Omit<ButtonProps, "onClick"> {
   /** 确认弹窗标题 */

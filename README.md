@@ -45,6 +45,18 @@ npm run build               # 前端生产构建
 
 Windows 也可以直接双击 `start.bat`（自动拉起前后端并打开浏览器），`stop.bat` 关闭。
 
+## 部署上线
+
+```bash
+npm --prefix app run build      # 产出静态文件到 app/dist/
+npm --prefix app run preview    # 本地验证产物（默认 4173 端口）
+```
+
+- **前端**：`app/dist` 是纯静态文件，交给任意静态托管即可（Nginx / Vercel / 宝塔面板）。注意 SPA 路由需配置 fallback：所有 404 路径回退到 `index.html`。
+- **后端**：任意支持 ASGI 的主机运行 `uvicorn server.main:app --host 0.0.0.0 --port 8000`，生产库通过环境变量 `MAPAOPAO_DB_URL` 切到 PostgreSQL / MySQL。
+- **反向代理**：把 `/v1`、`/jobs` 转发到 8000 端口，静态资源走 dist；前端 `src/lib/api.ts` 里的 API 地址按需改为线上域名。
+- **安全提醒**：`.env` 只留在服务器上且权限收紧；生产环境务必关闭 Vite 代理，用 Nginx 统一收口，避免 8000 端口直接对外暴露。
+
 ## 接入 LLM（可选，不配也能跑）
 
 复制 `.env.example` 为 `.env`，填入 key 即可（OpenAI 兼容协议，DeepSeek / Kimi 等零改动切换）：

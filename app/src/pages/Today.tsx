@@ -5,7 +5,7 @@ import { fmtKm } from "@/lib/format"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
-import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
@@ -80,7 +80,7 @@ export default function Today() {
   const todayStr = new Date().toLocaleDateString("sv-SE")   // YYYY-MM-DD（本地时区）
   const isToday = !!m && m.date === todayStr                // 主课是不是今天的课
 
-  async function log(status: "full" | "partial" | "skipped", actualKm?: number, durationSec?: number, skipKind?: "rest" | "strength") {
+  async function log(status: "full" | "partial" | "over" | "skipped", actualKm?: number, durationSec?: number, skipKind?: "rest" | "strength") {
     if (!isToday) { setNotTimeOpen(true); return }          // 时间对不上：不是不练，时候未到
     const actual_km = actualKm ?? (status === "full" ? m!.target_km : 0)
     const r = await api.post<{ vdot_update?: string; over_note?: string; under_note?: string; ai_tune_note?: string; rearrange_ready?: boolean; advance_prompt?: boolean; advance_pace?: string }>(
@@ -517,7 +517,7 @@ export default function Today() {
       </Dialog>
 
       {/* 月历：当月每天的跑量/配速与停练原因 */}
-      <MonthCalendar open={calendarOpen} onOpenChange={setCalendarOpen} uid={uid} />
+      <MonthCalendar open={calendarOpen} onOpenChange={setCalendarOpen} uid={uid ?? ""} />
     </Shell>
   )
 }
