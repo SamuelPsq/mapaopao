@@ -759,6 +759,24 @@ def today_card(user_id: str):
                     (today + timedelta(days=i)).isoformat())
                 if wd and wd.hard_constraint:
                     hard_days.append(_dow(today + timedelta(days=i)))
+        # 结构化天气（课表卡片的气温数字 + 7 天趋势图用）；STALE 降级时不返回该字段
+        wx_map = get_week_weather(user.lat, user.lon, today)
+        wx_td = wx_map.get(today.isoformat())
+        weather_out = None
+        if wx_td is not None and wx_td.source != "STALE":
+            weather_out = {
+                "t_max": round(wx_td.t_max, 1),
+                "apparent_max": round(wx_td.apparent_max, 1),
+                "precip": round(wx_td.precip, 1),
+                "aqi": wx_td.aqi,
+                "condition": WX_CONDITION.get(wx_td.weather_code, "多云"),
+                "hard": wx_td.hard_constraint,
+                "hot": wx_td.hot_soft,
+                "week": [{"date": d.isoformat(),
+                          "t_max": round(wx_map[d.isoformat()].t_max, 1),
+                          "hard": wx_map[d.isoformat()].hard_constraint}
+                         for i in range(7) for d in (today + timedelta(days=i),)],
+            }
         # 原因行：LLM 个性化解释，规则模板兜底（数字全部来自上面的计算）
         reason = ""
         reason_src = None
@@ -788,6 +806,7 @@ def today_card(user_id: str):
             "week_phase": pw.phase if pw else "load", "is_dropped": pw.is_dropped if pw else False,
             "weekday": _dow(today), "days_to_race": max(0, days_to_race),
             "vdot": user.vdot, "city": user.city, "total_km": total_km, "week_km": week_km,
+            "weather": weather_out,
             "today_has_run": bool(todays),
             "main_session": _session_dict(main, logs.get(main.session_id)) if main else None,
             "reason_line": reason, "weather_line": wx_line, "hard_days": hard_days,
@@ -857,6 +876,14 @@ def _recovery_alert(s, user_id: str, main) -> dict | None:
 
 
 SORENESS_CN = {"knee": "膝盖", "ankle": "脚踝", "calf": "小腿", "hip": "髋部", "none": ""}
+
+# WMO weathercode → 中文状况（课表卡片气温区用）
+WX_CONDITION = {0: "晴", 1: "多云", 2: "多云", 3: "阴", 45: "雾", 48: "雾",
+                51: "毛毛雨", 53: "毛毛雨", 55: "毛毛雨", 56: "冻毛毛雨", 57: "冻毛毛雨",
+                61: "雨", 63: "雨", 65: "大雨", 66: "冻雨", 67: "冻雨",
+                71: "雪", 73: "雪", 75: "大雪", 77: "雪",
+                80: "阵雨", 81: "阵雨", 82: "强阵雨", 85: "阵雪", 86: "阵雪",
+                95: "雷暴", 96: "雷暴", 99: "雷暴"}
 
 
 @app.get("/v1/calendar")

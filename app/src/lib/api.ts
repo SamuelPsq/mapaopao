@@ -64,6 +64,16 @@ export interface TodayCard {
   week_progress: { key_done: number; key_total: number; done: number; total: number }
   total_km: number
   week_km: number
+  weather?: {
+    t_max: number
+    apparent_max: number
+    precip: number
+    aqi: number | null
+    condition: string
+    hard: boolean
+    hot: boolean
+    week: { date: string; t_max: number; hard: boolean }[]
+  } | null
 }
 
 export interface CandSession {

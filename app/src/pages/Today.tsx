@@ -272,6 +272,25 @@ export default function Today() {
                 配速 {m.target_pace}
               </span>
             </div>
+            {/* 当前城市气温 + 天气状况 + 未来 7 天趋势 */}
+            {card.weather ? (
+              <div className="mt-2 border-t border-white/15 pt-2">
+                <div className="flex items-end justify-between gap-2">
+                  <div className="flex items-baseline gap-1.5">
+                    <span className="text-2xl font-black leading-none">
+                      {Math.round(card.weather.t_max)}<span className="text-sm font-bold">°C</span>
+                    </span>
+                    <span className="text-[11px] text-white/85">
+                      {card.weather.condition} · 体感 {Math.round(card.weather.apparent_max)}°
+                    </span>
+                  </div>
+                  {card.weather.precip > 0 ? (
+                    <span className="text-[10px] text-white/80">降雨 {fmtKm(card.weather.precip)} mm</span>
+                  ) : null}
+                </div>
+                <WxTrend week={card.weather.week} />
+              </div>
+            ) : null}
             {card.reason_line ? <div className="text-[11px] text-white/90 mt-2 border-t border-white/15 pt-2">{card.reason_line}</div> : null}
           </div>
         </div>
@@ -671,6 +690,37 @@ export function NavBar({ weekNo }: { weekNo?: number }) {
         })}
       </div>
     </div>
+  )
+}
+
+/** 未来 7 天气温迷你趋势图：纯 SVG 折线（<1KB，无图表库），硬约束日用琥珀色圆点标出 */
+function WxTrend({ week }: { week: { date: string; t_max: number; hard: boolean }[] }) {
+  if (week.length < 2) return null
+  const W = 300, H = 44, PAD = 6
+  const temps = week.map((d) => d.t_max)
+  const lo = Math.min(...temps), hi = Math.max(...temps)
+  const span = Math.max(hi - lo, 1)
+  const pts = week.map((d, i) => [
+    PAD + (i * (W - 2 * PAD)) / (week.length - 1),
+    H - PAD - ((d.t_max - lo) / span) * (H - 2 * PAD),
+  ] as const)
+  const line = pts.map(([x, y], i) => `${i ? "L" : "M"}${x.toFixed(1)},${y.toFixed(1)}`).join(" ")
+  const dow = ["日", "一", "二", "三", "四", "五", "六"]
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} className="mt-1.5 w-full" aria-hidden>
+      <path d={line} fill="none" stroke="rgba(255,255,255,0.75)" strokeWidth={2}
+        strokeLinecap="round" strokeLinejoin="round" />
+      {pts.map(([x, y], i) => (
+        <circle key={i} cx={x} cy={y} r={i === 0 ? 3.5 : 2.5}
+          fill={week[i].hard ? "#fbbf24" : "#fff"} />
+      ))}
+      {pts.map(([x], i) => (
+        <text key={`t${i}`} x={x} y={H - 0.5} textAnchor="middle" fontSize={7.5}
+          fill="rgba(255,255,255,0.7)">
+          {i === 0 ? "今" : "周" + dow[new Date(`${week[i].date}T00:00:00`).getDay()]}
+        </text>
+      ))}
+    </svg>
   )
 }
 

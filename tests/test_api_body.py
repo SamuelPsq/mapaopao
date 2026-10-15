@@ -291,6 +291,31 @@ def test_skip_kind_and_calendar_view():
         assert row is not None
 
 
+def test_today_weather_block_structured(monkeypatch):
+    """课表卡片的结构化天气：mock 7 天预报，断言气温/状况/周序列格式。"""
+    from datetime import date as _date, timedelta as _td
+    from server.infra import weather as _wx
+    _fresh_db()
+    uid = _seed_user_with_plan("bodywx")
+    today = _date.today()
+    fake = {}
+    for i in range(7):
+        d = today + _td(days=i)
+        fake[d.isoformat()] = _wx.WeatherDay(
+            date=d.isoformat(), t_max=20 + i, rh_mean=50, precip=0,
+            weather_code=0, aqi=42, apparent_max=22 + i,
+            source="live", confidence="high")
+    monkeypatch.setattr(_main, "get_week_weather", lambda *a, **k: fake)
+    card = c.get("/v1/today", params={"user_id": uid}).json()
+    wx = card["weather"]
+    assert wx["t_max"] == 20.0 and wx["condition"] == "晴" and wx["aqi"] == 42
+    assert len(wx["week"]) == 7 and wx["week"][3]["t_max"] == 23.0
+    # 未 mock 时（离线降级）字段为 None，不报错
+    monkeypatch.undo()
+    card2 = c.get("/v1/today", params={"user_id": uid}).json()
+    assert card2["weather"] is None or "t_max" in (card2["weather"] or {})
+
+
 def test_over_status_counts_in_total_and_week_km():
     """回归：超额完成(over)的里程必须计入今日卡 total_km / week_km，口径与月历一致。
 

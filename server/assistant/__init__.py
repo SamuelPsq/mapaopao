@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from datetime import date, timedelta
 from typing import Optional
 
@@ -30,6 +31,10 @@ SYSTEM_PROMPT = (
 )
 
 DISCLAIMER = "以上为科普参考，不构成医疗建议；症状持续或加重请及时就医。"
+
+# 伤病意图的确定性分类：命中即为医疗话题。比「检索结果里有没有伤病块」稳定——
+# 后者随检索算法/ranking 漂移而误伤普通问题。
+_MEDICAL_RE = re.compile(r"痛|疼|伤|肿|炎|骨折|拉伤|崴|淤青|康复|冰敷|热敷|就医|医院|医生|药膏")
 
 HISTORY_TURNS = 6        # 注入 LLM 的最近对话轮数（一轮 = 用户+助手各一条）
 HISTORY_KEEP = 50        # 每用户最多保留的消息条数
@@ -147,8 +152,10 @@ def answer(user_id: str, question: str) -> dict:
     # 召回 query 拼接最近几条用户消息：「那今天还能跑吗」这类指代问法也能召回到上文主题
     recent_user = " ".join(c["content"] for c in history if c["role"] == "user")[-200:]
     kb = rag.retrieve(f"{recent_user} {question}" if recent_user else question, k=4)
-    # medical 只看当前问题本身的话题：上文伤病语境可以帮助召回，但不能给普通追问误挂医疗标志
-    medical = any(c["source"] == "伤病康复" for c in rag.retrieve(question, k=4))
+    # medical 基于问题本身的伤病意图（关键词分类），不看检索结果：
+    # 检索 ranking 会随算法演进漂移，用它做意图判定会把普通问题误挂医疗标志
+    # （badcase：「没有手表怎么判断强度」top4 混入伤病块 → medical 误判 True）
+    medical = bool(_MEDICAL_RE.search(question))
     context = _user_context(user_id)
     text = assistant_llm(question, context, kb, history=history)
     from_llm = bool(text)
