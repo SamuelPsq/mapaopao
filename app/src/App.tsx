@@ -8,6 +8,7 @@ import Week from './pages/Week'
 import Metrics from './pages/Metrics'
 import Degrade from './pages/Degrade'
 import Assistant from './components/Assistant'
+import DevTools from './components/DevTools'
 import { loadUser } from './lib/api'
 
 export default function App() {
@@ -29,6 +30,8 @@ export default function App() {
       </Routes>
       {/* AI 跑步助手：全站悬浮入口（登录页除外由组件自行判断未登录不渲染） */}
       <Assistant />
+      {/* 开发演示工具：仅 vite dev 模式可见（模拟断网 / 挂起后端），生产构建自动消失 */}
+      <DevTools />
     </>
   )
 }

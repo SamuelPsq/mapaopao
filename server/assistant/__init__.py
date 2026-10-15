@@ -24,7 +24,7 @@ SYSTEM_PROMPT = (
     "禁止引入任何新数字、新配速建议；配速类具体数字让用户去今日卡/周审视页看。\n"
     "3. 不做医疗诊断；关节锐痛、肿胀、步态改变等红灯信号，一律建议停跑并就医。\n"
     "4. 引用了「伤病康复」出处条目时，回答结尾必须加上："
-    "「以上为科普参考，不构成医疗建议；症状持续或加重请及时就医。」\n"
+    「以上为科普参考，不构成医疗建议；症状持续或加重请及时就医。」\n"
     "5. 语气像耐心的老跑友，口语化，先给结论再解释，150 字以内。\n"
     "6. 「近期对话」是多轮上下文：用户用「那/还是/这样/它」等指代时，先结合上文"
     "弄清指代对象再回答；上文提到过的部位（如膝盖）和问题（如能否训练）要衔接得上。"
@@ -35,6 +35,10 @@ DISCLAIMER = "以上为科普参考，不构成医疗建议；症状持续或加
 # 伤病意图的确定性分类：命中即为医疗话题。比「检索结果里有没有伤病块」稳定——
 # 后者随检索算法/ranking 漂移而误伤普通问题。
 _MEDICAL_RE = re.compile(r"痛|疼|伤|肿|炎|骨折|拉伤|崴|淤青|康复|冰敷|热敷|就医|医院|医生|药膏")
+
+# 指代问法标记：命中才拼接历史消息做检索。无条件拼接会让上文主题霸榜——
+# badcase：聊过「厌跑」后再问「膝盖有点痛要不要停跑」，top3 全是厌跑/状态差条目。
+_ANAPHORA_RE = re.compile(r"那|这样|这么|那个|这个|它|还是|接着|继续")
 
 HISTORY_TURNS = 6        # 注入 LLM 的最近对话轮数（一轮 = 用户+助手各一条）
 HISTORY_KEEP = 50        # 每用户最多保留的消息条数
@@ -137,7 +141,7 @@ def fallback_answer(question: str, kb: list[dict], medical: bool = False) -> str
     """无 LLM 时直接拼接召回条目：出处 + 原文，保证信息可溯源。"""
     if not kb:
         return ("这个问题超出了我现在的知识库。换个问法试试——比如「睡眠不足还能训练吗」"
-                "「跑的时候怎么判断强度」「膝盖疼要不要停跑」。")
+                「跑的时候怎么判断强度」「膝盖疼要不要停跑」。")
     parts = [f"[{c['source']}·{c['name']}] {c['text']}" for c in kb[:3]]
     text = "\n\n".join(parts)
     if medical:                        # 仅当当前问题本身是伤病话题时才挂就医提示
@@ -149,9 +153,15 @@ def answer(user_id: str, question: str) -> dict:
     """问答主入口：历史上下文 + 召回 → LLM 生成（带出处校验）→ 兜底拼接，最后落库一轮。"""
     question = (question or "").strip()[:300]
     history = load_history(user_id)                 # 旧→新，最多 HISTORY_KEEP 条
-    # 召回 query 拼接最近几条用户消息：「那今天还能跑吗」这类指代问法也能召回到上文主题
+    # 多轮检索：历史消息只为「指代问法」服务（"那今天还能跑吗"），命中 _ANAPHORA_RE
+    # 才拼接；用户换新话题时拼接历史会让旧主题的知识块霸榜（badcase：聊过厌跑
+    # 后再问膝痛，top3 全是厌跑/状态差条目）。
     recent_user = " ".join(c["content"] for c in history if c["role"] == "user")[-200:]
-    kb = rag.retrieve(f"{recent_user} {question}" if recent_user else question, k=4)
+    if recent_user and _ANAPHORA_RE.search(question):
+        query = f"{recent_user} {question}"
+    else:
+        query = question
+    kb = rag.retrieve(query, k=4)
     # medical 基于问题本身的伤病意图（关键词分类），不看检索结果：
     # 检索 ranking 会随算法演进漂移，用它做意图判定会把普通问题误挂医疗标志
     # （badcase：「没有手表怎么判断强度」top4 混入伤病块 → medical 误判 True）

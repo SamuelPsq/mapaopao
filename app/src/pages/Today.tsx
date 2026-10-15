@@ -214,7 +214,7 @@ export default function Today() {
   return (
     <Shell>
       {/* 顶部 */}
-      <div classNameName="flex items-baseline justify-between mb-1">
+      <div className="flex items-baseline justify-between mb-1">
         <div className="text-lg font-bold">{card.weekday} · 第 {card.week_no} 周 / 16 周</div>
         <div className="text-xs text-muted-foreground">距赛事 {card.days_to_race} 天</div>
       </div>

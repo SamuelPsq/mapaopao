@@ -62,6 +62,39 @@ def test_assistant_chat_kb_fallback(monkeypatch):
     assert out["sources"] and all(s["name"] for s in out["sources"])
 
 
+def test_topic_switch_not_polluted_by_history(monkeypatch):
+    """换话题提问不被上文主题劫持：问过厌跑后再问膝痛，召回应以伤痛条目为主。
+
+    线上 badcase：历史消息无条件拼进检索 query，聊过「厌跑」后再问
+    「膝盖有点痛要不要停跑」，top3 全是厌跑/状态差条目。修复：仅指代问法
+    （命中 _ANAPHORA_RE）才拼接历史。
+    """
+    from server import assistant
+    for var in ("LLM_BASE_URL", "LLM_API_KEY", "LLM_MODEL"):
+        monkeypatch.delenv(var, raising=False)
+    uid = "topic_switch_regression"
+    assistant.answer(uid, "最近很厌跑不想练了怎么办")
+    out = assistant.answer(uid, "膝盖有点痛，要不要停跑？")
+    names = [s["name"] for s in out["sources"]]
+    assert not any("厌跑" in n or "状态差" in n for n in names), \
+        f"换话题后召回仍被上文主题劫持: {names}"
+    assert any("酸痛和伤痛" in n or "疼痛评分" in n for n in names), \
+        f"膝痛问题应优先命中伤痛判断/疼痛评分条目: {names}"
+
+
+def test_anaphora_question_still_uses_history(monkeypatch):
+    """指代问法仍受益于历史：上文聊过厌跑，「那我今天还跑吗」应召回上文主题。"""
+    from server import assistant
+    for var in ("LLM_BASE_URL", "LLM_API_KEY", "LLM_MODEL"):
+        monkeypatch.delenv(var, raising=False)
+    uid = "anaphora_regression"
+    assistant.answer(uid, "最近很厌跑不想练了怎么办")
+    out = assistant.answer(uid, "那我今天还跑吗？")
+    names = [s["name"] for s in out["sources"]]
+    assert any("厌跑" in n or "状态差" in n for n in names), \
+        f"指代问法应能借历史召回到上文主题: {names}"
+
+
 def test_assistant_chat_llm_path_guard(monkeypatch):
     """LLM 返回引用超范围编号（幻觉出处）时整条作废，走降级。"""
     from server import assistant
