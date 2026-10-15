@@ -138,13 +138,27 @@ class ProfileIn(BaseModel):
     lat: float = 31.23
     lon: float = 121.47
     max_duration: int = 90
+    height_cm: float | None = None         # BMI 规划修正（可选）
+    weight_kg: float | None = None
 
 
 class LogIn(BaseModel):
     status: str                            # full / partial / skipped
     actual_km: float = 0.0
-    actual_pace: str = ""                  # "5:30"
+    actual_pace: str = ""                  # "5:30"，为空时可用 duration_sec 反算
+    duration_sec: int = 0                  # 总用时（秒）
     rpe: int | None = None
+
+
+class WeightIn(BaseModel):
+    user_id: str
+    weight_kg: float
+
+
+class AdvanceIn(BaseModel):
+    user_id: str
+    actual_km: float                       # 进阶判定那次跑步的里程
+    duration_sec: int                      # 对应总用时（秒）
 
 
 class StatusReportIn(BaseModel):
@@ -288,7 +302,8 @@ def create_profile(p: ProfileIn):
     profile = Profile(recent_km=p.recent_km, recent_sec=p.recent_sec, avail_days=p.avail_days,
                       goal_race=p.goal_race, ability=p.ability,
                       injury_flag=p.injury_flag, major_injury_in_3m=(p.injury_flag == "M"),
-                      city=p.city, lat=p.lat, lon=p.lon, max_duration=p.max_duration)
+                      city=p.city, lat=p.lat, lon=p.lon, max_duration=p.max_duration,
+                      height_cm=p.height_cm, weight_kg=p.weight_kg)
     user_id = p.user_id or uuid.uuid4().hex[:12]
     rej = validate_intake(profile)
     with db.SessionLocal.begin() as s:
@@ -303,11 +318,13 @@ def create_profile(p: ProfileIn):
                 old.vdot, old.avail_days, old.goal_race = vdot, p.avail_days, p.goal_race
                 old.ability_tier, old.city, old.lat, old.lon = p.ability, p.city, p.lat, p.lon
                 old.injury_flag, old.max_duration = p.injury_flag, p.max_duration
+                old.height_cm, old.weight_kg = p.height_cm, p.weight_kg
             else:
                 s.add(db.User(user_id=user_id, vdot=vdot, ability_tier=p.ability,
                               goal_race=p.goal_race, avail_days=p.avail_days,
                               max_duration=p.max_duration, injury_flag=p.injury_flag,
-                              city=p.city, lat=p.lat, lon=p.lon))
+                              city=p.city, lat=p.lat, lon=p.lon,
+                              height_cm=p.height_cm, weight_kg=p.weight_kg))
         s.add(db.Event(name="plan_generated", user_id=user_id,
                        payload={"rejected": bool(rej), "reason": rej.reason if rej else None,
                                 "avail_days": p.avail_days, "goal_race": p.goal_race}))
@@ -435,6 +452,65 @@ def change_city(body: CityIn):
             "message": f"已切换到{city}，训练计划已按新城市重新生成"}
 
 
+@app.post("/v1/user/weight")
+def update_weight(body: WeightIn):
+    """实时修改体重：回写 user 行并返回最新 BMI；BMI 进规划修正（生成时生效）。
+    BMI≥28 时建议重新生成计划（保守模式：周增幅减半），由用户主动触发。"""
+    if not (30 <= body.weight_kg <= 300):
+        raise HTTPException(400, "体重需在 30–300 kg 之间")
+    with db.SessionLocal.begin() as s:
+        user = s.get(db.User, body.user_id)
+        if not user:
+            raise HTTPException(404, "用户不存在")
+        old_bmi = (user.weight_kg / ((user.height_cm / 100) ** 2)
+                   if user.height_cm and user.weight_kg else None)
+        user.weight_kg = body.weight_kg
+        bmi = (user.weight_kg / ((user.height_cm / 100) ** 2)
+               if user.height_cm else None)
+        bmi = round(bmi, 1) if bmi else None
+        crossed = (old_bmi is None or old_bmi < 28) and bmi is not None and bmi >= 28
+        s.add(db.Event(name="weight_updated", user_id=body.user_id,
+                       payload={"weight_kg": body.weight_kg, "bmi": bmi}))
+    out: dict = {"ok": True, "weight_kg": body.weight_kg, "bmi": bmi}
+    if crossed:
+        out["advice"] = "BMI 已达到 28，系统将为你的关节负荷启用保守规划（周增幅减半），点「修改训练计划」即可生效"
+    return out
+
+
+@app.post("/v1/user/advance")
+def advance_level(body: AdvanceIn):
+    """进阶确认：按用户实际里程+总用时算配速 → 折算 VDOT → 刷新未开始的周。
+    只动未来，已执行的周永远不改。"""
+    if body.actual_km <= 0 or body.duration_sec <= 0:
+        raise HTTPException(400, "里程和总用时都必须大于 0")
+    from server.knowledge.rules import sec_to_pace
+    pace_sec = round(body.duration_sec / body.actual_km)
+    new_v = implied_vdot(body.actual_km, body.duration_sec)
+    with db.SessionLocal.begin() as s:
+        user = s.get(db.User, body.user_id)
+        if not user:
+            raise HTTPException(404, "用户不存在")
+        plan = s.query(db.Plan).filter_by(user_id=body.user_id, status="active").first()
+        if not plan:
+            raise HTTPException(404, "没有进行中的计划")
+        if abs(new_v - user.vdot) < 1.5:
+            note = (f"这次表现（配速 {sec_to_pace(pace_sec)}）与当前计划匹配，"
+                    "无需重排，按计划继续即可")
+        else:
+            old = user.vdot
+            user.vdot = new_v
+            from datetime import date as _date
+            today = _date.today()
+            cur_week = max(1, ((today - plan.start_date).days // 7) + 1)
+            _refresh_future_weeks(s, plan, cur_week, new_v)
+            note = f"已按照您的跑力重新安排：能力值 VDOT {old} → {new_v}，未开始的周计划已全部刷新"
+        s.add(db.Event(name="level_advanced", user_id=body.user_id,
+                       payload={"vdot": new_v, "pace": sec_to_pace(pace_sec),
+                                "actual_km": body.actual_km,
+                                "duration_sec": body.duration_sec}))
+    return {"ok": True, "vdot": new_v, "pace": sec_to_pace(pace_sec), "note": note}
+
+
 class PlanAdjustIn(BaseModel):
     user_id: str
     avail_days: int | None = None          # 每周训练天数（2–7）
@@ -516,7 +592,8 @@ def gen_plan(user_id: str):
         profile = Profile(recent_km=5, recent_sec=1800, avail_days=user.avail_days,
                           goal_race=user.goal_race, ability=user.ability_tier,
                           injury_flag=user.injury_flag, city=user.city, lat=user.lat,
-                          lon=user.lon, max_duration=user.max_duration)
+                          lon=user.lon, max_duration=user.max_duration,
+                          height_cm=user.height_cm, weight_kg=user.weight_kg)
         # 用画像时存下的真实 vdot 生成（override），课表跑量/配速都按真实能力；
         # 不用占位成绩——否则整个计划的跑量基线约等于 VDOT 30 新手水平
         result = generate_plan(profile, vdot_override=user.vdot)
@@ -607,6 +684,12 @@ def today_card(user_id: str):
         done_key = sum(1 for x in sessions if x.is_key and
                        (logs.get(x.session_id) and logs[x.session_id].status in ("full", "partial")))
         key_total = sum(1 for x in sessions if x.is_key)
+        # 累计总跑量：全部已完成打卡（full/partial）的实际里程之和
+        all_logs = s.query(db.SessionLog).join(
+            db.Session, db.Session.session_id == db.SessionLog.session_id).filter(
+            db.Session.plan_id == plan.plan_id,
+            db.SessionLog.status.in_(("full", "partial"))).all()
+        total_km = round(sum(l.actual_km or 0.0 for l in all_logs), 1)
         # 天气行
         wx_line = ""
         hard_days = []
@@ -650,7 +733,7 @@ def today_card(user_id: str):
             "user_id": user_id, "plan_id": plan.plan_id, "week_no": week_no,
             "week_phase": pw.phase if pw else "load", "is_dropped": pw.is_dropped if pw else False,
             "weekday": _dow(today), "days_to_race": max(0, days_to_race),
-            "vdot": user.vdot, "city": user.city,
+            "vdot": user.vdot, "city": user.city, "total_km": total_km,
             "today_has_run": bool(todays),
             "main_session": _session_dict(main, logs.get(main.session_id)) if main else None,
             "reason_line": reason, "weather_line": wx_line, "hard_days": hard_days,
@@ -698,8 +781,14 @@ def log_session(session_id: str, body: LogIn):
         sess = s.get(db.Session, session_id)
         if not sess:
             raise HTTPException(404, "课次不存在")
+        # 总用时反算配速：打卡弹窗填了 时分秒 但没填配速时，用 时长/里程 换算
+        actual_pace = body.actual_pace
+        if not actual_pace and body.duration_sec > 0 and body.actual_km > 0:
+            from server.knowledge.rules import sec_to_pace
+            actual_pace = sec_to_pace(round(body.duration_sec / body.actual_km))
         s.add(db.SessionLog(session_id=session_id, status=body.status,
-                            actual_km=body.actual_km, actual_pace=body.actual_pace, rpe=body.rpe))
+                            actual_km=body.actual_km, actual_pace=actual_pace,
+                            duration_sec=body.duration_sec, rpe=body.rpe))
         sess.status = {"full": "done", "partial": "partial", "skipped": "skipped"}[body.status]
         s.add(db.Event(name="session_done", user_id=sess.plan_id and _uid_of(s, sess.plan_id),
                        payload={"session_id": session_id, "degree": body.status,
@@ -709,14 +798,19 @@ def log_session(session_id: str, body: LogIn):
         user = s.get(db.User, plan.user_id) if plan else None
         # 超额完成：实际里程明显超过目标（>110%），本周刺激已够，引导压缩剩余课表
         over_done = (body.status == "full" and body.actual_km > sess.target_km * 1.1)
+        # 大幅超额（>3km）：能力可能已超出当前计划，进阶询问交给前端二次确认
+        advance_prompt = (body.status == "full"
+                          and body.actual_km - sess.target_km > 3.0)
         # 明显不足：部分完成但低于目标 50%，缺口需要本周内重排补上
         under_done = (body.status == "partial" and sess.target_km > 0
                       and body.actual_km < sess.target_km * 0.5)
-        # 能力重估：每 4 周，用实际配速回写 VDOT（只刷新未开始的周）
+        # 能力重估：每 4 周，用实际配速回写 VDOT（只刷新未开始的周）。
+        # 大幅超额时先不自动改——进阶与否交给用户二次确认（/v1/user/advance）
         vdot_note = None
-        if body.status in ("full", "partial") and body.actual_km > 0 and body.actual_pace and user:
+        if not advance_prompt and body.status in ("full", "partial") \
+                and body.actual_km > 0 and actual_pace and user:
             try:
-                m, sec = body.actual_pace.split(":")
+                m, sec = actual_pace.split(":")
                 pace_sec = int(m) * 60 + int(sec)
                 new_v = implied_vdot(body.actual_km, pace_sec * body.actual_km)
                 if abs(new_v - user.vdot) >= 1.5:
@@ -732,6 +826,9 @@ def log_session(session_id: str, body: LogIn):
     out = {"ok": True}
     if vdot_note:
         out["vdot_update"] = vdot_note
+    if advance_prompt:
+        out["advance_prompt"] = True
+        out["advance_pace"] = actual_pace
     if over_done:
         out["over_done"] = True
         out["over_note"] = f"超额完成 {body.actual_km:g} km，状态很好。本周刺激已经够了，看看要不要压缩剩余课表。"
@@ -1250,8 +1347,12 @@ def metrics(user_id: str | None = None):
                        "kb_injections": kb_inject, "kb_blocks_used": len(kb_ids),
                        "cases_recalled": cases_recalled}
         user = s.get(db.User, user_id) if user_id else None
+        bmi = (round(user.weight_kg / ((user.height_cm / 100) ** 2), 1)
+               if user and user.height_cm and user.weight_kg else None)
         return {"weeks": rows, "user": ({"avail_days": user.avail_days, "vdot": user.vdot,
-                                         "goal_race": user.goal_race} if user else None),
+                                         "goal_race": user.goal_race,
+                                         "height_cm": user.height_cm, "weight_kg": user.weight_kg,
+                                         "bmi": bmi} if user else None),
                 "guard": {"total": len(guards), "blocked": blocked,
                           "effectiveness": round(blocked / len(guards), 3) if guards else 0},
                 "ai_decision": ai_decision,

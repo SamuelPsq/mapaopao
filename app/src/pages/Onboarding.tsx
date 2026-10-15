@@ -15,6 +15,8 @@ interface Answers {
   goal_race: string
   ability: string
   injury_flag: string
+  height_cm: number
+  weight_kg: number
 }
 
 const STEPS = [
@@ -22,6 +24,7 @@ const STEPS = [
   { key: "days", title: "每周能练几天", desc: "计划会按可用天数收敛课次，不给你的生活添堵" },
   { key: "goal", title: "目标赛事", desc: "第一次挑战，选保守一点的目标更聪明" },
   { key: "ability", title: "你的跑步基础", desc: "零基础用户会自动套用 0.92 的保守系数" },
+  { key: "body", title: "身高和体重", desc: "用来算 BMI：体重较大时计划自动保守（周增幅减半），保护关节" },
   { key: "injury", title: "3 个月内有没有较重伤痛", desc: "有的话我们会先劝你康复，而不是给你计划" },
   { key: "city", title: "你在哪个城市", desc: "用来判断天气对训练的影响（体感温度口径）" },
 ] as const
@@ -33,7 +36,7 @@ export default function Onboarding() {
   const [reject, setReject] = useState<{ reason: string; suggest: string } | null>(null)
   const [a, setA] = useState<Answers>({
     recent_km: 5, recent_min: 30, avail_days: 4, goal_race: "full",
-    ability: "B_base", injury_flag: "N",
+    ability: "B_base", injury_flag: "N", height_cm: 170, weight_kg: 65,
   })
   const [province, setProvince] = useState("上海")
   const [city, setCity] = useState("上海")
@@ -59,6 +62,8 @@ export default function Onboarding() {
           goal_race: a.goal_race,
           ability: a.ability,
           injury_flag: a.injury_flag,
+          height_cm: a.height_cm,
+          weight_kg: a.weight_kg,
           city,
           ...cityCoords(city),
         },
@@ -160,6 +165,27 @@ export default function Onboarding() {
             </label>
           ))}
         </RadioGroup>
+      )}
+
+      {stepDef.key === "body" && (
+        <div className="space-y-8">
+          <div>
+            <Label>身高：{a.height_cm} cm</Label>
+            <Slider value={[a.height_cm]} min={140} max={200} step={1}
+              onValueChange={([v]) => setA({ ...a, height_cm: v })} />
+          </div>
+          <div>
+            <Label>体重：{a.weight_kg} kg</Label>
+            <Slider value={[a.weight_kg]} min={40} max={120} step={1}
+              onValueChange={([v]) => setA({ ...a, weight_kg: v })} />
+          </div>
+          <p className="text-xs text-muted-foreground">
+            BMI = {(a.weight_kg / ((a.height_cm / 100) ** 2)).toFixed(1)}
+            {a.weight_kg / ((a.height_cm / 100) ** 2) >= 28
+              ? "，属于偏高区间——计划会自动启用保守模式：周跑量增幅减半，给关节留适应时间"
+              : "，在正常区间内，按标准周期模板排课"}
+          </p>
+        </div>
       )}
 
       {stepDef.key === "injury" && (

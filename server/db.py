@@ -35,6 +35,8 @@ class User(Base):
     lat: Mapped[float] = mapped_column(Float, default=31.23)
     lon: Mapped[float] = mapped_column(Float, default=121.47)
     conservative_factor: Mapped[float] = mapped_column(Float, default=1.0)
+    height_cm: Mapped[float | None] = mapped_column(Float, nullable=True)   # BMI 规划修正用
+    weight_kg: Mapped[float | None] = mapped_column(Float, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
@@ -110,6 +112,7 @@ class SessionLog(Base):
     status: Mapped[str] = mapped_column(String(12))             # full / partial / skipped
     actual_km: Mapped[float] = mapped_column(Float, default=0.0)
     actual_pace: Mapped[str] = mapped_column(String(16), default="")
+    duration_sec: Mapped[int] = mapped_column(Integer, default=0)  # 总用时（秒），打卡弹窗填
     rpe: Mapped[int] = mapped_column(Integer, nullable=True)
     logged_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
@@ -206,6 +209,13 @@ def init_db() -> None:
                 conn.execute(text("ALTER TABLE account ADD COLUMN token VARCHAR(64)"))
             except Exception:
                 pass
+            for ddl in ("ALTER TABLE user ADD COLUMN height_cm FLOAT",
+                        "ALTER TABLE user ADD COLUMN weight_kg FLOAT",
+                        "ALTER TABLE session_log ADD COLUMN duration_sec INTEGER"):
+                try:
+                    conn.execute(text(ddl))
+                except Exception:
+                    pass
 
 
 def track(name: str, user_id: str, **payload) -> None:

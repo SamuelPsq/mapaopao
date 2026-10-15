@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { LogOut, UserRound, UserRoundX, SlidersHorizontal, Minus, Plus, ChevronUp, ChevronDown } from "lucide-react"
+import { LogOut, UserRound, UserRoundX, SlidersHorizontal, Scale, Minus, Plus, ChevronUp, ChevronDown } from "lucide-react"
 import { Shell, NavBar } from "./Today"
 
 interface Metrics {
@@ -14,7 +14,7 @@ interface Metrics {
   guard: { total: number; blocked: number; effectiveness: number }
   ai_decision: { tune_total: number; tune_applied: number; tune_rate: number; recommend_total: number; recommend_llm: number; kb_injections: number; kb_blocks_used: number; cases_recalled: number }
   llm_usage: { llm: number; template: number; rate: number }
-  user: { avail_days: number; vdot: number; goal_race: string } | null
+  user: { avail_days: number; vdot: number; goal_race: string; height_cm: number | null; weight_kg: number | null; bmi: number | null } | null
 }
 
 export default function MetricsPage() {
@@ -30,7 +30,28 @@ export default function MetricsPage() {
   const [adjDays, setAdjDays] = useState<number | null>(null)
   const [adjShift, setAdjShift] = useState(0)
   const [adjBusy, setAdjBusy] = useState(false)
+  const [weightOpen, setWeightOpen] = useState(false)
+  const [weightInput, setWeightInput] = useState("")
+  const [weightBusy, setWeightBusy] = useState(false)
   const [toast, setToast] = useState("")
+
+  async function submitWeight() {
+    const w = Number(weightInput)
+    if (!Number.isFinite(w) || w <= 0) { setToast("请输入有效体重"); return }
+    setWeightBusy(true)
+    try {
+      const r = await api.post<{ ok: boolean; bmi: number | null; advice?: string }>("/v1/user/weight",
+        { user_id: uid, weight_kg: w })
+      setWeightOpen(false)
+      setToast(r.advice || `体重已更新为 ${w} kg${r.bmi ? `，BMI ${r.bmi}` : ""}`)
+      const fresh = await api.get<Metrics>(`/v1/metrics?user_id=${uid}`)
+      setM(fresh)
+    } catch (e) {
+      setToast("更新失败：" + (e as Error).message)
+    } finally {
+      setWeightBusy(false)
+    }
+  }
 
   useEffect(() => {
     if (!uid) { nav("/login", { replace: true }); return }
@@ -149,6 +170,13 @@ export default function MetricsPage() {
         <SlidersHorizontal className="h-4 w-4 mr-1.5" />修改训练计划
       </Button>
 
+      {/* 修改体重：实时生效，BMI≥28 时建议重新生成保守计划 */}
+      <Button variant="outline" className="w-full mt-2 bg-card"
+        onClick={() => { setWeightInput(m.user?.weight_kg ? String(m.user.weight_kg) : ""); setWeightOpen(true) }}>
+        <Scale className="h-4 w-4 mr-1.5" />修改体重
+        {m.user?.bmi ? <span className="ml-auto text-xs text-muted-foreground">BMI {m.user.bmi}</span> : null}
+      </Button>
+
       {/* 账号：退出登录 / 切换账号（数据保留在服务端，重新登录可继续） */}
       <div className="mt-6 grid grid-cols-2 gap-2">
         <Button variant="outline" className="bg-card"
@@ -217,6 +245,43 @@ export default function MetricsPage() {
                 (adjDays === m.user?.avail_days && adjShift === 0)}
               onClick={submitAdjust}>
               {adjBusy ? "正在重新生成…" : "确认修改"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 修改体重弹窗 */}
+      <Dialog open={weightOpen} onOpenChange={setWeightOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>修改体重</DialogTitle>
+            <DialogDescription>
+              体重实时生效：BMI 会在下次生成计划时参与规划修正（BMI≥28 自动启用保守模式，周增幅减半）。
+              {m.user?.height_cm ? <>当前身高 {m.user.height_cm} cm。</> : ""}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-2">
+            <Label>体重（kg）</Label>
+            <Input type="number" inputMode="decimal" min={30} max={300} step={0.5} autoFocus
+              placeholder="例如 65"
+              value={weightInput}
+              onChange={(e) => setWeightInput(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") submitWeight() }} />
+            {(() => {
+              const w = Number(weightInput)
+              if (m.user?.height_cm && Number.isFinite(w) && w > 0) {
+                const bmi = w / ((m.user.height_cm / 100) ** 2)
+                return <p className="text-xs text-muted-foreground mt-2">
+                  BMI = {bmi.toFixed(1)}{bmi >= 28 ? "，达到保守规划阈值" : "，正常区间"}
+                </p>
+              }
+              return null
+            })()}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setWeightOpen(false)}>取消</Button>
+            <Button disabled={weightBusy} onClick={submitWeight}>
+              {weightBusy ? "正在保存…" : "确认修改"}
             </Button>
           </DialogFooter>
         </DialogContent>

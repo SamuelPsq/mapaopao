@@ -47,6 +47,19 @@ class Profile:
     lat: float = 31.23
     lon: float = 121.47
     max_duration: int = 90           # 单次最长分钟
+    height_cm: float | None = None   # BMI 规划修正（BMI≥28 时收紧周增幅）
+    weight_kg: float | None = None
+
+
+BMI_CONSERVATIVE = 28.0            # 中国成人肥胖线：达到即启用保守规划
+BMI_GAIN_FACTOR = 0.5              # BMI≥28 时周增幅上限减半（10%→5%）
+BMI_BASE_FACTOR = 0.9              # BMI≥28 时跑量基线打 9 折
+
+
+def bmi_of(p: Profile) -> float | None:
+    if p.height_cm and p.weight_kg and p.height_cm > 0:
+        return round(p.weight_kg / ((p.height_cm / 100) ** 2), 1)
+    return None
 
 
 def validate_intake(p: Profile) -> Reject | None:
@@ -140,7 +153,13 @@ def generate_plan(p: Profile, vdot_override: int | None = None) -> dict | Reject
     # ③ 课次上限收敛
     cap = session_cap(p.avail_days)
     # ④ 周跑量基线与周期展开
+    bmi = bmi_of(p)
+    conservative = bmi is not None and bmi >= BMI_CONSERVATIVE
     base_km = estimate_base_km(vdot, cap, p.max_duration)
+    if conservative:
+        base_km *= BMI_BASE_FACTOR
+    # BMI≥28：关节负荷大，周增幅上限减半，给结缔组织留适应时间
+    gain_cap = MAX_WEEKLY_GAIN * (BMI_GAIN_FACTOR if conservative else 1.0)
     target_weeks = 14 if p.goal_race == "half" else 16
     weeks: list[dict] = []
     prev_km = 0.0
@@ -157,7 +176,7 @@ def generate_plan(p: Profile, vdot_override: int | None = None) -> dict | Reject
             # 周增幅红线以「上一个负荷周」为基准：cut/taper 是主动恢复，
             # 不能让它把后续周永久锁死在低跑量（否则计划从第 5 周起整体塌缩）
             baseline = prev_load_km if prev_phase in ("cut", "taper") else prev_km
-            km = min(km, baseline * (1 + MAX_WEEKLY_GAIN))
+            km = min(km, baseline * (1 + gain_cap))
         km = round(km, 1)
         sessions = _layout_sessions(w, km, zones, cap, phase, p.goal_race)
         # 80/20 不通过则回填轻松跑（保持低强度占比）
@@ -195,7 +214,8 @@ def generate_plan(p: Profile, vdot_override: int | None = None) -> dict | Reject
     # ⑥ 幂等
     profile_hash = hashlib.sha1(json.dumps(p.__dict__, sort_keys=True).encode()).hexdigest()[:8]
     return {"vdot": vdot, "cap": cap, "profile_hash": profile_hash, "weeks": weeks,
-            "goal_race": p.goal_race, "target_weeks": target_weeks}
+            "goal_race": p.goal_race, "target_weeks": target_weeks,
+            "bmi": bmi, "conservative": conservative}
 
 
 def should_suggest_degrade(weeks: list[dict], recent_weeks: int = 3) -> bool:

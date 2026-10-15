@@ -22,9 +22,12 @@ export default function Today() {
   const [err, setErr] = useState("")
   const [toast, setToast] = useState("")
   const [notTimeOpen, setNotTimeOpen] = useState(false)
-  // 实际里程输入：超额完成 / 只跑了一部分 点击后弹窗填数字
-  const [kmDialog, setKmDialog] = useState<null | { mode: "over" | "partial" }>(null)
+  // 打卡弹窗：完成了 / 只跑了一部分 / 超额完成 三个按钮统一走「里程 + 时分秒」弹窗
+  const [logDialog, setLogDialog] = useState<null | { mode: "full" | "partial" | "over" }>(null)
   const [kmInput, setKmInput] = useState("")
+  const [dur, setDur] = useState({ h: 0, m: 30, s: 0 })
+  // 大幅超额（>3km）后的进阶二次确认
+  const [advance, setAdvance] = useState<null | { km: number; sec: number; pace: string }>(null)
 
   const refresh = useCallback(async () => {
     if (!uid) { nav("/login", { replace: true }); return }
@@ -59,12 +62,18 @@ export default function Today() {
   const todayStr = new Date().toLocaleDateString("sv-SE")   // YYYY-MM-DD（本地时区）
   const isToday = !!m && m.date === todayStr                // 主课是不是今天的课
 
-  async function log(status: "full" | "partial" | "skipped", actualKm?: number) {
+  async function log(status: "full" | "partial" | "skipped", actualKm?: number, durationSec?: number) {
     if (!isToday) { setNotTimeOpen(true); return }          // 时间对不上：不是不练，时候未到
     const actual_km = actualKm ?? (status === "full" ? m!.target_km : 0)
-    const r = await api.post<{ vdot_update?: string; over_note?: string; under_note?: string; ai_tune_note?: string; rearrange_ready?: boolean }>(
+    const r = await api.post<{ vdot_update?: string; over_note?: string; under_note?: string; ai_tune_note?: string; rearrange_ready?: boolean; advance_prompt?: boolean; advance_pace?: string }>(
       `/v1/session/${m!.session_id}/log`,
-      { status, actual_km, actual_pace: "", rpe: null })
+      { status, actual_km, actual_pace: "", duration_sec: durationSec ?? 0, rpe: null })
+    // 大幅超额（>3km）：先问要不要按真实跑力进阶重排
+    if (r.advance_prompt) {
+      setAdvance({ km: actual_km, sec: durationSec ?? 0, pace: r.advance_pace || "" })
+      refresh()
+      return
+    }
     setToast(status === "full" ? "已记录完成，继续保持 💪" : status === "partial" ? "已记录，部分完成也算数" : "已记录，别担心，不用补")
     if (r.vdot_update) setToast(r.vdot_update)
     if (r.over_note) setToast(r.over_note)
@@ -74,17 +83,49 @@ export default function Today() {
     refresh()
   }
 
-  // 填完实际公里数后的提交：超额必须 > 目标，部分必须 0 < km < 目标
-  function submitKm() {
-    if (!kmDialog || !m) return
+  // 打开打卡弹窗：完成了预填目标里程和预计用时
+  function openLogDialog(mode: "full" | "partial" | "over") {
+    if (!isToday) { setNotTimeOpen(true); return }
+    setKmInput(mode === "full" && m ? String(m.target_km) : "")
+    if (m) {
+      const est = Math.round(m.target_km * paceSec(m.target_pace))
+      setDur({ h: Math.floor(est / 3600), m: Math.floor((est % 3600) / 60), s: est % 60 })
+    }
+    setLogDialog({ mode })
+  }
+
+  // 填完里程 + 时分秒后的提交
+  function submitLog() {
+    if (!logDialog || !m) return
     const km = Number(kmInput)
     const target = m.target_km
+    const durationSec = dur.h * 3600 + dur.m * 60 + dur.s
     if (!Number.isFinite(km) || km <= 0) { setToast("请输入大于 0 的公里数"); return }
-    if (kmDialog.mode === "over" && km <= target) { setToast(`超额完成要大于目标 ${fmtKm(target)} km 哦`); return }
-    if (kmDialog.mode === "partial" && km >= target) { setToast(`只跑了一部分应该小于目标 ${fmtKm(target)} km，超过了就选「超额完成」`); return }
-    setKmDialog(null)
+    if (durationSec <= 0) { setToast("请填一下总用时（时分秒）"); return }
+    if (logDialog.mode === "over" && km <= target) { setToast(`超额完成要大于目标 ${fmtKm(target)} km 哦`); return }
+    if (logDialog.mode === "partial" && km >= target) { setToast(`只跑了一部分应该小于目标 ${fmtKm(target)} km，超过了就选「超额完成」`); return }
+    setLogDialog(null)
     setKmInput("")
-    log(kmDialog.mode === "over" ? "full" : "partial", Math.round(km * 10) / 10)
+    log(logDialog.mode, Math.round(km * 10) / 10, durationSec)
+  }
+
+  // 进阶确认：是 → 按真实跑力重排剩余周；否 → 保持原计划，提醒循序渐进
+  async function confirmAdvance(yes: boolean) {
+    if (!advance) return
+    const a = advance
+    setAdvance(null)
+    if (!yes) {
+      setToast("好——那就循序渐进，超额的部分当作状态好的奖励，后面的课按原计划来")
+      return
+    }
+    try {
+      const r = await api.post<{ note: string }>("/v1/user/advance",
+        { user_id: uid, actual_km: a.km, duration_sec: a.sec })
+      setToast(r.note || "已按照您的跑力重新安排")
+    } catch (e) {
+      setToast("重排失败：" + (e as Error).message)
+    }
+    refresh()
   }
 
   const phaseCn: Record<string, string> = { load: "加载周", cut: "减量周", taper: "赛前减量", base: "基础期", build: "强化期", peak: "峰值期" }
@@ -103,6 +144,12 @@ export default function Today() {
         {card.is_dropped ? (
           <Badge className="bg-amber-500 hover:bg-amber-500 gap-1"><Flame className="h-3 w-3" />本周降载</Badge>
         ) : null}
+      </div>
+
+      {/* 总跑量：今日训练卡上方 */}
+      <div className="flex items-center justify-between rounded-2xl border bg-card px-4 py-2.5 mb-3 shadow-sm">
+        <span className="text-xs text-muted-foreground">🏃 累计总跑量</span>
+        <span className="text-sm font-bold">{fmtKm(card.total_km || 0)} <span className="text-xs font-normal text-muted-foreground">km</span></span>
       </div>
 
       {/* 主课卡 */}
@@ -176,13 +223,13 @@ export default function Today() {
         </button>
       ) : null}
 
-      {/* 打卡按钮：完成 / 部分（填数字）/ 跑不了 / 超额（填数字） */}
+      {/* 打卡按钮：三个都会弹窗填里程 + 总用时（时分秒） */}
       <div className="grid grid-cols-2 gap-2 mb-3">
-        <Button onClick={() => log("full")}>完成了</Button>
-        <Button variant="secondary" onClick={() => { setKmInput(""); setKmDialog({ mode: "partial" }) }}>只跑了一部分</Button>
+        <Button onClick={() => openLogDialog("full")}>完成了</Button>
+        <Button variant="secondary" onClick={() => openLogDialog("partial")}>只跑了一部分</Button>
         <Button variant="outline" className="bg-card" onClick={() => log("skipped")}>今天跑不了</Button>
         <Button className="bg-orange-500 hover:bg-orange-600 text-white border-0"
-          onClick={() => { setKmInput(""); setKmDialog({ mode: "over" }) }}>超额完成</Button>
+          onClick={() => openLogDialog("over")}>超额完成</Button>
       </div>
 
       {/* 身体上报（打卡即上报） */}
@@ -206,29 +253,52 @@ export default function Today() {
       <NavBar weekNo={card.week_no} />
       {toast ? <div className="fixed bottom-20 left-1/2 -translate-x-1/2 bg-foreground text-background text-sm px-4 py-2 rounded-full shadow-lg max-w-xs text-center z-50">{toast}</div> : null}
 
-      {/* 实际训练量输入：超额完成 / 只跑了一部分 */}
-      <Dialog open={!!kmDialog} onOpenChange={(o) => { if (!o) setKmDialog(null) }}>
+      {/* 打卡弹窗：里程 + 总用时（时分秒滚轮） */}
+      <Dialog open={!!logDialog} onOpenChange={(o) => { if (!o) setLogDialog(null) }}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{kmDialog?.mode === "over" ? "超额完成 · 实际跑了多少？" : "只跑了一部分 · 实际跑了多少？"}</DialogTitle>
+            <DialogTitle>{{ full: "完成了 · 记录今天的训练", partial: "只跑了一部分 · 实际跑了多少？", over: "超额完成 · 实际跑了多少？" }[logDialog?.mode || "full"]}</DialogTitle>
             <DialogDescription>
-              {m ? <>这节课目标是 <b>{fmtKm(m.target_km)} km</b>。填你实际跑的量，会影响接下来的排期。</> : null}
+              {m ? <>这节课目标是 <b>{fmtKm(m.target_km)} km</b>。填实际里程和总用时，系统会自动换算配速，并影响接下来的排期。</> : null}
             </DialogDescription>
           </DialogHeader>
-          <div className="py-2">
-            <Input type="number" inputMode="decimal" min="0" step="0.5" autoFocus
-              placeholder="例如 6.5"
-              value={kmInput}
-              onChange={(e) => setKmInput(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter") submitKm() }} />
+          <div className="py-2 space-y-4">
+            <div>
+              <Label className="text-xs text-muted-foreground">实际里程（km）</Label>
+              <Input type="number" inputMode="decimal" min="0" step="0.5" autoFocus
+                placeholder="例如 6.5"
+                value={kmInput}
+                onChange={(e) => setKmInput(e.target.value)} />
+            </div>
+            <div>
+              <Label className="text-xs text-muted-foreground">总用时（时 : 分 : 秒）</Label>
+              <TimeWheel value={dur} onChange={setDur} />
+            </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setKmDialog(null)}>取消</Button>
-            <Button className={kmDialog?.mode === "over" ? "bg-orange-500 hover:bg-orange-600 text-white border-0" : ""}
-              onClick={submitKm}>确认记录</Button>
+            <Button variant="outline" onClick={() => setLogDialog(null)}>取消</Button>
+            <Button className={logDialog?.mode === "over" ? "bg-orange-500 hover:bg-orange-600 text-white border-0" : ""}
+              onClick={submitLog}>确认记录</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* 大幅超额后的进阶确认 */}
+      <AlertDialog open={!!advance} onOpenChange={(o) => { if (!o) setAdvance(null) }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>你今天比计划多跑了 {advance ? fmtKm(Math.max(0, advance.km - (m?.target_km || 0))) : ""} km</AlertDialogTitle>
+            <AlertDialogDescription>
+              {advance ? <>按你填的 {fmtKm(advance.km)} km、总用时折算，实际配速约 <b>{advance.pace || "—"}</b>，
+                明显强于当前计划的配速要求。要不要按这个真实跑力重新安排后面的训练？</> : null}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <Button variant="outline" onClick={() => confirmAdvance(false)}>不用，循序渐进</Button>
+            <AlertDialogAction onClick={() => confirmAdvance(true)}>是，按我的跑力重排</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* 时间对不上时的弹窗：不是不练，时候未到 */}
       <AlertDialog open={notTimeOpen} onOpenChange={setNotTimeOpen}>
@@ -376,6 +446,35 @@ export function NavBar({ weekNo }: { weekNo?: number }) {
 function paceSec(pace: string): number {
   const m = pace.match(/(\d+):(\d+)/)
   return m ? Number(m[1]) * 60 + Number(m[2]) : 360
+}
+
+/** 时分秒滚轮选择器：与注册页城市选择同款滑轮交互（滚动 + 点击） */
+function TimeWheel({ value, onChange }: {
+  value: { h: number; m: number; s: number }
+  onChange: (v: { h: number; m: number; s: number }) => void
+}) {
+  const cols = [
+    { key: "h" as const, label: "时", max: 9, unit: "时" },
+    { key: "m" as const, label: "分", max: 59, unit: "分" },
+    { key: "s" as const, label: "秒", max: 59, unit: "秒" },
+  ]
+  return (
+    <div className="flex h-[180px] rounded-xl border overflow-hidden mt-1.5">
+      {cols.map((c) => (
+        <div key={c.key} className="flex-1 overflow-y-auto py-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <div className="text-center text-[10px] text-muted-foreground/70 sticky top-0 bg-background/90 py-0.5">{c.unit}</div>
+          {Array.from({ length: c.max + 1 }, (_, i) => (
+            <button key={i} type="button"
+              onClick={() => onChange({ ...value, [c.key]: i })}
+              className={`w-full py-2 text-center text-sm transition-colors
+                ${value[c.key] === i ? "text-primary font-bold bg-primary/5" : "text-muted-foreground"}`}>
+              {String(i).padStart(2, "0")}
+            </button>
+          ))}
+        </div>
+      ))}
+    </div>
+  )
 }
 
 export function Shell({ children }: { children: React.ReactNode }) {
