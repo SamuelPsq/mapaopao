@@ -21,7 +21,8 @@ from typing import Optional
 from . import db
 
 # ---------------------------------------------------------------- 知识库
-# 单一来源：docs/training-principles.md（蒸馏版训练原则，含重排专章）。
+# 来源：docs/training-principles.md（训练学原则蒸馏版）+ docs/running-experience.md
+# （知乎/UGC 跑者经验蒸馏版）。分块带 source 标注，AI 回答必须引用出处。
 # 文件缺失或解析失败时回退到内联 KB，保证服务不挂。
 _KB_FALLBACK: list[dict] = [
     {"id": "kb_overload", "tags": ["超额", "超量恢复", "刺激", "进阶"],
@@ -130,31 +131,44 @@ _KB_EXTRA_FALLBACK = [
 ]
 
 
+_KB_DOCS = [
+    ("training-principles.md", "训练原则"),
+    ("running-experience.md", "跑者经验"),
+]
+
+
+def _parse_kb_doc(path: str, source: str) -> list[dict]:
+    """解析单个知识库文档：### id · 名称 / - tags: / - text: 三分块格式。"""
+    chunks, cur = [], None
+    with open(path, encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if line.startswith("### "):
+                head = line[4:].split(" · ")
+                cur = {"id": head[0].strip(), "name": head[1].strip() if len(head) > 1 else "",
+                       "source": source, "tags": [], "text": ""}
+                chunks.append(cur)
+            elif cur is not None and line.startswith("- tags:"):
+                cur["tags"] = [t.strip() for t in line[7:].split(",") if t.strip()]
+            elif cur is not None and line.startswith("- text:"):
+                cur["text"] = line[7:].strip()
+    return [c for c in chunks if c["id"] and c["text"]]
+
+
 def _load_kb() -> list[dict]:
-    """从 docs/training-principles.md 解析知识块；失败回退内联 KB。"""
+    """合并加载全部知识库文档；全部缺失时回退内联 KB。"""
     import os
-    path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                        "docs", "training-principles.md")
-    try:
-        chunks, cur = [], None
-        with open(path, encoding="utf-8") as f:
-            for line in f:
-                line = line.strip()
-                if line.startswith("### "):
-                    head = line[4:].split(" · ")
-                    cur = {"id": head[0].strip(), "name": head[1].strip() if len(head) > 1 else "",
-                           "tags": [], "text": ""}
-                    chunks.append(cur)
-                elif cur is not None and line.startswith("- tags:"):
-                    cur["tags"] = [t.strip() for t in line[7:].split(",") if t.strip()]
-                elif cur is not None and line.startswith("- text:"):
-                    cur["text"] = line[7:].strip()
-        chunks = [c for c in chunks if c["id"] and c["text"]]
-        if chunks:
-            return chunks
-    except Exception:
-        pass
-    return _KB_FALLBACK + _KB_EXTRA_FALLBACK
+    base = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "docs")
+    chunks: list[dict] = []
+    for fname, source in _KB_DOCS:
+        try:
+            chunks.extend(_parse_kb_doc(os.path.join(base, fname), source))
+        except Exception:
+            continue
+    if chunks:
+        return chunks
+    return [dict(c, name=c.get("name", ""), source="训练原则")
+            for c in _KB_FALLBACK + _KB_EXTRA_FALLBACK]
 
 
 KB: list[dict] = _load_kb()
@@ -177,9 +191,10 @@ def _score(query: str, chunk: dict) -> float:
 
 
 def retrieve(query: str, k: int = 3) -> list[dict]:
-    """按相关性取 top-k 知识块，带分数返回。"""
+    """按相关性取 top-k 知识块，带分数/名称/出处返回。"""
     scored = sorted(((_score(query, c), c) for c in KB), key=lambda x: -x[0])
-    return [{"id": c["id"], "score": round(s, 3), "text": c["text"]}
+    return [{"id": c["id"], "name": c.get("name", ""), "source": c.get("source", ""),
+             "score": round(s, 3), "text": c["text"]}
             for s, c in scored[:k] if s > 0.05]
 
 

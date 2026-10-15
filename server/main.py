@@ -178,6 +178,11 @@ class StretchIn(BaseModel):
     target_km: float = 0.0
 
 
+class AssistantIn(BaseModel):
+    user_id: str
+    message: str = ""                      # 自由提问，≤300 字
+
+
 class PreviewIn(BaseModel):
     user_id: str
     week_no: int
@@ -979,6 +984,22 @@ def stretch_advice(body: StretchIn):
     text = out["stretch"] if isinstance(out, dict) else out
     db.track("llm_explain", body.user_id, scene="stretch_advice", source=src)
     return {"text": text, "source": src}
+
+
+@app.post("/v1/assistant/chat")
+def assistant_chat(body: AssistantIn, request: Request):
+    """AI 跑步助手「跑小助」：RAG 召回知识条目 → LLM 生成带出处回答 → 知识拼接兜底。
+
+    只解释不建议改课（排课主权在规则引擎）；每用户限速 20 次/5 分钟。
+    """
+    if not body.message.strip():
+        raise HTTPException(400, "说点什么再问～")
+    if _hit_rate_limit(f"assistant|{body.user_id}"):
+        raise HTTPException(429, "问得太快啦，喝口水 5 分钟后再来")
+    from server import assistant
+    out = assistant.answer(body.user_id, body.message)
+    db.track("llm_explain", body.user_id, scene="assistant_chat", source=out["from"])
+    return out
 
 
 def _apply_deload_week(s, user_id: str) -> bool:

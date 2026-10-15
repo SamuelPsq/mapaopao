@@ -7,6 +7,7 @@ import Rearrange from './pages/Rearrange'
 import Week from './pages/Week'
 import Metrics from './pages/Metrics'
 import Degrade from './pages/Degrade'
+import Assistant from './components/Assistant'
 import { loadUser } from './lib/api'
 
 export default function App() {
@@ -16,14 +17,18 @@ export default function App() {
     if (!loadUser() && location.pathname !== '/login') nav('/login', { replace: true })
   }, [nav])
   return (
-    <Routes>
-      <Route path="/login" element={<Login />} />
-      <Route path="/onboarding" element={<Onboarding />} />
-      <Route path="/" element={<Today />} />
-      <Route path="/rearrange" element={<Rearrange />} />
-      <Route path="/week/:no?" element={<Week />} />
-      <Route path="/metrics" element={<Metrics />} />
-      <Route path="/degrade" element={<Degrade />} />
-    </Routes>
+    <>
+      <Routes>
+        <Route path="/login" element={<Login />} />
+        <Route path="/onboarding" element={<Onboarding />} />
+        <Route path="/" element={<Today />} />
+        <Route path="/rearrange" element={<Rearrange />} />
+        <Route path="/week/:no?" element={<Week />} />
+        <Route path="/metrics" element={<Metrics />} />
+        <Route path="/degrade" element={<Degrade />} />
+      </Routes>
+      {/* AI 跑步助手：全站悬浮入口（登录页除外由组件自行判断未登录不渲染） */}
+      <Assistant />
+    </>
   )
 }
