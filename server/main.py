@@ -636,7 +636,7 @@ async def vision_vdot(user_id: str = Query(...), file: UploadFile = File(...)):
     用户确认，确认后走 /v1/user/advance 的既有逻辑（VDOT 差 <1.5 不重排、只刷新
     未开始的周），不在这里另起一套应用规则。
     """
-    from server.vision import ALLOWED_MIME, MAX_BYTES, extract_result
+    from server.vision import ALLOWED_MIME, MAX_BYTES, VisionNotConfigured, extract_result
     mime = (file.content_type or "").lower()
     if mime not in ALLOWED_MIME:
         raise HTTPException(415, "只支持 JPG / PNG / WebP 格式的图片")
@@ -645,7 +645,10 @@ async def vision_vdot(user_id: str = Query(...), file: UploadFile = File(...)):
         raise HTTPException(400, "图片是空的，请重新选择")
     if len(image) > MAX_BYTES:
         raise HTTPException(413, "图片太大了（超过 10MB），请压缩后再上传")
-    got = extract_result(image, mime)
+    try:
+        got = extract_result(image, mime)
+    except VisionNotConfigured:
+        raise HTTPException(503, "智能识别尚未配置视觉模型密钥（VISION_API_KEY），请在 .env 中配置后重启后端")
     if not got:
         raise HTTPException(422, "没能从图片里识别出有效的跑步成绩，请换一张更清晰的照片，或直接在今日打卡里手动输入")
     with db.SessionLocal() as s:

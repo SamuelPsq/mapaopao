@@ -27,11 +27,19 @@ _PROMPT = """你在帮一个跑步训练 App 读取用户上传的运动成绩�
  "note": "一句话说明你从图中读到了什么（如「 Garmin 界面，10.02 公里，用时 58:24」）"}
 
 规则：
-1. distance_km 是公里数（如 10、21.0975、42.195、5.02）；duration_sec 是总用时换算成的秒。
-2. 如果图上同时有多个记录，取**最近一次完整跑步**的那个。
-3. 如果只有配速和距离没有总用时，用 距离×配速 换算总秒数。
-4. 如果图片里根本没有跑步成绩（比如是自拍、风景、无关截图），把 distance_km 填 0。
-5. 看不清的数字宁可填 0，也不要猜。"""
+1. distance_km 是公里数（如 10、21.0975、42.195、5.02、9.01）；duration_sec 是总用时换算成的秒
+   （如 59:07 → 3547，1:23:45 → 5025）。
+2. 注意国产跑步 App（悦跑圈/Keep/咕咚等）的常见布局：**数字在上、中文标签在下**——
+   例如大字「9.01 公里」是距离，「6'33"」上方对应标签「平均配速」，「00:59:07」上方对应
+   标签「用时」。一定要按中文标签取数，不要把配速当用时。
+3. 如果图上同时有多个记录，取**最近一次完整跑步**的那个。
+4. 如果只有配速和距离没有总用时，用 距离×配速 换算总秒数（配速 6'33" = 393 秒/公里）。
+5. 如果图片里根本没有跑步成绩（比如是自拍、风景、无关截图），把 distance_km 填 0。
+6. 看不清的数字宁可填 0，也不要猜。"""
+
+
+class VisionNotConfigured(Exception):
+    """未配置视觉识别密钥——与「识别失败」区分，应用侧应给出不同的用户提示。"""
 
 
 def extract_result(image_bytes: bytes, mime: str) -> dict | None:
@@ -44,7 +52,7 @@ def extract_result(image_bytes: bytes, mime: str) -> dict | None:
     key = os.getenv("VISION_API_KEY")
     model = os.getenv("VISION_MODEL", "moonshot-v1-8k-vision-preview")
     if not key:
-        return None
+        raise VisionNotConfigured("缺少 VISION_API_KEY")
     try:
         import httpx
         b64 = base64.b64encode(image_bytes).decode()
