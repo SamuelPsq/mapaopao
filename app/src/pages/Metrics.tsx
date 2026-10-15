@@ -436,9 +436,8 @@ export default function MetricsPage() {
               <span className="absolute inset-x-0 bottom-0 bg-black/45 text-white text-[10px] py-0.5">换头像</span>
             </button>
             <div className="w-full">
-              <Label>账号（登录用，不可修改）</Label>
-              <Input value={me?.username || ""} readOnly disabled
-                className="bg-muted text-muted-foreground cursor-not-allowed" />
+              <Label>账号</Label>
+              <p className="text-sm text-muted-foreground mt-1.5">{me?.username || ""}</p>
             </div>
             <div className="w-full">
               <Label>昵称（1-20 字）</Label>
