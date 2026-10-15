@@ -141,6 +141,19 @@
   100% { transform: translate3d(1.5%, -3%, 0) scale(1.05); }
 }
 
+/* 登录页品牌区入场动画：上浮 + 淡入，纯 transform/opacity，GPU 合成 */
+@keyframes login-rise {
+  from { opacity: 0; transform: translate3d(0, 14px, 0); }
+  to   { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+.login-rise {
+  opacity: 0;
+  animation: login-rise 0.55s cubic-bezier(0.22, 0.9, 0.32, 1) forwards;
+}
+.login-rise-1 { animation-delay: 0.05s; }
+.login-rise-2 { animation-delay: 0.16s; }
+.login-rise-3 { animation-delay: 0.27s; }
+
 /* 尊重系统减少动效设置 */
 @media (prefers-reduced-motion: reduce) {
   *,

@@ -29,3 +29,4 @@ app/package-lock.json
 prd_text.txt
 backend.pid
 wb-*.json
+_vite_dev.log

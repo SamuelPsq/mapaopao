@@ -4,7 +4,11 @@ import { api, saveUser, saveUsername, saveToken } from "@/lib/api"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Flame } from "lucide-react"
+import "@fontsource/zcool-qingke-huangyou/chinese-simplified-400.css"
+import "@fontsource/zcool-qingke-huangyou/latin-400.css"
+import logo from "../assets/logo.png"
+
+const TITLE_FONT = { fontFamily: "'ZCOOL QingKe HuangYou', 'PingFang SC', sans-serif" }
 
 /** 登录 / 注册：账号体系的入口。老用户登录回原账号，新用户注册后进画像问卷。 */
 export default function Login() {
@@ -44,52 +48,67 @@ export default function Login() {
 
   return (
     <div className="app-bg min-h-screen flex justify-center">
-      <div className="w-full max-w-md px-6 pt-16 pb-8 flex flex-col">
-        {/* 品牌 */}
-        <div className="mb-10">
-          <div className="flex items-center gap-2">
-            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-lg shadow-primary/25">
-              <Flame className="h-5 w-5" />
+      <div className="w-full max-w-md px-6 pt-20 pb-10 flex flex-col">
+        {/* 品牌区：Logo + 黄油体标题 + 定位语 */}
+        <div className="flex flex-col items-center text-center">
+          <img src={logo} alt="马跑跑"
+            className="login-rise login-rise-1 h-20 w-20 rounded-[1.35rem] shadow-xl shadow-primary/30" />
+          <h1 style={TITLE_FONT}
+            className="login-rise login-rise-2 mt-5 text-[2.9rem] leading-none tracking-wide text-foreground">
+            马跑跑
+          </h1>
+          <div className="login-rise login-rise-2 mt-3 flex items-center gap-2">
+            <span className="h-px w-6 bg-primary/40" />
+            <p className="text-xs tracking-[0.35em] text-muted-foreground">AI 马拉松训练规划助手</p>
+            <span className="h-px w-6 bg-primary/40" />
+          </div>
+        </div>
+
+        {/* 表单卡 */}
+        <div className="login-rise login-rise-3 mt-11 rounded-3xl border bg-card/85 p-6 shadow-xl shadow-black/5 backdrop-blur">
+          {/* 登录/注册切换 */}
+          <div className="grid grid-cols-2 gap-1 rounded-2xl bg-muted p-1">
+            {(["login", "register"] as const).map((m) => (
+              <button key={m}
+                className={`rounded-xl py-2.5 text-sm font-medium transition-all
+                  ${mode === m ? "bg-card shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                onClick={() => { setMode(m); setErr("") }}>
+                {m === "login" ? "登录" : "注册"}
+              </button>
+            ))}
+          </div>
+
+          <div className="mt-6 space-y-4">
+            <div>
+              <Label>账号</Label>
+              <Input value={username} placeholder="3-20 个字符"
+                onChange={(e) => setUsername(e.target.value)}
+                className="mt-1.5 h-12 rounded-xl bg-background/60" />
             </div>
-            <div className="text-3xl font-black tracking-tight">马跑跑</div>
+            <div>
+              <Label>密码</Label>
+              <Input type="password" value={password} placeholder={mode === "register" ? "至少 6 位" : ""}
+                onChange={(e) => setPassword(e.target.value)}
+                className="mt-1.5 h-12 rounded-xl bg-background/60"
+                onKeyDown={(e) => { if (e.key === "Enter") submit() }} />
+            </div>
+            {err ? <p className="text-sm text-destructive">{err}</p> : null}
+            <Button size="lg" disabled={busy} onClick={submit}
+              className="h-12 w-full rounded-full bg-gradient-to-r from-amber-500 to-orange-700 text-base font-semibold tracking-wide text-white shadow-lg shadow-orange-700/25 transition-all hover:brightness-105 active:scale-[0.98]">
+              {busy ? "请稍候…" : mode === "login" ? "登录" : "注册并创建账号"}
+            </Button>
+            <p className="text-xs leading-relaxed text-muted-foreground text-center">
+              {mode === "login"
+                ? "登录后回到你的训练计划，数据都存在你的账号下"
+                : "注册后先填 6 步画像问卷，再生成 16 周计划"}
+            </p>
           </div>
-          <div className="text-sm text-muted-foreground mt-2">马拉松训练规划助手 · 16 周</div>
         </div>
 
-        {/* 登录/注册切换 */}
-        <div className="grid grid-cols-2 gap-1 rounded-2xl bg-muted p-1 mb-6">
-          {(["login", "register"] as const).map((m) => (
-            <button key={m}
-              className={`rounded-xl py-2 text-sm font-medium transition-colors
-                ${mode === m ? "bg-card shadow-sm" : "text-muted-foreground"}`}
-              onClick={() => { setMode(m); setErr("") }}>
-              {m === "login" ? "登录" : "注册"}
-            </button>
-          ))}
-        </div>
-
-        <div className="space-y-4">
-          <div>
-            <Label>账号</Label>
-            <Input value={username} placeholder="3-20 个字符"
-              onChange={(e) => setUsername(e.target.value)} className="mt-1.5 bg-card" />
-          </div>
-          <div>
-            <Label>密码</Label>
-            <Input type="password" value={password} placeholder={mode === "register" ? "至少 6 位" : ""}
-              onChange={(e) => setPassword(e.target.value)} className="mt-1.5 bg-card"
-              onKeyDown={(e) => { if (e.key === "Enter") submit() }} />
-          </div>
-          {err ? <p className="text-sm text-destructive">{err}</p> : null}
-          <Button className="w-full" size="lg" disabled={busy} onClick={submit}>
-            {busy ? "请稍候…" : mode === "login" ? "登录" : "注册并创建账号"}
-          </Button>
-          <p className="text-xs text-muted-foreground text-center">
-            {mode === "login"
-              ? "登录后回到你的训练计划，数据都存在你的账号下"
-              : "注册后先填 6 步画像问卷，再生成 16 周计划"}
-          </p>
-        </div>
+        {/* 底部信任状 */}
+        <p className="login-rise login-rise-3 mt-auto pt-8 text-center text-[11px] text-muted-foreground/70">
+          基于 VDOT 训练体系 · 校体育学院运动与健康实验中心合作
+        </p>
       </div>
     </div>
   )
