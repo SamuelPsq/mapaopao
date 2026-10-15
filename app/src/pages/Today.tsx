@@ -214,7 +214,7 @@ export default function Today() {
   return (
     <Shell>
       {/* 顶部 */}
-      <div className="flex items-baseline justify-between mb-1">
+      <div classNameName="flex items-baseline justify-between mb-1">
         <div className="text-lg font-bold">{card.weekday} · 第 {card.week_no} 周 / 16 周</div>
         <div className="text-xs text-muted-foreground">距赛事 {card.days_to_race} 天</div>
       </div>
@@ -348,15 +348,22 @@ export default function Today() {
         }}>今天跑不了</Button>
       </div>
 
-      {/* 重排建议：跟在打卡按钮下方，实心按钮样式，一眼可点 */}
+      {/* 重排建议：跟在打卡按钮下方，实心按钮样式，一眼可点。
+          字号粗细一致，只有「点此…」行动词加粗，引导点击又不吵 */}
       {card.suggestion ? (
         <button
-          className="w-full text-sm font-semibold rounded-2xl px-3.5 py-3 mb-3 flex items-center justify-center gap-1.5
+          className="w-full text-sm rounded-2xl px-3.5 py-3 mb-3 flex items-center justify-center gap-1.5
                      bg-primary text-primary-foreground shadow-md shadow-primary/25
                      active:scale-[0.98] transition-transform"
           onClick={() => nav(`/rearrange?trigger=${card.suggestion!.trigger_src}`)}>
           <Wrench className="h-4 w-4 shrink-0" />
-          <span className="truncate">{card.suggestion.message}</span>
+          <span className="truncate">{(() => {
+            const msg = card.suggestion!.message
+            const i = msg.indexOf("点此")
+            return i > 0
+              ? <>{msg.slice(0, i)}<span className="font-semibold">{msg.slice(i)}</span></>
+              : msg
+          })()}</span>
           <ChevronRight className="h-4 w-4 shrink-0" />
         </button>
       ) : null}
@@ -698,8 +705,9 @@ export function NavBar({ weekNo }: { weekNo?: number }) {
   )
 }
 
-/** 未来 7 天气温迷你趋势图：纯 SVG 折线（<1KB，无图表库），硬约束日用琥珀色圆点标出 */
-function WxTrend({ week }: { week: { date: string; t_max: number; hard: boolean }[] }) {
+/** 未来 7 天气温迷你趋势图：纯 SVG 折线（<1KB，无图表库），硬约束日用琥珀色圆点标出。
+ *  鼠标悬停任一天圆点显示当天天气（状况/气温/降雨/硬约束），纯 CSS group-hover，无 JS。 */
+function WxTrend({ week }: { week: { date: string; t_max: number; precip: number; condition: string; hard: boolean }[] }) {
   if (week.length < 2) return null
   const W = 300, H = 44, PAD = 6
   const temps = week.map((d) => d.t_max)
@@ -712,13 +720,38 @@ function WxTrend({ week }: { week: { date: string; t_max: number; hard: boolean 
   const line = pts.map(([x, y], i) => `${i ? "L" : "M"}${x.toFixed(1)},${y.toFixed(1)}`).join(" ")
   const dow = ["日", "一", "二", "三", "四", "五", "六"]
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="mt-1.5 w-full" aria-hidden>
+    <svg viewBox={`0 0 ${W} ${H}`} className="mt-1.5 w-full overflow-visible" aria-hidden>
       <path d={line} fill="none" stroke="rgba(255,255,255,0.75)" strokeWidth={2}
         strokeLinecap="round" strokeLinejoin="round" />
-      {pts.map(([x, y], i) => (
-        <circle key={i} cx={x} cy={y} r={i === 0 ? 3.5 : 2.5}
-          fill={week[i].hard ? "#fbbf24" : "#fff"} />
-      ))}
+      {pts.map(([x, y], i) => {
+        const d = week[i]
+        const label = i === 0 ? "今天" : "周" + dow[new Date(`${d.date}T00:00:00`).getDay()]
+        const sub = d.hard ? "⚠ 天气硬约束" : d.precip > 0 ? `降雨 ${d.precip} mm` : "适宜户外"
+        const th = 22                                  // 气泡高度
+        const above = y > th + 8                       // 空间够就悬在点上方，否则放下方
+        const ty = above ? y - th - 5 : y + 10
+        const tx = Math.min(Math.max(x, 36), W - 36)   // 气泡在画布内不溢出
+        return (
+          <g key={i} className="group cursor-default">
+            {/* 放大隐形热区，悬停不用精确瞄准小圆点 */}
+            <circle cx={x} cy={y} r={11} fill="transparent" />
+            <circle cx={x} cy={y} r={i === 0 ? 3.5 : 2.5}
+              fill={d.hard ? "#fbbf24" : "#fff"}
+              className="transition-transform group-hover:scale-150" style={{ transformOrigin: `${x}px ${y}px` }} />
+            {/* 悬停气泡：当天天气 */}
+            <g className="opacity-0 transition-opacity duration-150 group-hover:opacity-100 pointer-events-none">
+              <rect x={tx - 34} y={ty} width={68} height={th} rx={5} fill="rgba(0,0,0,0.55)" />
+              <text x={tx} y={ty + 8.5} textAnchor="middle" fontSize={7.5} fill="#fff">
+                {label} {d.condition} {Math.round(d.t_max)}°
+              </text>
+              <text x={tx} y={ty + 17.5} textAnchor="middle" fontSize={6.8}
+                fill={d.hard ? "#fcd34d" : "rgba(255,255,255,0.75)"}>
+                {sub}
+              </text>
+            </g>
+          </g>
+        )
+      })}
       {pts.map(([x], i) => (
         <text key={`t${i}`} x={x} y={H - 0.5} textAnchor="middle" fontSize={7.5}
           fill="rgba(255,255,255,0.7)">

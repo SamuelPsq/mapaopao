@@ -448,6 +448,22 @@ def logout(request: Request):
     return {"ok": True}
 
 
+if os.environ.get("MAPAOPAO_DEV") == "1":
+    @app.post("/dev/shutdown")
+    def dev_shutdown():
+        """【仅开发演示】挂起后端进程：验证断网降级文案与 GET 自动重试。
+        仅在环境变量 MAPAOPAO_DEV=1 时注册，生产环境没有这个接口。
+        恢复：重新启动 uvicorn（python -m uvicorn server.main:app --port 8000）。"""
+        import threading
+
+        def _die():
+            time.sleep(0.3)      # 先让响应发出去
+            os._exit(0)
+
+        threading.Thread(target=_die, daemon=True).start()
+        return {"ok": True, "message": "后端 0.3 秒后挂起"}
+
+
 @app.post("/v1/account/delete")
 def delete_account(body: AccountIn):
     """注销账号：先验证用户名密码，再级联删除该用户全部数据（不可恢复）。"""
@@ -803,6 +819,9 @@ def today_card(user_id: str):
                 "hot": wx_td.hot_soft,
                 "week": [{"date": d.isoformat(),
                           "t_max": round(wx_map[d.isoformat()].t_max, 1),
+                          "apparent_max": round(wx_map[d.isoformat()].apparent_max, 1),
+                          "precip": round(wx_map[d.isoformat()].precip, 1),
+                          "condition": WX_CONDITION.get(wx_map[d.isoformat()].weather_code, "多云"),
                           "hard": wx_map[d.isoformat()].hard_constraint}
                          for i in range(7) for d in (today + timedelta(days=i),)],
             }
