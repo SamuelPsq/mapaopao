@@ -130,7 +130,7 @@ td.mono,th.mono{font-family:"SFMono-Regular",Consolas,monospace;font-size:12.2px
 <div class="hero-in">
 <div class="tagline">PRODUCT &amp; TECHNICAL SPECIFICATION · AS-BUILT</div>
 <h1>马跑跑 · AI 马拉松训练规划助手<br>产品需求 + 技术实现规格（与实际产品同步版）</h1>
-<p>本文档 v2.0（2026-10-16）与线上运行的产品逐块核对后重写：前半份回答「做什么、为什么这么做」，后半份回答「每一块实际怎么实现」——数据模型、规则引擎、重排决策、护栏校验、RAG 知识层、LLM 调用与降级、接口契约、埋点口径，全部对应当前代码与界面。功能描述以真实实现为准，演示数据单独标注口径。</p>
+<p>本文档 v3.2（2026-10-23）与线上运行的产品逐块核对后重写：前半份回答「做什么、为什么这么做」，后半份回答「每一块实际怎么实现」——数据模型、规则引擎、重排决策、护栏校验、RAG 知识层、LLM 调用与降级、接口契约、埋点口径，全部对应当前代码与界面。<b>v3.2 起新增第 22 章「实验室 B 端模块」</b>（知情同意 / 匿名化导出 / 问卷系统 / 调参闭环 / 教师工作台），与 2026-10-22 上线的 B 端实现逐块对齐。功能描述以真实实现为准，演示数据单独标注口径。</p>
 <div class="meta">
 <span>定位：校内马拉松选修课 / 社团训练工具</span><span>合作：校体育学院运动与健康实验中心</span><span>累计使用：756 人</span>
 <span>角色：产品负责人 + 全栈实现</span><span>北极星：周计划执行率</span><span>仓库：github.com/SamuelPsq/mapaopao</span>
@@ -146,7 +146,7 @@ td.mono,th.mono{font-family:"SFMono-Regular",Consolas,monospace;font-size:12.2px
 
 <div class="note amber">
 <span class="hd">v1 文档 → v2 同步版，改了什么</span>
-本文档的前身写于项目启动前（v1，设计推演版）：里面的架构设计（规则引擎 / 护栏 / 重排打分 / 体感温度）大部分被<b>原样实现</b>了，但也有一批当时写在纸面上的设计（PostgreSQL + Redis、APScheduler 定时、A/B 实验框架、240 题评测集）在真实落地时被更轻的方案替换；同时产品长出了 v1 里完全没有的东西——账号体系、跑小助 RAG 助手、智能识别成绩、月历回看、身体状态并入打卡、指标页。<b>本版把这些全部对齐到代码与界面的真实现状</b>，并保留了一处刻意的诚实：第 19 章单独说明哪些数字是真实埋点、哪些是演示口径。
+本文档的前身写于项目启动前（v1，设计推演版）：里面的架构设计（规则引擎 / 护栏 / 重排打分 / 体感温度）大部分被<b>原样实现</b>了，但也有一批当时写在纸面上的设计（PostgreSQL + Redis、APScheduler 定时、A/B 实验框架、240 题评测集）在真实落地时被更轻的方案替换；同时产品长出了 v1 里完全没有的东西——账号体系、跑小助 RAG 助手、智能识别成绩、月历回看、身体状态并入打卡、指标页。<b>本版把这些全部对齐到代码与界面的真实现状</b>，并保留了一处刻意的诚实：第 19 章单独说明哪些数字是真实埋点、哪些是演示口径。<b>v3.2 增量（2026-10-22/23）</b>：为体育学院运动与健康实验中心落地 B 端——注册知情同意、匿名化数据导出、问卷线上化、训练调参闭环与教师工作台（见第 22 章）；部署形态从「start.bat 开发拉起」补齐为生产部署套件（requirements.txt + systemd + nginx，见 deploy/）。
 </div>
 
 <table>
@@ -155,15 +155,16 @@ td.mono,th.mono{font-family:"SFMono-Regular",Consolas,monospace;font-size:12.2px
 <tr><td><b>01–04</b><br>产品定义</td><td>解决谁的什么问题、北极星为什么是它、指标体系怎么搭</td><td>产品 / 面试官</td></tr>
 <tr><td><b>05</b><br>竞品分析</td><td>市场上已经很强了，这个项目的位置在哪；对手的哪些决定写成了我们的架构</td><td>产品 / 面试（可单独拆出）</td></tr>
 <tr><td><b>06–13</b><br>系统设计与实现</td><td>数据模型、计划生成、重排决策、护栏校验、天气判定、RAG 知识层、LLM 调用——全部对应真实模块</td><td><b>工程师（核心）</b></td></tr>
-<tr><td><b>14–18</b><br>工程交付</td><td>真实接口清单（28 个）、关键界面、埋点口径、测试方案、非功能设计</td><td>工程师 / 项目排期</td></tr>
+<tr><td><b>14–18</b><br>工程交付</td><td>真实接口清单（44 个）、关键界面、埋点口径、测试方案、非功能设计</td><td>工程师 / 项目排期</td></tr>
 <tr><td><b>19–21</b><br>复盘与决策记录</td><td>真实迭代时间线、四个有教训的真实事故、明确不做什么、面试速查</td><td>所有人</td></tr>
+<tr><td><b>22</b><br>实验室 B 端</td><td>知情同意、匿名化导出、问卷系统、调参闭环、教师工作台——B 端为什么存在、每一块怎么实现</td><td>合作实验室 / 工程师 / 面试</td></tr>
 </tbody>
 </table>
 
 <div class="grid4">
 <div class="kpi"><div class="v">756</div><div class="k">累计使用人数</div><div class="d up">选修课 + 社团双场景冷启动</div></div>
-<div class="kpi"><div class="v">28<span style="font-size:14px;color:#86909c"> 个</span></div><div class="k">REST 接口</div><div class="d flat">FastAPI + SQLite</div></div>
-<div class="kpi"><div class="v">15<span style="font-size:14px;color:#86909c"> 个</span></div><div class="k">pytest 测试文件</div><div class="d flat">规则/护栏/重排/识别/助手</div></div>
+<div class="kpi"><div class="v">44<span style="font-size:14px;color:#86909c"> 个</span></div><div class="k">REST 接口</div><div class="d flat">FastAPI + SQLite（含 B 端 15 个）</div></div>
+<div class="kpi"><div class="v">18<span style="font-size:14px;color:#86909c"> 个</span></div><div class="k">pytest 测试文件</div><div class="d flat">规则/护栏/重排/识别/助手/B端</div></div>
 <div class="kpi"><div class="v">3<span style="font-size:14px;color:#86909c"> 份</span></div><div class="k">RAG 知识文档</div><div class="d flat">训练原则 / 跑者经验 / 伤病康复</div></div>
 </div>
 
@@ -198,7 +199,7 @@ td.mono,th.mono{font-family:"SFMono-Regular",Consolas,monospace;font-size:12.2px
 <tr><td>语言 / 框架</td><td class="mono">Python + FastAPI</td><td>规则引擎零框架依赖，pytest 直接跑；OpenAPI 文档零成本。与 v1 一致。</td></tr>
 <tr><td>持久化</td><td class="mono">SQLite + SQLAlchemy 2.0</td><td><b>v1 设计是 PostgreSQL</b>。实际单机部署、并发极低，SQLite 单文件零运维；声明式 ORM，将来迁移 PG 只需换连接串。</td></tr>
 <tr><td>缓存</td><td class="mono">DB 表 weather_daily</td><td><b>v1 设计是 Redis</b>。天气缓存本来就是按 (城市, 日期) 去重的结构化数据，直接落表 + 查询时判断新鲜度，省掉一个中间件。</td></tr>
-<tr><td>定时任务</td><td class="mono">内部 HTTP 接口 + 外部触发</td><td><b>v1 设计是 APScheduler</b>。实际只有两个 job（周快照、天气刷新），做成 <code>/jobs/*</code> HTTP 接口由部署环境调度，进程内不驻留调度器。</td></tr>
+<tr><td>定时任务</td><td class="mono">APScheduler（进程内 BackgroundScheduler）</td><td><b>v2 时曾改为「/jobs/* HTTP 接口 + 外部触发」</b>；v3.2 起任务数从 2 个涨到 4 个（周快照、天气刷新、周日 20:07 生成周问卷实例、周一 00:32 调参扫描），外部触发依赖部署环境配 cron 容易漏，收回进程内 APScheduler 单进程托管——同时给部署立下铁律：uvicorn 只允许 1 个 worker，否则任务重复执行（见 deploy/README 常见坑）。/jobs/* 接口保留，可手动补跑。</td></tr>
 <tr><td>天气源</td><td class="mono">Open-Meteo API</td><td>免费、无需 key、有 archive 可回算。与 v1 一致。</td></tr>
 <tr><td>文本 LLM</td><td class="mono">DeepSeek（deepseek-flash）</td><td>兼容 OpenAI 协议、成本极低；只用于解释文案、AI 微调点评、拉伸建议、跑小助问答。未配密钥时全链路自动降级到规则模板，体验不断档。</td></tr>
 <tr><td>视觉模型</td><td class="mono">Moonshot 视觉模型</td><td><b>v1 没有这一层</b>，是「智能识别成绩」功能新增长的独立通道：<code>VISION_BASE_URL / VISION_API_KEY / VISION_MODEL</code> 三个独立环境变量，与文本 LLM 完全解耦——文本用 DeepSeek、识图用 Kimi，互不影响，缺哪个降哪个。</td></tr>
@@ -392,7 +393,7 @@ v1 文档中的 v1–v3.1 四轮迭代数值（41.2% → 72.5% 等）是<b>设�
 </div>
 
 <h2>07 数据模型</h2>
-<div class="sub">14 张表（SQLite）；其中 plan_week_snapshot、guard_audit、event 是「指标可信」和「护栏可证」的地基</div>
+<div class="sub">21 张表（SQLite，v3.2 含实验室 7 张）；其中 plan_week_snapshot、guard_audit、event 是「指标可信」和「护栏可证」的地基</div>
 
 <pre>account ─┬─ user ──┬─ plan ──┬─ plan_week ──┬─ session ──┬─ session_log
          │         │         │              │
@@ -421,6 +422,7 @@ ai_case                                 （AI 微调案例：采纳与拒绝）<
 <tr><td class="mono">assistant_msg</td><td>跑小助会话按 user_id 隔离；<b>退出登录即清空该用户记录</b>，防止账号间串话</td></tr>
 <tr><td class="mono">weather_daily</td><td>apparent_max 入库时算好落库——复盘要用同一口径，不能依赖运行时重算</td></tr>
 <tr><td class="mono">event</td><td>通用埋点表（name + JSON payload），level_advanced 等关键事件落此</td></tr>
+<tr><td class="mono">v3.2 实验室 7 张</td><td>consent_record（同意留痕）、export_log（导出审计）、survey / survey_instance / survey_response（问卷）、tune_suggestion（调参建议）、plan_config（调参配置）。C 端 14 张之上为 B 端新增，字段与约束见第 22 章</td></tr>
 </tbody>
 </table>
 
@@ -633,7 +635,7 @@ def apparent_max(t_c, rh):  # NOAA Heat Index（Rothfusz 回归），入库时�
 
 <div class="part">Part III · 工程交付</div>
 <h2>14 接口清单与关键界面</h2>
-<div class="sub">28 个 REST 接口；刻意没有「一句话生成」那种入口</div>
+<div class="sub">44 个 REST 接口（含 B 端 15 个）；刻意没有「一句话生成」那种入口</div>
 
 <h3>14.1 REST 接口（按域分组，全部真实存在）</h3>
 <table>
@@ -657,6 +659,8 @@ def apparent_max(t_c, rh):  # NOAA Heat Index（Rothfusz 回归），入库时�
 <tr><td class="mono">POST /v1/vision/vdot</td><td>识别成绩图 → 数值断言 → 折算 VDOT（确认后走统一重估）</td></tr>
 <tr><td rowspan="2"><b>指标/知识</b></td><td class="mono">GET /v1/metrics · GET /v1/kb/tip</td><td>指标页四项指标；跑步知识单条召回（探活也在用）</td></tr>
 <tr><td class="mono">POST /jobs/weekly_snapshot · /jobs/weather_refresh</td><td>内部任务：周快照冻结 / 天气刷新</td></tr>
+<tr><td rowspan="2"><b>实验室 B 端</b><br>（v3.2）</td><td class="mono">GET /v1/consent/doc · GET /v1/survey/pending · POST /v1/survey/respond</td><td>C 端：协议文本（未登录可读）/ 本周待填问卷 / 幂等提交</td></tr>
+<tr><td class="mono">/v1/lab/* 10 个 + /jobs 2 个</td><td>B 端（role=teacher 403 人话）：概览 / 导出预览与导出 / 问卷管理与统计 / 调参建议采纳与忽略——逐个见第 22 章</td></tr>
 </tbody>
 </table>
 <p>接口层没有 <code>/plan/generate-oneline</code>——这是刻意的。一句话生成让计划变成一次性消费品；画像问卷必须走完（含劝退判定），用入口成本换计划的资产感。<b>API 的形态本身就是产品态度的表达。</b></p>
@@ -725,6 +729,7 @@ def apparent_max(t_c, rh):  # NOAA Heat Index（Rothfusz 回归），入库时�
 <tr><td><b>AI 深化（10 月密集迭代）</b></td><td>跑小助（RAG 多轮助手）、智能识别成绩、AI 微调 + 结构红线、拉伸建议生成、RAG 语义召回、三份知识文档持续扩充（伤病康复为主）</td><td>AI 从「解释层」扩展为「知识层 + 感知层」</td></tr>
 <tr><td><b>体验与信任</b></td><td>所有单向按钮防误触确认、打卡数字全站同步、网络断连降级文案与自动重试、缺密钥优雅降级、月历回看、品牌改版（Logo / 黄油体 / 入场动画）</td><td>「出错时说人话」成为全站规范</td></tr>
 <tr><td><b>工程可靠性</b></td><td>改参数不清进度、跑小助会话隔离（退出即清）、一键重启后端（重启开关装在 dev server 上）</td><td>见第 19 章四个真实事故</td></tr>
+<tr><td><b>实验室 B 端（v3.2，10-22/23）</b></td><td>注册强制知情同意（consent_record 版本留痕）；匿名化数据导出（4 张脱敏 CSV + 变量字典 + 导出审计）；问卷线上化（pre/weekly/post，周日定时生成实例，likert7/bool/text）；调参闭环（周一扫描连续 3 周关键课完成率 &lt;50% 自动生成收紧建议，教师采纳后只缩放今天之后的课、过护栏不清进度）；教师工作台 /lab（role=teacher，数据看板 / 问卷管理 / 调参建议三 Tab）</td><td>「跑小助串话」同一教训的 B 端版：导出脱敏、角色隔离、伦理审查包——详见第 22 章</td></tr>
 </tbody>
 </table>
 
@@ -738,6 +743,7 @@ def apparent_max(t_c, rh):  # NOAA Heat Index（Rothfusz 回归），入库时�
 <tr><td>防误触</td><td>所有单向操作（打卡、跑不了、进阶、注销、重启后端）二次确认；「跑不了」可反悔（点错了不做记录）</td><td>单向操作 = 不可撤销 = 必须确认</td></tr>
 <tr><td>幂等</td><td>重排 context_hash 去重；重复请求不产生第二条事件</td><td></td></tr>
 <tr><td>隐私</td><td>伤痛/睡眠/疲劳不出本机判定范围；LLM prompt 走 facts 白名单；助手会话按用户隔离、退出即清</td><td></td></tr>
+<tr><td>伦理与脱敏（v3.2）</td><td>注册强制勾选《数据使用协议》并记录版本号（consent_record）；导出包内用户名/学号替换为加盐 SHA-1 假名（12 位），<b>盐值不入包</b>、仅其 SHA 留导出审计（export_log）；导出前先 preview 看字段清单与行数预估，不直接返回数据</td><td>高校科研伦理审查的标配：可同意的同意 + 不可逆的脱敏 + 可审计的导出</td></tr>
 <tr><td>性能</td><td>生成与决策纯 CPU（无网络）；LLM 异步生成解释，卡片先用骨架文案</td><td></td></tr>
 </tbody>
 </table>
@@ -784,6 +790,7 @@ def apparent_max(t_c, rh):  # NOAA Heat Index（Rothfusz 回归），入库时�
 <tr><td><span class="tag t-red">Must</span></td><td>16 周计划生成 / 周级重排 / 护栏红线 / 天气判定 / 打卡闭环 / 账号体系</td><td>全部已实现——产品的入场券</td></tr>
 <tr><td><span class="tag t-blue">Should</span></td><td>状态上报并入打卡 / 重排解释（LLM）/ 主动劝降 / 能力重估 / 指标页</td><td>全部已实现</td></tr>
 <tr><td><span class="tag t-green">Could</span></td><td>跑小助 RAG 助手 / 智能识别成绩 / 月历回看 / 拉伸建议 / BMI 保守模式</td><td>全部已实现——迭代期从 Could 升级而来</td></tr>
+<tr><td><span class="tag t-green">Could</span></td><td>实验室 B 端：知情同意 / 匿名化导出 / 问卷线上化 / 调参闭环 / 教师工作台</td><td><b>已实现（v3.2）</b>——合作方的入场券功能；完整引擎（gain_cap / aux_cap_ratio 消费）留 v3.3</td></tr>
 <tr><td><span class="tag t-gray">Won't</span></td><td>运动手表深度对接 / 社交跑团排行榜 / 营养力量建议 / 扩展到其他耐力项目</td><td>明确不做。尤其社交：攀比驱动会诱导状态不好时硬撑，与「安全优先」直接冲突</td></tr>
 </tbody>
 </table>
@@ -809,7 +816,7 @@ def apparent_max(t_c, rh):  # NOAA Heat Index（Rothfusz 回归），入库时�
 </tbody>
 </table>
 
-<h2>21 面试速查卡（v2 同步版）</h2>
+<h2>21 面试速查卡（v3.2 同步版）</h2>
 <div class="sub">完整问答见《金科产品助理-面试QA.md》</div>
 
 <div class="qa"><div class="q">Q：这不就是把书塞进数据库然后调大模型吗？</div><div class="a">知识层是拆开的：数值知识走确定性规则引擎（VDOT 查表唯一数值来源），LLM 只做解释、定性微调和知识问答。防幻觉靠的不是 prompt——所有 LLM 输出过<b>代码数值断言</b>（文案出现的数字必须在 facts 里；微调课表过结构红线；识别成绩过量纲/区间/配速三道断言），校验不过直接拦截回退模板。<b>判断哪些知识不该交给模型，比调 prompt 更重要。</b></div></div>
@@ -824,9 +831,90 @@ def apparent_max(t_c, rh):  # NOAA Heat Index（Rothfusz 回归），入库时�
 
 <div class="qa"><div class="q">Q：数据是真的吗？</div><div class="a">功能、事故、指标口径全部真实，756 名用户来自选修课与社团两个真实场景。需要坦白：v1 文档里的四轮迭代百分比是设计期复盘重建口径（当时埋点不完整），本文档 v2 已把那一章替换为四个有 Git 记录的真实事故；指标页四项指标是真实埋点真实计算。</div></div>
 
+<div class="part">Part V · 实验室 B 端（v3.2 新增）</div>
+<h2>22 实验室 B 端模块（v3.2）</h2>
+<div class="sub">产品对外是 C 端训练工具，对合作实验室是一台「纵向数据生产机」——这一章讲 B 端为什么存在、每一块怎么实现</div>
+
+<h3>22.1 B 端为什么存在：实验室的硬通货是纵向数据</h3>
+<p>校体育学院运动与健康实验中心的需求不是「看学生跑没跑步」，而是<b>科研级纵向追踪数据</b>。马跑跑恰好生产这种稀缺品：16 周连续的训练执行数据 + 主观状态上报（睡眠/疲劳/酸痛）+ 伤痛事件 + 天气响应记录，全部带时间戳、口径统一（执行率有 plan_week_snapshot 快照冻结防污染）。普通体测一年一个断面，这里是<b>周粒度纵向追踪</b>。交换条件是实验室提供伦理审查通道与学术背书——所以 B 端第一批功能按「过伦理审查 + 能直接进统计软件」的标准做。</p>
+<div class="note"><span class="hd">B 端的第一条设计原则</span>
+B 端没有一条数据是让用户额外手填的（问卷除外）——全部建立在 C 端既有数据资产上。用户只是在按计划训练，科研数据是「顺手生产」的副产品。<b>不产生额外负担，纵向数据才可持续。</b></div>
+
+<h3>22.2 知情同意层（伦理审查的入场券）</h3>
+<table>
+<thead><tr><th style="width:22%">设计</th><th>实现</th></tr></thead>
+<tbody>
+<tr><td>强制同意</td><td>注册页必须勾选《数据使用协议》才能提交（不勾选无法注册），前端写死在注册表单校验里</td></tr>
+<tr><td>协议版本化</td><td>协议文本与版本号由 <code>GET /v1/consent/doc</code> 下发（未登录可读——注册页必须能读到协议才能同意）；当前版本 CONSENT_VERSION = "1.0"</td></tr>
+<tr><td>同意留痕</td><td>同意记录单独成表 <code>consent_record</code>（user_id + version + 时间），注册时写入；协议升级后可按版本圈出需重新同意的用户</td></tr>
+<tr><td>可注销</td><td>C 端已有注销账号（防误触二次确认）——伦理三件套「可同意的同意 + 随时可退出 + 可审计」齐了</td></tr>
+</tbody>
+</table>
+
+<h3>22.3 匿名化数据导出（实验室拿去发论文的门票）</h3>
+<p>教师一键导出 ZIP 包 = <b>4 张 CSV + dictionary.md（变量字典）+ readme.md（协议版本与脱敏说明）</b>。导出前先走 <code>/v1/lab/export/preview</code> 看字段清单与行数预估，<b>不返回数据本身</b>。</p>
+<table>
+<thead><tr><th style="width:26%">文件</th><th>口径</th></tr></thead>
+<tbody>
+<tr><td class="mono">weekly_training.csv</td><td>一行 = 一名学生 × 一周：周计划量 / 实际量 / 关键课完成率 / 是否降载（来源 plan_week_snapshot 冻结口径，非运行时重算）</td></tr>
+<tr><td class="mono">daily_state.csv</td><td>一行 = 一名学生 × 一天：打卡状态 / 酸痛部位 / 关节不适 / 睡眠 / 疲劳 / 跑中体感</td></tr>
+<tr><td class="mono">survey_weekly.csv</td><td>一行 = 一名学生 × 一周：周问卷答案展开为列；<b>未填也保留一行</b>（回收率的分母，丢掉未填样本是科研常见作弊）</td></tr>
+<tr><td class="mono">events.csv</td><td>事件流：打卡 / 重排 / 劝降 / 进阶 / 天气响应等关键事件，带时间戳</td></tr>
+</tbody>
+</table>
+<div class="note amber"><span class="hd">脱敏怎么做才算「不可逆」</span>
+用户名/学号 → 加盐 SHA-1 假名（12 位，如 <code>a3f9c1d2e4b7</code>）。盐值每次导出随机生成且<b>不入包</b>——包里只有假名，反推不出是谁；盐的 SHA 摘要写进 <code>export_log</code>（谁 / 什么时间 / 什么队列 / 什么日期区间 / 盐摘要），保证每次导出可审计、可复现口径。同一学生跨表、跨次导出的假名一致（盐按导出批次稳定映射），纵向分析能对上人。</div>
+
+<h3>22.4 问卷系统（把纸质问卷线上化，顺手把回收率做成周粒度指标）</h3>
+<table>
+<thead><tr><th style="width:22%">设计</th><th>实现</th></tr></thead>
+<tbody>
+<tr><td>三种问卷</td><td><code>pre</code>（前测）/ <code>weekly</code>（周问卷）/ <code>post</code>（后测）；题型 likert7（7 点量表）/ bool / text，逐题必填校验</td></tr>
+<tr><td>实例生成</td><td>周日 20:07 APScheduler 为所有 active 计划用户生成本周问卷实例（<b>幂等</b>：重复执行不产生第二条）；前后测在用户首次进入时生成</td></tr>
+<tr><td>唯一生效</td><td>weekly 同时只生效一份——教师激活新周问卷自动下架旧版，不会出现「学生填错版本」</td></tr>
+<tr><td>C 端入口</td><td>今日卡 SurveyBanner 提示待填，提交幂等（重复提交不覆盖已填答案）</td></tr>
+<tr><td>B 端管理</td><td>教师创建 / 上下架 / 统计：周问卷按 ISO 周看回收率，前后测按响应率看</td></tr>
+</tbody>
+</table>
+
+<h3>22.5 调参闭环（M3）：B 端数据反哺 C 端算法</h3>
+<p>B 端存在的第二层意义：大量真实训练数据可以反过来校准 C 端的课表安排。v3.2 落地第一条闭环——<b>「学生跑不动」的信号从 B 端回到 C 端计划</b>：</p>
+<div class="dec"><div class="dec-h"><span class="idx">1</span>周一 00:32 生成建议（纯规则，非 LLM）</div><div class="dec-b">
+<div class="row"><div class="lbl">触发</div><div class="val">active 计划连续 3 周关键课完成率均 &lt;50%（任意一周 ≥50% 即排除——一周没跑好是偶然，三周是结构性信号）</div></div>
+<div class="row"><div class="lbl">跳过</div><div class="val">近 14 天伤痛上报 ≥2 的计划不提议（避免与护栏降载叠加）</div></div>
+<div class="row"><div class="lbl">去重</div><div class="val">同计划已有 pending 建议不再生成；建议文案写给人看（「平均完成率 41%，建议周量系数下调 10%，并建议与学生沟通训练时间安排」）</div></div>
+</div></div>
+<div class="dec"><div class="dec-h"><span class="idx">2</span>教师采纳 → 只动未来，不清过去</div><div class="dec-b">
+<div class="row"><div class="lbl">落表</div><div class="val">采纳写 plan_config（scope=plan，volume_multiplier=0.9，proposed_by=system，approved）——配置是谁、何时、因何改的，全部留痕</div></div>
+<div class="row"><div class="lbl">应用</div><div class="val">系数乘到<b>今天之后</b>的未执行课程（钳制 0.5~1.0，只收紧不放松）；今天已过的课、已有记录一笔不动——与 C 端「改参数不清进度」同一铁律</div></div>
+<div class="row"><div class="lbl">兜底</div><div class="val">重算后的周跑量再过一遍护栏红线（周增幅 ≤10%）压回——<b>收紧方向也受代码约束</b>，与第 13 章「LLM 的建议权必须配代码的否决权」同源</div></div>
+</div></div>
+<p>完整引擎（gain_cap / aux_cap_ratio 字段已在 plan_config 落表，按分组变量调参）留 v3.3；v3.2 先把「采集 → 建议 → 人审 → 应用 → 留痕」的闭环骨架跑通。<b>全自动调参不做</b>：改的是学生的训练负荷，必须过人审——这是伦理问题，不只是工程问题。</p>
+
+<h3>22.6 教师工作台 /lab（B 端唯一界面，role=teacher）</h3>
+<div class="mock"><div class="mock-h">/lab 三 Tab（登录 / 注册返回 role，前端按角色自动跳转）</div><div class="mock-b">
+<div class="line"><span class="hi">数据看板</span>：在册人数 / 有 active 计划人数 / 本周状态上报率 / 周问卷回收率 / 14 天伤痛上报数 / 待处理调参建议数——一屏看完实验室关心的六个数</div>
+<div class="line"><span class="hi">问卷管理</span>：创建（pre/weekly/post）/ 上下架 / 回收统计</div>
+<div class="line"><span class="hi">调参建议</span>：采纳 / 忽略；采纳回执说人话「已更新 N 节课、M 个周计划（今天之后的课程，进度保留）」</div>
+</div></div>
+<p>鉴权双层：<code>/v1/lab/*</code> 全部走全站 token 中间件 + <code>account.role == "teacher"</code> 二次校验，非教师 403 说人话「这个功能只对实验室账号开放」；pytest 模式按 X-Test-Role 头旁路，与全站鉴权测试约定一致。账号体系 C/B 共用一张 account 表，靠 role 分流——<b>不做两套登录</b>，运维成本减半。</p>
+
+<h3>22.7 v3.2 新增数据表与接口</h3>
+<table>
+<thead><tr><th style="width:30%">表（7 张）</th><th>作用</th></tr></thead>
+<tbody>
+<tr><td class="mono">consent_record</td><td>知情同意留痕（user_id + version + 时间）</td></tr>
+<tr><td class="mono">export_log</td><td>导出审计（teacher / cohort / 区间 / 盐摘要）</td></tr>
+<tr><td class="mono">survey · survey_instance · survey_response</td><td>问卷定义 / 周实例 / 答案（实例幂等生成，答案幂等提交）</td></tr>
+<tr><td class="mono">tune_suggestion</td><td>调参建议（指标 / 建议值 / 人话理由 / pending→adopted|dismissed）</td></tr>
+<tr><td class="mono">plan_config</td><td>调参配置（volume_multiplier / gain_cap / aux_cap_ratio / 审批留痕）</td></tr>
+</tbody>
+</table>
+<p class="mono" style="font-size:12px">15 个接口：C 端 3（/v1/consent/doc、/v1/survey/pending、/v1/survey/respond）＋ B 端 10（/v1/lab/overview、/export/preview、/export、/surveys GET·POST、/surveys/{id}/toggle、/surveys/{id}/stats、/suggestions、/suggestions/{id}/dismiss、/suggestions/{id}/adopt）＋ 内部任务 2（/jobs/weekly_survey、/jobs/tune_suggest）。测试覆盖 14 个用例（test_api_lab 6 + test_survey 5 + test_lab_tune 3）。</p>
+
 <div class="foot">
-马跑跑 · AI 马拉松训练规划助手 PRD v2.0（与实际产品同步版）<br>
-口径声明：本文档功能描述以代码与界面为准；第 19 章事故均有 Git 提交记录；v1 文档（PRD_马跑跑_旧版备份.html）中的迭代数值为复盘重建口径，不再引用为产品成果。竞品信息来自公开资料，未付费实测。
+马跑跑 · AI 马拉松训练规划助手 PRD v3.2（与实际产品同步版）<br>
+口径声明：本文档功能描述以代码与界面为准；第 19 章事故均有 Git 提交记录；v1 文档（PRD_马跑跑_旧版备份.html）中的迭代数值为复盘重建口径，不再引用为产品成果。竞品信息来自公开资料，未付费实测。v3.2（2026-10-23）对齐实验室 B 端实现，新增第 22 章。
 </div>
 
 </div>
