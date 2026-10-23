@@ -1,0 +1,23 @@
+# 马跑跑 · systemd 服务（生产部署）
+# 安装：sudo cp deploy/mapaopao.service /etc/systemd/system/
+#       sudo systemctl daemon-reload && sudo systemctl enable --now mapaopao
+# 日志：journalctl -u mapaopao -f
+
+[Unit]
+Description=mapaopao FastAPI backend (uvicorn)
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/mapaopao
+# .env 放项目根目录（LLM API key、MAPAOPAO_DB_URL 等，不进 git）
+EnvironmentFile=-/var/www/mapaopao/.env
+ExecStart=/var/www/mapaopao/.venv/bin/python -m uvicorn server.main:app --host 127.0.0.1 --port 8000
+Restart=always
+RestartSec=3
+# 挂了自动拉起 = 生产版的「一键重启后端」
+
+[Install]
+WantedBy=multi-user.target

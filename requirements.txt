@@ -1,0 +1,13 @@
+# 马跑跑后端依赖（Python 3.12，开发/生产一致）
+# 版本锁定自项目虚拟环境实测，LLM 调用走 httpx 直连网关，无额外 SDK
+
+fastapi==0.143.0
+uvicorn==0.54.0
+SQLAlchemy==2.1.4
+pydantic==2.14.1
+APScheduler==3.11.3
+PyYAML==6.0.3
+httpx==0.28.1
+
+# 测试（生产部署可不装）
+pytest==9.1.1
