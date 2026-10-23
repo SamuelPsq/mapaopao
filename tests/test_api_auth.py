@@ -27,7 +27,7 @@ def _isolate():
 
 
 def _register(username: str):
-    r = c.post("/v1/account/register", json={"username": username, "password": "run12345"})
+    r = c.post("/v1/account/register", json={"agree_data_use": True, "username": username, "password": "run12345"})
     assert r.status_code == 200, r.text
     j = r.json()
     return j["user_id"], j["token"]

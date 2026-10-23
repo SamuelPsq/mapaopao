@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { useNavigate } from "react-router"
-import { api, saveUser, saveUsername, saveToken } from "@/lib/api"
+import { api, saveUser, saveUsername, saveToken, saveRole } from "@/lib/api"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -18,20 +18,32 @@ export default function Login() {
   const [password, setPassword] = useState("")
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState("")
+  const [agree, setAgree] = useState(false)
+  const [consentDoc, setConsentDoc] = useState<{ version: string; title: string; items: string[] } | null>(null)
+
+  // 注册页展示《数据使用协议》全文（伦理层：知情同意必须是显式勾选，不是默认勾选）
+  if (mode === "register" && !consentDoc) {
+    api.get<{ version: string; title: string; items: string[] }>("/v1/consent/doc")
+      .then(setConsentDoc).catch(() => setConsentDoc(null))
+  }
 
   async function submit() {
     setErr("")
     if (!username.trim() || !password) { setErr("请输入账号和密码"); return }
+    if (mode === "register" && !agree) { setErr("请先阅读并勾选《数据使用协议》"); return }
     setBusy(true)
     try {
       const path = mode === "login" ? "/v1/account/login" : "/v1/account/register"
-      const r = await api.post<{ user_id: string; has_plan?: boolean; token: string }>(path, {
+      const r = await api.post<{ user_id: string; has_plan?: boolean; token: string; role?: string }>(path, {
         username: username.trim(), password,
+        agree_data_use: mode === "register" ? agree : true,
+        consent_version: mode === "register" ? (consentDoc?.version ?? "") : "",
       })
       saveUser(r.user_id)
       saveUsername(username.trim())
       saveToken(r.token)
-      nav(r.has_plan ? "/" : "/onboarding", { replace: true })
+      saveRole(r.role || "user")
+      nav(r.role === "teacher" ? "/lab" : r.has_plan ? "/" : "/onboarding", { replace: true })
     } catch (e) {
       const err = e as Error & { status?: number }
       if (mode === "login" && err.status === 401) {
@@ -72,7 +84,7 @@ export default function Login() {
               <button key={m}
                 className={`rounded-xl py-2.5 text-sm font-medium transition-all
                   ${mode === m ? "bg-card shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}
-                onClick={() => { setMode(m); setErr("") }}>
+                onClick={() => { setMode(m); setErr(""); setAgree(false) }}>
                 {m === "login" ? "登录" : "注册"}
               </button>
             ))}
@@ -92,6 +104,23 @@ export default function Login() {
                 className="mt-1.5 h-12 rounded-xl bg-background/60"
                 onKeyDown={(e) => { if (e.key === "Enter") submit() }} />
             </div>
+            {mode === "register" ? (
+              <div className="rounded-xl bg-muted/50 p-3">
+                <label className="flex items-start gap-2 text-xs leading-relaxed text-muted-foreground cursor-pointer">
+                  <input type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)}
+                    className="mt-0.5 accent-orange-600" />
+                  <span>我已阅读并同意<b className="text-foreground">《数据使用协议》</b>
+                    （v{consentDoc?.version ?? "-"}）：训练与状态数据经匿名化后可提供给合作实验室
+                    用于运动健康研究，注销账号即删除全部数据。</span>
+                </label>
+                {consentDoc ? (
+                  <details className="mt-2 text-[11px] leading-relaxed text-muted-foreground/80">
+                    <summary className="cursor-pointer select-none">查看协议全文</summary>
+                    <p className="mt-1 whitespace-pre-line">{consentDoc.items.join("\n")}</p>
+                  </details>
+                ) : null}
+              </div>
+            ) : null}
             {err ? <p className="text-sm text-destructive">{err}</p> : null}
             <Button size="lg" disabled={busy} onClick={submit}
               className="h-12 w-full rounded-full bg-gradient-to-r from-amber-500 to-orange-700 text-base font-semibold tracking-wide text-white shadow-lg shadow-orange-700/25 transition-all hover:brightness-105 active:scale-[0.98]">

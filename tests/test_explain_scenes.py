@@ -50,7 +50,7 @@ def test_all_scenes_fallback_without_llm():
 
 def test_week_review_comment_and_llm_usage_metric():
     _fresh()
-    uid = c.post("/v1/account/register", json={"username": "scenuser", "password": "run12345"}).json()["user_id"]
+    uid = c.post("/v1/account/register", json={"agree_data_use": True, "username": "scenuser", "password": "run12345"}).json()["user_id"]
     plan_id = _onboard(uid)
     w = c.get(f"/v1/plan/{plan_id}/week/1").json()
     assert w["comment"]["text"] and w["comment"]["source"] == "template"

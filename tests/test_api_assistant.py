@@ -18,7 +18,7 @@ c = TestClient(app)
 
 
 def _fresh_user(username):
-    uid = c.post("/v1/account/register", json={"username": username, "password": "run12345"}).json()["user_id"]
+    uid = c.post("/v1/account/register", json={"agree_data_use": True, "username": username, "password": "run12345"}).json()["user_id"]
     c.post("/v1/profile", json={
         "user_id": uid, "recent_km": 10, "recent_sec": 3600, "avail_days": 4,
         "goal_race": "half", "ability": "B_base", "injury_flag": "N",

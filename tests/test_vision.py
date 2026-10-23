@@ -25,7 +25,7 @@ def _fresh_db():
 
 def _register(uid_name):
     return c.post("/v1/account/register",
-                  json={"username": uid_name, "password": "run12345"}).json()["user_id"]
+                  json={"agree_data_use": True, "username": uid_name, "password": "run12345"}).json()["user_id"]
 
 
 def test_validate_accepts_plausible_and_rejects_garbage():

@@ -46,7 +46,7 @@ def test_bmi_conservative_plan_tightens_gain():
 def test_weight_endpoint_updates_bmi_and_advice():
     """修改体重：实时回写，跨 BMI 28 阈值时给出保守规划建议。"""
     _fresh_db()
-    uid = c.post("/v1/account/register", json={"username": "bodyw", "password": "run12345"}).json()["user_id"]
+    uid = c.post("/v1/account/register", json={"agree_data_use": True, "username": "bodyw", "password": "run12345"}).json()["user_id"]
     c.post("/v1/profile", json={
         "user_id": uid, "recent_km": 10, "recent_sec": 3600, "avail_days": 4,
         "goal_race": "half", "ability": "B_base", "injury_flag": "N",
@@ -64,7 +64,7 @@ def test_weight_endpoint_updates_bmi_and_advice():
 def test_log_duration_computes_pace_and_prompts_advance():
     """打卡填总用时：自动反算配速并落库；超额 >3km 时返回进阶询问。"""
     _fresh_db()
-    uid = c.post("/v1/account/register", json={"username": "bodya", "password": "run12345"}).json()["user_id"]
+    uid = c.post("/v1/account/register", json={"agree_data_use": True, "username": "bodya", "password": "run12345"}).json()["user_id"]
     c.post("/v1/profile", json={
         "user_id": uid, "recent_km": 10, "recent_sec": 3600, "avail_days": 4,
         "goal_race": "half", "ability": "B_base", "injury_flag": "N",
@@ -88,7 +88,7 @@ def test_log_duration_computes_pace_and_prompts_advance():
 def test_advance_endpoint_refreshes_future_weeks():
     """进阶确认：按真实里程+用时折算 VDOT 并刷新未开始的周。"""
     _fresh_db()
-    uid = c.post("/v1/account/register", json={"username": "bodyb", "password": "run12345"}).json()["user_id"]
+    uid = c.post("/v1/account/register", json={"agree_data_use": True, "username": "bodyb", "password": "run12345"}).json()["user_id"]
     c.post("/v1/profile", json={
         "user_id": uid, "recent_km": 10, "recent_sec": 3600, "avail_days": 4,
         "goal_race": "half", "ability": "B_base", "injury_flag": "N",
@@ -113,7 +113,7 @@ def test_advance_endpoint_refreshes_future_weeks():
 def test_today_card_has_total_km():
     """今日卡返回累计总跑量（full/partial 的实际里程之和）。"""
     _fresh_db()
-    uid = c.post("/v1/account/register", json={"username": "bodyc", "password": "run12345"}).json()["user_id"]
+    uid = c.post("/v1/account/register", json={"agree_data_use": True, "username": "bodyc", "password": "run12345"}).json()["user_id"]
     c.post("/v1/profile", json={
         "user_id": uid, "recent_km": 10, "recent_sec": 3600, "avail_days": 4,
         "goal_race": "half", "ability": "B_base", "injury_flag": "N",
@@ -133,7 +133,7 @@ def test_status_report_new_fields_and_stretch_advice(monkeypatch):
     # 关掉 LLM 走模板路径，保证文案语义可断言（LLM 路径由 explain 专项测试覆盖）
     from server import explain
     monkeypatch.setattr(explain, "_llm_call", lambda *a, **k: None)
-    uid = c.post("/v1/account/register", json={"username": "bodyd", "password": "run12345"}).json()["user_id"]
+    uid = c.post("/v1/account/register", json={"agree_data_use": True, "username": "bodyd", "password": "run12345"}).json()["user_id"]
     c.post("/v1/profile", json={
         "user_id": uid, "recent_km": 10, "recent_sec": 3600, "avail_days": 4,
         "goal_race": "half", "ability": "B_base", "injury_flag": "N",
@@ -165,7 +165,7 @@ def test_status_report_new_fields_and_stretch_advice(monkeypatch):
 
 
 def _seed_user_with_plan(username):
-    uid = c.post("/v1/account/register", json={"username": username, "password": "run12345"}).json()["user_id"]
+    uid = c.post("/v1/account/register", json={"agree_data_use": True, "username": username, "password": "run12345"}).json()["user_id"]
     c.post("/v1/profile", json={
         "user_id": uid, "recent_km": 10, "recent_sec": 3600, "avail_days": 4,
         "goal_race": "half", "ability": "B_base", "injury_flag": "N",
@@ -224,7 +224,7 @@ def test_recovery_alert_fatigue_and_normal_case():
 def test_week_review_exposes_bmi_conservative_flag():
     """BMI≥28 生成的计划：周审视接口应带 bmi_conservative=true，标准计划为 false。"""
     _fresh_db()
-    heavy_uid = c.post("/v1/account/register", json={"username": "bodye", "password": "run12345"}).json()["user_id"]
+    heavy_uid = c.post("/v1/account/register", json={"agree_data_use": True, "username": "bodye", "password": "run12345"}).json()["user_id"]
     c.post("/v1/profile", json={
         "user_id": heavy_uid, "recent_km": 10, "recent_sec": 3600, "avail_days": 4,
         "goal_race": "half", "ability": "B_base", "injury_flag": "N",
@@ -233,7 +233,7 @@ def test_week_review_exposes_bmi_conservative_flag():
     w = c.get(f"/v1/plan/{heavy_plan}/week/1").json()
     assert w["bmi_conservative"] is True
 
-    normal_uid = c.post("/v1/account/register", json={"username": "bodyf", "password": "run12345"}).json()["user_id"]
+    normal_uid = c.post("/v1/account/register", json={"agree_data_use": True, "username": "bodyf", "password": "run12345"}).json()["user_id"]
     c.post("/v1/profile", json={
         "user_id": normal_uid, "recent_km": 10, "recent_sec": 3600, "avail_days": 4,
         "goal_race": "half", "ability": "B_base", "injury_flag": "N",

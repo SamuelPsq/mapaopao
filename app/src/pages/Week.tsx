@@ -5,6 +5,7 @@ import { fmtKm } from "@/lib/format"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Shell, NavBar } from "./Today"
+import { SurveyHint } from "@/components/SurveyBanner"
 import { ChevronLeft, ChevronRight, CloudSun, Flame, Lightbulb, ShieldCheck } from "lucide-react"
 
 const PHASE_CN: Record<string, string> = { load: "加载周", cut: "减量周", taper: "赛前减量" }
@@ -150,6 +151,9 @@ export default function Week() {
           <p className="text-sm text-muted-foreground mt-1 leading-relaxed">{tip.text}</p>
         </div>
       ) : null}
+
+      {/* 问卷温和提示：不弹窗、只放一条安静入口 */}
+      <SurveyHint />
 
       {/* 课表 */}
       <div className="space-y-2 mb-6">

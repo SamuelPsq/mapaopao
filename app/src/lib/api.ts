@@ -162,6 +162,8 @@ export function loadUser(): string | null { return localStorage.getItem("mpaopao
 export function saveUsername(name: string) { localStorage.setItem("mpaopao_username", name) }
 export function loadUsername(): string | null { return localStorage.getItem("mpaopao_username") }
 export function saveToken(t: string) { localStorage.setItem("mpaopao_token", t) }
+export function saveRole(r: string) { localStorage.setItem("mpaopao_role", r) }
+export function loadRole(): string { return localStorage.getItem("mpaopao_role") || "user" }
 export function savePlan(id: string) { localStorage.setItem("mpaopao_plan", id) }
 export function loadPlan(): string | null { return localStorage.getItem("mpaopao_plan") }
 export function clearUser() {
@@ -169,6 +171,7 @@ export function clearUser() {
   localStorage.removeItem("mpaopao_plan")
   localStorage.removeItem("mpaopao_username")
   localStorage.removeItem("mpaopao_token")
+  localStorage.removeItem("mpaopao_role")
   // 通知挂根部、路由切换不卸载的组件（如跑小助）立即清空本账号状态，防串话
   window.dispatchEvent(new Event("mpaopao:logout"))
 }

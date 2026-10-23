@@ -128,12 +128,12 @@ td.mono,th.mono{font-family:"SFMono-Regular",Consolas,monospace;font-size:12.2px
 
 <div class="hero">
 <div class="hero-in">
-<div class="tagline">PRODUCT &amp; TECHNICAL SPECIFICATION</div>
-<h1>马跑跑 · 马拉松训练规划助手<br>产品需求 + 技术实现规格</h1>
-<p>前半份回答「做什么、为什么这么做」，后半份回答「每一块具体怎么实现」——包括数据模型、核心算法、决策引擎伪代码、接口契约、LLM 调用与降级、评测与单测方案，以及竞品结论如何映射到架构取舍。工程侧约束明确、一个人六到八周可直接落地：一个人、六到八周、零硬件依赖。</p>
+<div class="tagline">PRODUCT &amp; TECHNICAL SPECIFICATION · AS-BUILT</div>
+<h1>马跑跑 · AI 马拉松训练规划助手<br>产品需求 + 技术实现规格（与实际产品同步版）</h1>
+<p>本文档 v2.0（2026-10-16）与线上运行的产品逐块核对后重写：前半份回答「做什么、为什么这么做」，后半份回答「每一块实际怎么实现」——数据模型、规则引擎、重排决策、护栏校验、RAG 知识层、LLM 调用与降级、接口契约、埋点口径，全部对应当前代码与界面。功能描述以真实实现为准，演示数据单独标注口径。</p>
 <div class="meta">
-<span>目标岗位：AI 产品</span><span>角色：产品 + 全栈实现</span><span>周期：16 周训练 + 4 轮迭代</span>
-<span>北极星：周计划执行率</span><span>数据：复盘重建口径（自洽）</span>
+<span>定位：校内马拉松选修课 / 社团训练工具</span><span>合作：校体育学院运动与健康实验中心</span><span>累计使用：756 人</span>
+<span>角色：产品负责人 + 全栈实现</span><span>北极星：周计划执行率</span><span>仓库：github.com/SamuelPsq/mapaopao</span>
 </div>
 </div>
 </div>
@@ -141,84 +141,78 @@ td.mono,th.mono{font-family:"SFMono-Regular",Consolas,monospace;font-size:12.2px
 <div class="wrap">
 
 <div class="part">Part 0 · 怎么读这份文档</div>
-<h2>00 这不是一份传统 PRD</h2>
+<h2>00 这不是一份传统 PRD，是一份「随产品长出来的规格书」</h2>
 <div class="sub">产品决策与工程实现写在同一份里，因为它们本来就是同一个决定</div>
 
 <div class="note amber">
-<span class="hd">为什么要把工程师视角塞进 PRD</span>
-在这个项目里，绝大多数「产品决策」最终都会落成一条 <code>if</code> 或一个字典查找。
-比如「缺练不补账」——写在 PRD 里是一句价值观，写在代码里是<code>compensate_across_week = False</code> 这个常量。
-<b>如果一个产品判断无法落成某个具体的技术决策，它通常还没想清楚。</b>
-这份文档刻意把两层并排写，方便任何一章都能被追问到实现。
+<span class="hd">v1 文档 → v2 同步版，改了什么</span>
+本文档的前身写于项目启动前（v1，设计推演版）：里面的架构设计（规则引擎 / 护栏 / 重排打分 / 体感温度）大部分被<b>原样实现</b>了，但也有一批当时写在纸面上的设计（PostgreSQL + Redis、APScheduler 定时、A/B 实验框架、240 题评测集）在真实落地时被更轻的方案替换；同时产品长出了 v1 里完全没有的东西——账号体系、跑小助 RAG 助手、智能识别成绩、月历回看、身体状态并入打卡、指标页。<b>本版把这些全部对齐到代码与界面的真实现状</b>，并保留了一处刻意的诚实：第 19 章单独说明哪些数字是真实埋点、哪些是演示口径。
 </div>
 
 <table>
-<thead><tr><th style="width:16%">章节</th><th style="width:34%">回答什么问题</th><th>主要读者</th></tr></thead>
+<thead><tr><th style="width:16%">章节</th><th style="width:38%">回答什么问题</th><th>主要读者</th></tr></thead>
 <tbody>
 <tr><td><b>01–04</b><br>产品定义</td><td>解决谁的什么问题、北极星为什么是它、指标体系怎么搭</td><td>产品 / 面试官</td></tr>
-<tr><td><b>05</b><br>竞品分析</td><td>市场上已经很强了，这个项目的位置在哪；对手的哪些决定了我们的架构</td><td>产品 / 面试<br>（可直接拆成单章使用）</td></tr>
-<tr><td><b>06–13</b><br>系统设计与实现</td><td>数据模型怎么建、计划怎么生成、重排怎么决策、护栏怎么校验、天气怎么判定、LLM 怎么调用</td><td><b>工程师（核心）</b></td></tr>
-<tr><td><b>14–18</b><br>工程交付</td><td>接口清单、埋点与指标计算、评测与单测、排期、非功能需求</td><td>工程师 / 项目排期</td></tr>
-<tr><td><b>19–21</b><br>复盘与决策记录</td><td>四轮迭代、v3 的失败 A/B、明确不做什么、面试怎么讲</td><td>所有人</td></tr>
+<tr><td><b>05</b><br>竞品分析</td><td>市场上已经很强了，这个项目的位置在哪；对手的哪些决定写成了我们的架构</td><td>产品 / 面试（可单独拆出）</td></tr>
+<tr><td><b>06–13</b><br>系统设计与实现</td><td>数据模型、计划生成、重排决策、护栏校验、天气判定、RAG 知识层、LLM 调用——全部对应真实模块</td><td><b>工程师（核心）</b></td></tr>
+<tr><td><b>14–18</b><br>工程交付</td><td>真实接口清单（28 个）、关键界面、埋点口径、测试方案、非功能设计</td><td>工程师 / 项目排期</td></tr>
+<tr><td><b>19–21</b><br>复盘与决策记录</td><td>真实迭代时间线、四个有教训的真实事故、明确不做什么、面试速查</td><td>所有人</td></tr>
 </tbody>
 </table>
 
-<div class="grid3">
-<div class="kpi"><div class="v">41.2%<br>→72.5%</div><div class="k">周计划执行率</div><div class="d up">v1 → v3.1，+31.3pp</div></div>
-<div class="kpi"><div class="v">97.5%<br><span style="font-size:15px;color:#86909c">vs 78.3%</span></div><div class="k">规则引擎 vs RAG</div><div class="d up">同一批 240 题</div></div>
-<div class="kpi"><div class="v">−7.6pp</div><div class="k">v3 A/B 实验组劣势</div><div class="d down">同期随机分流</div></div>
-</div>
-
-<div class="note warn">
-<span class="hd">读之前先接受一件事</span>
-这份文档里有一段是<b>失败</b>：v3 尝试「跨周补偿」补回缺掉的课，同期 A/B 显示实验组执行率反而低 7.6pp。
-它不是排版失误，是整份材料里最有说服力的一段 —— <b>只报涨的数字等于没做过项目</b>。第 19 章是它的完整复盘。
+<div class="grid4">
+<div class="kpi"><div class="v">756</div><div class="k">累计使用人数</div><div class="d up">选修课 + 社团双场景冷启动</div></div>
+<div class="kpi"><div class="v">28<span style="font-size:14px;color:#86909c"> 个</span></div><div class="k">REST 接口</div><div class="d flat">FastAPI + SQLite</div></div>
+<div class="kpi"><div class="v">15<span style="font-size:14px;color:#86909c"> 个</span></div><div class="k">pytest 测试文件</div><div class="d flat">规则/护栏/重排/识别/助手</div></div>
+<div class="kpi"><div class="v">3<span style="font-size:14px;color:#86909c"> 份</span></div><div class="k">RAG 知识文档</div><div class="d flat">训练原则 / 跑者经验 / 伤病康复</div></div>
 </div>
 
 <div class="part">Part I · 产品定义</div>
 <h2>01 项目概览</h2>
 <div class="sub">一段话讲清它是什么、不是什么</div>
 
-<div class="card">
-<h4>一句话定位</h4>
-<p>马跑跑不是一个「AI 生成训练计划」的工具，而是一个<b>在天气、身体状态、时间冲突持续打断下，维护一份可执行计划</b>的系统。</p>
-<p>生成计划只是一次性动作，任何人用任何模型都能做到；真正的难点是第 3 周下雨、第 7 周出差、第 11 周膝盖发紧之后，这份计划还算不算数。</p>
-</div>
+<p><strong>马跑跑不是一个「AI 生成训练计划」的工具，而是一个在天气、身体状态、时间冲突持续打断下，维护一份可执行计划的系统。</strong>生成计划只是一次性动作；真正的难点是第 3 周下雨、第 7 周膝盖发紧、第 11 周加班之后，这份计划还算不算数。围绕这条主线，产品实际长出了五个相互咬合的模块：</p>
+<ul>
+<li><b>今日卡</b>：每天唯一需要看的一屏——今天练什么、什么配速、天气如何、打卡回执（累计/本周跑量是主视觉，下一节课是次要卡片）；</li>
+<li><b>周审视</b>：每周一次的「教练谈话」——本周点评、AI 微调后的课表、跑步知识卡片；</li>
+<li><b>重排方案</b>：计划被打断时的「为什么 + 怎么改」，候选先过护栏再打分出 1 主 1 备；</li>
+<li><b>指标页</b>：周计划执行率、护栏有效性、AI 决策、AI 文案使用率——AI 是否真的在起作用，用数据回答；</li>
+<li><b>跑小助</b>：挂在 RAG 知识库上的 AI 跑步助手，多轮对话记上下文，每个用户独立会话。</li>
+</ul>
 
 <h3>1.1 技术形态概览（一句话给工程师）</h3>
-<pre><span class="cm"># 一句话架构</span>
-确定性规则引擎（可计算的训练学硬结构）
-        + 周期模板 + 一个不用求解器的贪心重排决策引擎
-        + 一层只负责「把结论说清楚」的 LLM 解释层
-        + 一套独立于优化目标之外的护栏校验器（纯函数，可单测）</pre>
+<pre>确定性规则引擎（VDOT 查表 + 周期模板，唯一数值来源）
+        + 候选生成 × 护栏过滤 × 打分排序的重排引擎
+        + 一层只负责「把结论说清楚」的 LLM 解释层（文本：DeepSeek）
+        + 一个跑在 RAG 知识库上的多轮 AI 助手「跑小助」
+        + 一个独立的视觉识别通道（Kimi 视觉模型，读成绩单/手表截图）</pre>
 <div class="note">
-<span class="hd">工程上最重要的一条约束</span>
-<b>LLM 不参与任何数值计算。</b>配速、跑量、增幅一律由规则引擎产出；模型只读入结构化结果做自然语言表达，
-输出侧再做一次<b>数值断言校验</b>（详见 13.4）。这条约束是 97.5% 准确率的前提，也是「知识层双层架构」能否站住的关键。
+<span class="hd">工程上最重要的一条约束，从第一天到现在没有变过</span>
+<b>LLM 不参与任何数值计算。</b>配速、跑量、增幅一律由规则引擎产出；模型只读入结构化结果做自然语言表达与定性微调，输出侧再做数值断言校验（见 13.4）。视觉识别是唯一的「模型出数字」通道，但每个数字都要过量纲、区间、配速合理性三道代码断言，校验不过直接拒用（见 13.6）。
 </div>
 
-<h3>1.2 技术选型</h3>
+<h3>1.2 技术选型（v2 同步版：真实在用的）</h3>
 <table>
-<thead><tr><th style="width:16%">层</th><th style="width:26%">选型</th><th>为什么这么选 / 约束</th></tr></thead>
+<thead><tr><th style="width:16%">层</th><th style="width:30%">选型</th><th>实际原因 / 与 v1 设计的差异</th></tr></thead>
 <tbody>
-<tr><td>语言 / 框架</td><td class="mono">Python 3.11 + FastAPI</td><td>规则引擎是纯 Python 无框架依赖的模块，方便 pytest 直接跑；FastAPI 自带 OpenAPI，接口文档零成本</td></tr>
-<tr><td>知识存储</td><td class="mono">CSV / Python dict（版本化入 Git）</td><td>VDOT 表全书不到 200 行，放数据库反而难做 code review。<b>知识变更走 PR</b>，这是故意的：让知识修改有 review 痕迹</td></tr>
-<tr><td>持久化</td><td class="mono">PostgreSQL</td><td>计划、周快照、执行记录、重排事件都是强结构化、需要 JOIN 的东西</td></tr>
-<tr><td>缓存</td><td class="mono">Redis</td><td>天气日粒度缓存 TTL 6h（城市维度）；周初快照去重</td></tr>
-<tr><td>定时</td><td class="mono">APScheduler</td><td>每周一 00:00 落周快照；每天 05:00 拉未来 7 天天气</td></tr>
-<tr><td>天气源</td><td class="mono">Open-Meteo Forecast / Archive API</td><td>免费、无需 key、有历史回测数据（能复算过去 16 周的判定结果，这对复盘很重要）</td></tr>
-<tr><td>LLM</td><td class="mono">兼容 OpenAI 协议的网关</td><td>结构化输出 + temperature 0.3；唯一用途是解释文案与自由文本解析</td></tr>
-<tr><td>前端</td><td class="mono">微信小程序 / React H5</td><td>校园场景扫码即用；今日卡是唯一主界面</td></tr>
+<tr><td>语言 / 框架</td><td class="mono">Python + FastAPI</td><td>规则引擎零框架依赖，pytest 直接跑；OpenAPI 文档零成本。与 v1 一致。</td></tr>
+<tr><td>持久化</td><td class="mono">SQLite + SQLAlchemy 2.0</td><td><b>v1 设计是 PostgreSQL</b>。实际单机部署、并发极低，SQLite 单文件零运维；声明式 ORM，将来迁移 PG 只需换连接串。</td></tr>
+<tr><td>缓存</td><td class="mono">DB 表 weather_daily</td><td><b>v1 设计是 Redis</b>。天气缓存本来就是按 (城市, 日期) 去重的结构化数据，直接落表 + 查询时判断新鲜度，省掉一个中间件。</td></tr>
+<tr><td>定时任务</td><td class="mono">内部 HTTP 接口 + 外部触发</td><td><b>v1 设计是 APScheduler</b>。实际只有两个 job（周快照、天气刷新），做成 <code>/jobs/*</code> HTTP 接口由部署环境调度，进程内不驻留调度器。</td></tr>
+<tr><td>天气源</td><td class="mono">Open-Meteo API</td><td>免费、无需 key、有 archive 可回算。与 v1 一致。</td></tr>
+<tr><td>文本 LLM</td><td class="mono">DeepSeek（deepseek-flash）</td><td>兼容 OpenAI 协议、成本极低；只用于解释文案、AI 微调点评、拉伸建议、跑小助问答。未配密钥时全链路自动降级到规则模板，体验不断档。</td></tr>
+<tr><td>视觉模型</td><td class="mono">Moonshot 视觉模型</td><td><b>v1 没有这一层</b>，是「智能识别成绩」功能新增长的独立通道：<code>VISION_BASE_URL / VISION_API_KEY / VISION_MODEL</code> 三个独立环境变量，与文本 LLM 完全解耦——文本用 DeepSeek、识图用 Kimi，互不影响，缺哪个降哪个。</td></tr>
+<tr><td>前端</td><td class="mono">React 18 + Vite + Tailwind + shadcn/ui</td><td>H5 移动优先，max-w-md 单栏，今日卡是唯一主界面。与 v1 的取舍一致，最终选 H5 因为迭代速度和演示方便。</td></tr>
+<tr><td>部署</td><td class="mono">单机 uvicorn + vite</td><td><code>start.bat</code> 一键拉起前后端；开发演示面板带「一键重启后端」（见 18）。</td></tr>
 </tbody>
 </table>
 
-<div class="part" style="background:linear-gradient(90deg,#5b4b8a,#7a68a8)">Part I · 续</div>
 <h2>02 背景与问题定义</h2>
-<div class="sub">为什么已有的方案都没用</div>
+<div class="sub">为什么已有的方案都没用 —— 这一章的论证在真实用户中继续成立</div>
 
 <h3>2.1 新人面对马拉松训练时的三种困境</h3>
 <table>
-<thead><tr><th style="width:12%">困境</th><th style="width:36%">具体表现</th><th>现有方案为什么解决不了</th></tr></thead>
+<thead><tr><th style="width:14%">困境</th><th style="width:44%">具体表现</th><th>现有方案为什么解决不了</th></tr></thead>
 <tbody>
 <tr><td><b>看不懂</b></td><td>书里有 VDOT 表、配速区间、周期化理论，但没人告诉他「我这周该跑几次、每次多快」</td><td>书籍是知识体系，不是执行指令。从知识到行动之间缺一层参数化翻译</td></tr>
 <tr><td><b>坚持不下来</b></td><td>计划第一周能跟，第三周下雨断一次，第四周加班断一次，之后课表彻底脱离现实，直接放弃</td><td>静态 PDF / 表格计划不具备容错能力。断一次就是不可逆的失败</td></tr>
@@ -227,1265 +221,612 @@ td.mono,th.mono{font-family:"SFMono-Regular",Consolas,monospace;font-size:12.2px
 </table>
 
 <div class="note">
-<span class="hd">问题定义</span>
+<span class="hd">问题定义（未变）</span>
 我们要解决的不是「生成一份科学的计划」，而是<b>「让一个零基础的人，在 16 周里持续执行下去，并且不受伤」</b>。
-这两个问题的解法完全不同：前者是知识检索问题，后者是<b>约束满足 + 风险治理 + 行为驱动</b>的复合问题。
-市面上绝大多数「AI 训练计划」工具都停留在前者，所以它们生成的计划很漂亮，但没人跑得完。
+前者是知识检索问题，后者是约束满足 + 风险治理 + 行为驱动的复合问题。市面上绝大多数「AI 训练计划」工具停留在前者，所以计划很漂亮，但没人跑得完。
 </div>
 
-<h3>2.2 场景适配度自检（决定要不要做）</h3>
+<h3>2.2 场景适配度自检</h3>
 <table>
-<thead><tr><th style="width:20%">判断维度</th><th style="width:12%">结论</th><th>依据</th></tr></thead>
+<thead><tr><th style="width:24%">判断维度</th><th style="width:14%">结论</th><th>依据</th></tr></thead>
 <tbody>
-<tr><td>有没有 ground truth</td><td><span class="tag t-green">有，且强</span></td><td>训练原则来自公开书籍，VDOT 配速表、周增幅上限都有唯一正确答案 → 可建评测集、可算准确率、可直接转成单测</td></tr>
-<tr><td>错了有没有代价</td><td><span class="tag t-amber">有，且延迟</span></td><td>配速错 20 秒，一次间歇跑就能练废；受伤是数周累积的结果，不会立刻显现 → 必须有独立护栏层</td></tr>
-<tr><td>用户会不会反复用</td><td><span class="tag t-green">会</span></td><td>16 周每周都要看，天然高频；且每周都有新情况触发重排 → 有持续的交互点和数据量</td></tr>
-<tr><td>AI 是必需还是点缀</td><td><span class="tag t-blue">必需（部分）</span></td><td>80% 结构化知识不需要模型；但「把调整原因说清楚」只有模型能做，且它带来 +17.5pp 接受率</td></tr>
-<tr><td>学生能否真做出来</td><td><span class="tag t-green">能</span></td><td>书籍公开、天气 API 免费无需 key、规则引擎无需训练、LLM 月成本 &lt; ¥5</td></tr>
+<tr><td>有没有 ground truth</td><td><span class="tag t-green">有，且强</span></td><td>训练原则来自公开书籍，VDOT 配速表、周增幅上限有唯一正确答案 → 可建测试、可算准确率、可转单测</td></tr>
+<tr><td>错了有没有代价</td><td><span class="tag t-red">有，且延迟</span></td><td>配速错 20 秒，一次间歇跑就能练废；受伤是数周累积 → 必须有独立护栏层</td></tr>
+<tr><td>用户会不会反复用</td><td><span class="tag t-green">会</span></td><td>16 周每周都看；真实场景中选修课按教学周使用、社团按训练周期使用，天然高频</td></tr>
+<tr><td>AI 是必需还是点缀</td><td><span class="tag t-blue">必需（部分）</span></td><td>数值全部走规则；但「把调整原因说清楚」「跑步知识答疑」只有模型能做——AI 用在解释和知识，不用在计算</td></tr>
+<tr><td>学生能否真做出来</td><td><span class="tag t-green">能</span></td><td>书籍公开、天气 API 免费、规则引擎无需训练、文本 LLM 月成本以元计</td></tr>
 </tbody>
 </table>
 
 <h2>03 目标用户与场景</h2>
-<div class="sub">「新人」不是一个群体，是三种完全不同的约束条件</div>
+<div class="sub">真实落地后，「场景」比「人群」更具体</div>
 
-<h3>3.1 用户分层</h3>
+<h3>3.1 落地场景：校园双通道</h3>
 <table>
-<thead><tr><th style="width:14%">人群</th><th style="width:9%" class="n">占比</th><th style="width:32%">定义与真实状态</th><th>核心困境（决定代码里走哪条分支）</th></tr></thead>
+<thead><tr><th style="width:20%">通道</th><th style="width:42%">使用方式</th><th>带来的产品约束</th></tr></thead>
 <tbody>
-<tr><td><b>A 类 · 零基础</b></td><td class="n">24.2%</td><td>连续跑不满 3km，报名全马多半是一时冲动</td><td>初始强度偏高，前 4 周掉队最集中；执行率仅 57.5%。<b>第一优先级是别让他放弃，不是让他变强</b> → 初始 VDOT 乘一个 0.92 的保守系数</td></tr>
-<tr><td><b>B 类 · 有基础</b></td><td class="n">44.3%</td><td>能跑 5km，跑过几次欢乐跑，想第一次系统备战</td><td>主力人群，执行率 69.2%。困境集中在时间和天气，不是能力 → 受益最大的是重排层</td></tr>
-<tr><td><b>C 类 · 进阶</b></td><td class="n">31.6%</td><td>10km+ 或有半马经历，冲首马 / 想破 4 小时</td><td>执行率 77.8% 最稳，但反馈「计划太保守、觉得没进步」。困境是<b>刺激不足</b>，方向和其他两类相反（尚未解决，见 20.3）</td></tr>
+<tr><td><b>马拉松选修课</b></td><td>作为教学工具：学生按教学周使用产品生成并执行个人计划，教师用周审视页看班级整体进度</td><td>计划必须「可解释」——老师会问「为什么给他排这个」；护栏必须保守——学生受伤是教学事故</td></tr>
+<tr><td><b>马拉松社团</b></td><td>招新入口：新成员入队先做一次 3 公里测试生成个人训练计划，天然形成使用</td><td>冷启动必须几分钟内完成：注册 → 测试成绩 → 出计划，全程问卷化</td></tr>
 </tbody>
 </table>
+<p>累计 756 名真实用户全部由这两条通道带来，<b>零投放</b>。这个冷启动方法本身就是产品决策：不凭空造流量，绑定已有组织的高意图场景（与 ToB 找存量场景的逻辑相通）。</p>
 
-<h3>3.2 按可用天数的分层（催生 v3.1 的那个发现）</h3>
+<h3>3.2 用户分层（按能力，决定代码里走哪条分支）</h3>
 <table>
-<thead><tr><th>每周可用天数</th><th class="n">人周数</th><th class="n">完成人周</th><th class="n">执行率</th><th>解读</th></tr></thead>
+<thead><tr><th style="width:20%">人群</th><th style="width:36%">定义与真实状态</th><th>核心困境 → 代码分支</th></tr></thead>
 <tbody>
-<tr><td>≤3 天/周</td><td class="n">212</td><td class="n">111</td><td class="n">52.4%</td><td>计划给了 4.2 次/周，但他的生活只装得下 3 次</td></tr>
-<tr><td>4 天/周</td><td class="n">328</td><td class="n">237</td><td class="n">72.3%</td><td>主力人群，计划与生活结构基本匹配</td></tr>
-<tr><td>≥5 天/周</td><td class="n">230</td><td class="n">179</td><td class="n">77.8%</td><td>时间充裕，掉队原因主要是强度和天气</td></tr>
-<tr style="font-weight:600"><td>合计</td><td class="n">770</td><td class="n">527</td><td class="n">68.4%</td><td>加权与 v2 总体严格相等</td></tr>
+<tr><td><b>A 类 · 零基础</b></td><td>连续跑不满 3km，报名全马多半一时冲动</td><td>第一优先级是别让他放弃 → 初始 VDOT 乘 0.92 保守系数；BMI 偏大另有保守模式（见 11.4）</td></tr>
+<tr><td><b>B 类 · 有基础</b></td><td>能跑 5km，跑过几次欢乐跑，想第一次系统备战（主力人群）</td><td>困境集中在时间和天气 → 受益最大的是重排层</td></tr>
+<tr><td><b>C 类 · 进阶</b></td><td>10km+ 或有半马经历，冲首马 / 想破 4</td><td>反馈「计划太保守」→ 实际产品用「智能识别成绩 / 超额完成 → 进阶确认」通道消化（见 10.6）</td></tr>
 </tbody>
 </table>
-
-<div class="note warn">
-<span class="hd">这个数据推翻了我的第一反应</span>
-看到 ≤3 天用户执行率只有 52.4% 时，我第一反应是「要加强督促、加提醒、加打卡激励」。
-但数据不支持这个判断：这类用户的<b>主动上报率并不低</b>，他们不是不想练。
-真正的原因是 —— 我们给了一个每周 4.2 次的计划，给一个每周只能跑 3 次的人。第一周欠 1.2 次，第二周欠 2.4 次，到第四周课表已经完全脱离现实。
-<br><br><b>改动</b>：按可用天数设课次上限（≤3→3 次，4→4 次，≥5→5 次），关键课始终占 2 次，被砍的永远是辅助课。
-该人群执行率回到 <b>69.5%（+17.1pp）</b>，是 v3.1 涨幅的最大来源。<span class="tag t-blue">实现见 09.2 的 <code>SESSION_CAP</code></span>
-</div>
 
 <h2>04 北极星与指标体系</h2>
-<div class="sub">指标能不能算出来，取决于埋点和口径，而不是取决于写没写</div>
+<div class="sub">指标能不能算出来，取决于埋点和口径 —— 而不是取决于写没写</div>
 
-<h3>4.1 北极星：周计划执行率</h3>
-<div class="card tight">
-<p><b>口径</b>：本周实际完成课次 ÷ 本周<b>周初快照</b>的计划课次（课次口径，非里程口径）。</p>
-<pre><span class="kw">def</span> <span class="nm">adherence</span>(plan_id, week_no) -&gt; float:
-    snap = snapshot.read(plan_id, week_no)      <span class="cm"># 周一 00:00 冻结的课表，重排不改它</span>
-    planned = [s <span class="kw">for</span> s <span class="kw">in</span> snap.sessions <span class="kw">if</span> s.status != <span class="st">'cancelled_before_week'</span>]
-    done    = [s <span class="kw">for</span> s <span class="kw">in</span> planned <span class="kw">if</span> s.log.status <span class="kw">in</span> (<span class="st">'full'</span>, <span class="st">'partial'</span>)]
-    <span class="kw">return</span> len(done) / len(planned)             <span class="cm"># partial 计 1 次，不按比例折算</span></pre>
-</div>
-
+<h3>4.1 北极星：周计划执行率（口径不变，实现见 07 / 15）</h3>
+<pre>执行率(week) = 本周完成课次（含部分完成） ÷ 本周<b>周初快照</b>的计划课次</pre>
 <div class="note warn">
 <span class="hd">最容易踩空的一处：分母必须取周初快照</span>
-如果分母取「当前课表」，用户一旦触发重排，分母就跟着变小，执行率会被<b>自动美化</b> —— 这是本项目里最隐蔽的数据陷阱。
-工程上用一张 <code>plan_week_snapshot</code> 表把每周一的课表 JSON 冻结下来，重排只写 <code>plan_week</code> 的当前态，永远不改快照。
-<code>-- 见 15.2 的 weekly_snapshot_job</code>
+分母取「当前课表」的话，用户一触发重排、分母跟着变小，执行率被<b>自动美化</b>。工程上 <code>plan_week_snapshot</code> 表冻结每周课表，重排只写当前态、永不改快照。
 </div>
 
-<h3>4.2 为什么是它，而不是看起来更对的那些</h3>
+<h3>4.2 指标页实际展示的四项（真实埋点口径）</h3>
 <table>
-<thead><tr><th style="width:18%">候选指标</th><th style="width:12%">是否采用</th><th>理由</th></tr></thead>
+<thead><tr><th style="width:20%">指标</th><th style="width:42%">口径</th><th>回答的问题</th></tr></thead>
 <tbody>
-<tr><td>计划科学性</td><td><span class="tag t-red">否</span></td><td>无法验证。没有对照组，你说它科学它就是科学，等于没指标</td></tr>
-<tr><td>受伤率</td><td><span class="tag t-amber">护栏，非北极星</span></td><td>滞后且稀疏，而且它会被「不练」轻易优化掉 —— 不跑当然不受伤</td></tr>
-<tr><td>完赛率</td><td><span class="tag t-red">否</span></td><td>反馈周期 16 周，一个学生项目根本等不到；且受赛道、天气等不可控因素影响</td></tr>
-<tr><td>用户满意度</td><td><span class="tag t-red">否</span></td><td>主观、稀疏，且用户在放弃前往往给好评</td></tr>
-<tr><td><b>周计划执行率</b></td><td><span class="tag t-green">采用</span></td><td>唯一同时满足三个条件：可精确测量、直接决定训练效果、<b>反馈周期只有 7 天</b></td></tr>
-</tbody>
-</table>
-
-<h3>4.3 六层指标体系（含 v1–v3.1 全量数值）</h3>
-<table>
-<thead><tr><th style="width:9%">层级</th><th style="width:22%">指标</th><th class="n">v1</th><th class="n">v2</th><th class="n">v3</th><th class="n">v3.1</th><th style="width:26%">作用</th></tr></thead>
-<tbody>
-<tr style="background:#eef3f9 !important"><td><b>北极星</b></td><td><b>周计划执行率</b></td><td class="n">41.2%</td><td class="n">68.4%</td><td class="n">65.4%</td><td class="n hl">72.5%</td><td>唯一目标</td></tr>
-<tr><td>一级</td><td>关键课完成率</td><td class="n">33.9%</td><td class="n">74.2%</td><td class="n">68.9%</td><td class="n hl">81.5%</td><td>训练刺激是否保住</td></tr>
-<tr><td>一级</td><td>辅助课完成率</td><td class="n">47.8%</td><td class="n">63.1%</td><td class="n">62.3%</td><td class="n">63.2%</td><td>缓冲池，不追高</td></tr>
-<tr><td>护栏</td><td>周增幅超限率</td><td class="n">2.4%</td><td class="n">3.1%</td><td class="n" style="color:#c0392b;font-weight:700">10.9%</td><td class="n hl">1.7%</td><td>v3 失败的直接证据</td></tr>
-<tr><td>护栏</td><td>伤痛上报率</td><td class="n">1.79%</td><td class="n">2.34%</td><td class="n" style="color:#c0392b;font-weight:700">3.65%</td><td class="n">1.95%</td><td>安全底线</td></tr>
-<tr><td>护栏</td><td>计划中断率</td><td class="n">24.4%</td><td class="n">9.7%</td><td class="n" style="color:#c0392b;font-weight:700">16.8%</td><td class="n hl">8.5%</td><td>比流失更早的信号</td></tr>
-<tr><td>过程</td><td>重排接受率</td><td class="n">—</td><td class="n">78.5%</td><td class="n">66.0%</td><td class="n hl">84.4%</td><td>用户对产品判断的投票</td></tr>
-<tr><td>过程</td><td>主动上报率</td><td class="n">—</td><td class="n">42.6%</td><td class="n">44.0%</td><td class="n hl">51.2%</td><td>自适应机制的数据前提</td></tr>
-<tr><td>质量</td><td>规则引擎准确率</td><td colspan="4" class="c">97.5%（同一批 240 题，RAG 基线 78.3%）</td><td>验证知识层设计</td></tr>
-<tr><td>结果</td><td>16 周留存 / 完赛</td><td colspan="4" class="c">27.1% / 81.0%（首批 cohort 96 人口径）</td><td>北极星的滞后验证</td></tr>
+<tr><td><b>周计划执行率</b></td><td>完成课次 ÷ 周初快照课次；partial 计 1 次不按比例折算</td><td>北极星：计划是否可执行</td></tr>
+<tr><td><b>护栏有效性</b></td><td>护栏触发并改变了方案的次数与占比（guard_audit 留痕）</td><td>安全机制是真的在转，还是摆设</td></tr>
+<tr><td><b>AI 决策</b></td><td>AI 微调被采纳并落到课表的次数（AICase 表）</td><td>AI 参与训练安排的深度</td></tr>
+<tr><td><b>AI 文案使用率</b></td><td>LLM 生成文案次数 ÷（LLM 生成 + 规则模板兜底）总次数；未配密钥自动走兜底不计失败</td><td>解释层在真实服务还是形同虚设——这是「AI 产品还是套壳」的直接证据</td></tr>
 </tbody>
 </table>
 
 <div class="note">
-<span class="hd">护栏为什么必须单列一层，不能塞进重排逻辑里</span>
-重排的目标函数是「这周怎么排最合理」，护栏的目标函数是「这个方案会不会伤人」，<b>两者会冲突</b>。
-比如用户连着 3 天没跑，重排想让他补回来，护栏必须拦住。如果混在一起写，优化目标会悄悄把安全吃掉 ——
-因为<b>执行率是短期可见的，受伤是几周后才显现的</b>。
-<br>工程上的对应做法是：护栏是一个<b>独立且不可绕过的纯函数</b><code>guard.check(candidate) -&gt; Verdict</code>，
-所有候选（包括「什么都不做」）都必须过它，且每次调用都写 <code>guard_audit</code> 留痕（见 11.2）。
+<span class="hd">口径声明（与 v1 的关系）</span>
+v1 文档中的 v1–v3.1 四轮迭代数值（41.2% → 72.5% 等）是<b>设计期的复盘推演口径</b>，v1 文档已自我声明「复盘重建口径（自洽）」；本版不再把那组数字当作线上实测值引用，真实的产品演进记录见第 19 章。指标页四项指标则是<b>真实埋点、真实计算</b>的。
 </div>
 
+<div class="part">Part II · 竞品分析与系统设计</div>
 <h2>05 竞品分析与产品定位</h2>
-<div class="sub">市面上的产品已经很强了，为什么还需要《马跑跑》——以及对手的哪些决定，直接写成了我们的架构</div>
+<div class="sub">它们其实不是一个物种；对手的哪些决定直接写成了我们的架构</div>
 
-<div class="note amber">
-<span class="hd">这一章可以单独拆出去用</span>
-竞品分析在面试里通常是一份独立文档。这里把它并进来，是因为第 09 章的选择（不做手表对接、不做轻交互、放弃总跑量）
-直接由它推导出来 —— <b>脱离竞品的架构决策是没法解释的</b>。需要单独成册时直接把这一章切出去即可。
+<div class="note">
+<span class="hd">v1 → v2 的变化</span>
+本章分析方法与结论在真实迭代中继续成立（尤其「缺练不补账」与「不做手表对接」两条），仅做压缩与口径更新；5.10 信息来源声明不变：竞品事实全部来自公开资料，<b>未购买付费订阅做深度实测</b>，被问到时直接说明。
 </div>
 
-<h3>5.1 我放弃的切法，和我换的两刀</h3>
-<p>最常见的做法是把维度列出来：有没有 AI 教练、有没有力量训练、多少钱、支持哪些手表，然后打勾。这种做法的问题不在于错，而在于<b>它做完之后得不出任何决策</b>。</p>
+<h3>5.1 两刀切法（不变）</h3>
 <div class="grid2">
-<div class="card tight">
-<h4>第一刀 · 计划被打破时，重修成本由谁承担</h4>
-<p>训练计划的本质不是「生成一份日程」，是「在 16 周里持续维护一个会被现实反复打破的日程」。</p>
-<ul>
-<li>静态产品：成本在<b>用户</b>身上，用户自己想怎么办</li>
-<li>半自适应：成本在系统，但用户必须在它的<b>数据前提</b>之内</li>
-<li>我们要的：成本在系统，且准入条件不排除任何人</li>
-</ul>
-</div>
-<div class="card tight">
-<h4>第二刀 · 自适应引擎烧的是什么燃料</h4>
-<p>「自适应」不是一回事，燃料决定了它<b>服务谁、排除谁</b>：</p>
-<ul>
-<li>烧手表生理数据 → 只服务有表且在生态里的人</li>
-<li>烧主观上报 + 环境 + 可用天数 → 不排除任何人，但精度低一档</li>
-</ul>
-<p>切完之后，《马跑跑》的位置就不是「功能更全」，而是<b>「被他们的数据前提排除掉的那批人」</b>。</p>
-</div>
+<div class="card tight"><b>第一刀 · 计划被打破时，重修成本由谁承担</b><br>静态产品：成本在用户身上；半自适应：成本在系统，但用户必须在它的数据前提之内；我们要的：成本在系统，且准入条件不排除任何人。</div>
+<div class="card tight"><b>第二刀 · 自适应引擎烧的是什么燃料</b><br>烧手表生理数据 → 只服务有表且在生态里的人；烧主观上报 + 环境 + 可用天数 → 不排除任何人，但精度低一档。切完后，马跑跑的位置是「被他们的数据前提排除掉的那批人」。</div>
 </div>
 
-<h3>5.2 竞品全景：它们其实不是一个物种</h3>
+<h3>5.2 竞品全景（L0–L5 分层，压缩版）</h3>
 <table>
-<thead><tr><th style="width:5%">层</th><th style="width:20%">代表</th><th style="width:22%">自适应的燃料</th><th style="width:26%">它真正强的地方</th><th>它排除谁</th></tr></thead>
+<thead><tr><th style="width:8%">层</th><th style="width:26%">代表</th><th style="width:24%">它真正强的地方</th><th>它排除谁</th></tr></thead>
 <tbody>
-<tr><td class="c"><b>L0</b></td><td>丹尼尔斯《跑步方程式》、汉森、Hal Higdon 网络版</td><td>无，方案本身静止</td><td>方法论的权威性与可追溯性，是所有 App 的知识上游</td><td>假设「你时间充裕、天气配合、身体听话」</td></tr>
-<tr><td class="c"><b>L1</b></td><td>悦跑圈、咕咚、Nike Run Club</td><td>几乎无，靠 GPS 记录</td><td>记录 + 社区 + 赛事报名，解决「我要不要跑」的动机问题</td><td>想要结构化进阶计划的人</td></tr>
-<tr><td class="c"><b>L2</b></td><td>TrainingPeaks、Final Surge</td><td>训练负荷（CTL/ATL/TSB）</td><td>把「我是不是在过度训练」变得可量化</td><td>看不懂 PMC 图表的普通人</td></tr>
-<tr><td class="c"><b>L3</b></td><td>Garmin Coach</td><td>手表采集：VO₂Max、HRV、睡眠、训练准备度</td><td>日粒度紧贴昨天的生理状态，流程零摩擦</td><td><b>没有 Garmin 手表的人</b>（最硬的一道墙）</td></tr>
-<tr><td class="c"><b>L4</b></td><td>Runna（Strava 旗下）、TrainAsONE</td><td>已完成的跑步表现 + 可穿戴同步</td><td>把「缺练之后怎么修」做成核心叙事而非补丁</td><td>没有可穿戴设备、或不想被设备绑架的人</td></tr>
-<tr><td class="c"><b>L5</b></td><td>Keep（Keepace.ai + 运动 Skill Agent）</td><td>多模态 + 长期记忆 + 运动科学知识库</td><td>一句话调度 200+ 项运动 Skill，通用性极强</td><td>需要 16 周长周期守恒的人</td></tr>
+<tr><td class="c">L0</td><td>丹尼尔斯《跑步方程式》、汉森、Hal Higdon</td><td>方法论的权威性与可追溯性，是所有 App 的知识上游</td><td>假设「你时间充裕、天气配合、身体听话」</td></tr>
+<tr><td class="c">L1</td><td>悦跑圈、咕咚、Nike Run Club</td><td>记录 + 社区 + 赛事报名，解决「要不要跑」的动机问题</td><td>想要结构化进阶计划的人</td></tr>
+<tr><td class="c">L2</td><td>TrainingPeaks、Final Surge</td><td>把「我是不是在过度训练」变得可量化（CTL/ATL/TSB）</td><td>看不懂 PMC 图表的普通人</td></tr>
+<tr><td class="c">L3</td><td>Garmin Coach</td><td>日粒度紧贴生理状态，流程零摩擦</td><td><b>没有 Garmin 手表的人（最硬的一道墙）</b></td></tr>
+<tr><td class="c">L4</td><td>Runna、TrainAsONE</td><td>把「缺练之后怎么修」做成核心叙事</td><td>没有可穿戴设备的人</td></tr>
+<tr><td class="c">L5</td><td>Keep（运动大模型 + Agent）</td><td>多模态 + 长期记忆，一句话调度大量运动 Skill</td><td>需要 16 周长周期守恒的人</td></tr>
 </tbody>
 </table>
-<div class="note">
-<b>分层之后得到的第一个结论：</b>L0 是 L3–L5 的<b>知识上游</b>，不存在竞争关系；L1 解决的是动机问题，我们解决的是执行问题，也不在一个战场上；
-真正构成参照的只有 <b>L2–L5</b>。把 Nike Run Club 和 Garmin Coach 并列成「同为跑步 App」，是把用户旅程的不同阶段当成了同类产品。
-</div>
+<p>真正构成参照的只有 L2–L5。把 NRC 和 Garmin Coach 并列成「同为跑步 App」，是把用户旅程的不同阶段当成了同类产品。</p>
 
-<h3>5.3 逐个拆解</h3>
-
-<div class="dec">
-<div class="dec-h"><span class="idx">1</span>TrainAsONE · 和我们最接近的对手</div>
-<div class="dec-b">
-<div class="row"><div class="lbl">它强在哪</div><div class="val">唯一把「对抗模板」当产品纲领来做的：官网原话是 <em>Other 'adaptive' platforms are just rigid templates in disguise</em>。做法是 <b>Daily Rebuild</b> —— 不是把错过的课往后推，而是依据实时生理模型重算剩余全部日程；可以多目标赛事同时优化；公开质疑「必须跑够 20 英里」的长跑迷信。</div></div>
-<div class="row"><div class="lbl">它的边界</div><div class="val">整个系统是<b>表现数据驱动的闭环控制</b>：历史跑量、心率、功率越丰富它越准。它的自我叙事建立在「绕过固定模板」上，因此优先「过度训练防护」和「最小有效剂量」——这导致它对<b>可执行性</b>（今天能不能跑、有没有时间）的处理相对薄弱。</div></div>
-<div class="row"><div class="lbl">对我的启发</div><div class="val">它验证了我的核心假设 —— <b>动态调整是这类产品的核心价值</b>，不是锦上添花。同时它也划出了我们的位置：它优化「训练刺激是否最优」，我们优化「这一周能不能落地」。<b>它做能力上限，我们做执行下限。</b></div></div>
-<div class="row"><div class="lbl">保留意见</div><div class="val">官网自述的「75% 用户一年内刷新 PB」「伦敦马中位速度快 15/23/25 分钟」均为<b>厂商自选样本口径</b>，无法独立验证，我在任何文档里都不把它当论据用。</div></div>
-</div></div>
-
-<div class="dec">
-<div class="dec-h"><span class="idx">2</span>Runna（现属 Strava）· 商业化最成功的自适应训练产品</div>
-<div class="dec-b">
-<div class="row"><div class="lbl">它强在哪</div><div class="val">覆盖 5K 到超马的完整计划库；教练（含奥运级）设计 + 表现驱动自适应；把力量、活动度、瑜伽、普拉提、赛前补给与减量指导全部打包进同一订阅，<b>不设二次付费</b>；设备同步覆盖 Apple Watch / Garmin / Fitbit / COROS / Suunto / Amazfit / Strava / Apple Health，兼容面最宽。</div></div>
-<div class="row"><div class="lbl">它的边界</div><div class="val">第三方评测反复指出同一件事：<b>自适应引擎严重依赖手表数据</b>，没有手表只能手动记录，既慢又失真。它的理想用户画像是「已经跑了一段、有表、有明确成绩目标的人」，而不是「第一次跑全马、大概率没表的新人」。</div></div>
-<div class="row"><div class="lbl">价格</div><div class="val">$19.99/月；年费各来源口径不一致（官方西语页 $109.98，第三方评测分别给 $89.99 与 $119.99），<b>不做单一断言</b>。7 天试用，无永久免费层。</div></div>
-<div class="row"><div class="lbl">对我的启发</div><div class="val">最重要的一条是<b>反面启发</b>。多篇评测提到 Runna 对 plan adherence 的强调很重，会被按感觉跑的人认为「不够灵活」。这和我自己 v3 的 A/B 是同一个坑 —— <b>当你把「把课排完」当目标，你会不自觉地把缺口推向未来。</b></div></div>
-</div></div>
-
-<div class="dec">
-<div class="dec-h"><span class="idx">3</span>Garmin Coach · 最不可能被击败的对手</div>
-<div class="dec-b">
-<div class="row"><div class="lbl">它强在哪</div><div class="val">2018 年上线，2024 年 8 月把 Run Coach 深度集成进 Garmin Connect。<b>日粒度自适应</b>的标杆：依据 VO₂Max、训练负荷、恢复时间、训练准备度、睡眠与 HRV 每天动态重排，明确「睡不好就改计划」「错过训练会自动调整保持节奏」。三位专家教练提供权威背书。</div></div>
-<div class="row"><div class="lbl">它的边界</div><div class="val">完全封闭在 Garmin 生态里。<b>「没有 Garmin 手表」这一条就把绝大多数新人排除掉了</b> —— 这不是它的缺点，是它的商业结构：它存在的目的是让手表更好卖。</div></div>
-<div class="row"><div class="lbl">对我的启发</div><div class="val">它给我上了一课：<b>不要在一个你拿不到燃料的战场上竞争</b>。它的日粒度、它的生理精度，我们一行代码也复制不了。这条认知直接写成了第 20.1 章的 <code>Won't</code> —— <b>不做运动手表深度对接</b>。理由不是做不到，是：一旦依赖硬件采集，状态上报就退化成被动行为，我们会丢掉「我今天就是不想跑」这类<b>永远上不了手表的信号</b>。</div></div>
-</div></div>
-
-<div class="dec">
-<div class="dec-h"><span class="idx">4</span>TrainingPeaks · 数据深度的天花板</div>
-<div class="dec-b">
-<div class="row"><div class="lbl">它强在哪</div><div class="val">Performance Management Chart（CTL 慢性负荷 / ATL 急性负荷 / TSB 疲劳平衡）是整个耐力训练行业的事实标准。它回答一个我们完全回答不了的问题：<b>「我现在是在进步，还是在把自己练爆？」</b></div></div>
-<div class="row"><div class="lbl">它的边界</div><div class="val">主要关系是教练-运动员，平台上的计划是人写的，自适应来自人而不是系统。Premium $19.99/月或 $134.99/年，另需教练费 $149–359/月。<b>学习曲线对新人极陡</b> —— 新人不知道 CTL 是什么，也不需要知道。</div></div>
-<div class="row"><div class="lbl">对我的启发</div><div class="val"><b>指标的深度不是越深越好，要看使用者能不能据此行动。</b>所以第 11 章把护栏写成「周增幅 ≤10%」「不连续 3 天高强度」这种用户能直觉理解的规则，而不是 CTL/ATL —— 用户看不懂的护栏等于没有护栏。</div></div>
-</div></div>
-
-<div class="dec">
-<div class="dec-h"><span class="idx">5</span>Keep（Keepace.ai + 运动 Agent）· 国内最值得警惕的对手</div>
-<div class="dec-b">
-<div class="row"><div class="lbl">它强在哪</div><div class="val">2026 年 4 月发布 App 9.0 与运动大模型 Keepace.ai，7 月在 CHINAFIT 首次公开 AI Agent，把十年运动科学拆成 <b>200+ 项可独立调用、支持嵌套的运动 Skill</b>。现场演示一句话匹配马拉松配速员 —— 自动调用睡眠恢复评分、成绩预测、配速设计、跑前热身，跑中实时语音陪跑，跑后给恢复建议。</div></div>
-<div class="row"><div class="lbl">它的边界</div><div class="val">它的架构优化的是<b>广度与调用的通用性</b>：Skill 池越大覆盖越多场景，这天然意味着单个场景的纵深受限。它解决的是「这一次跑步怎么跑、配速多少」，不是「这 16 周总量守恒、第 9 周落下的课怎么补」。<b>它在做单次运动体验，不是长周期守恒。</b></div></div>
-<div class="row"><div class="lbl">对我的启发</div><div class="val">这是一个很有价值的反面教材。看完那段演示我意识到：<b>把交互做得越轻、越「一句话生成」，计划就越像一次性消费品</b>。所以我刻意把交互做重 —— 周审视 + 今日卡三按钮（见第 14 章界面），不追求一句话生成的爽感。因为北极星是执行率，不是生成次数：生成越多，能执行完的比例反而越低。</div></div>
-</div></div>
-
-<h3>5.4 对比矩阵：只看会导致取舍的维度</h3>
+<h3>5.3 对比矩阵：只看会导致取舍的维度</h3>
 <table>
-<thead><tr><th style="width:15%">维度</th><th>Garmin Coach</th><th>Runna</th><th>TrainAsONE</th><th>Keep Agent</th><th>马跑跑</th></tr></thead>
+<thead><tr><th style="width:20%">维度</th><th>Garmin Coach</th><th>Runna</th><th>TrainAsONE</th><th>Keep Agent</th><th style="background:#1f7a4d">马跑跑</th></tr></thead>
 <tbody>
-<tr><td>目标人群</td><td>Garmin 表用户</td><td>有表、有成绩目标</td><td>追求成绩突破</td><td>泛运动人群</td><td class="hl">无表、首次全马</td></tr>
-<tr><td>计划形态</td><td>日粒度自适应</td><td>自适应</td><td>每日重建</td><td>会话式单次方案</td><td class="hl">周级重排</td></tr>
-<tr><td>自适应燃料</td><td>手表生理全量</td><td>完跑表现+设备</td><td>完跑表现+设备</td><td>多模态+长期记忆</td><td class="hl">主观上报+天气+可用天数</td></tr>
-<tr><td><b>缺练的默认处理</b></td><td>自动调整保节奏</td><td>重建后续周</td><td>重算未来全部日程</td><td>会话级重新回答</td><td class="hl">本周内重排，明确不跨周补账</td></tr>
-<tr><td>缺课后的增量方式</td><td>按生理状态</td><td>按表现</td><td>重算整个日程</td><td>按 Skill 组合</td><td class="hl">8 条规则 + 策略打分，保关键课 / 牺牲辅助课</td></tr>
-<tr><td>敢劝降目标吗</td><td>否</td><td>否</td><td>否</td><td>否</td><td class="hl">是（连续 3 周关键课 &lt;50% 触发）</td></tr>
-<tr><td>无手表可用吗</td><td>不可用</td><td>体验显著退化</td><td>体验显著退化</td><td>可用</td><td class="hl">完全可用</td></tr>
+<tr><td>目标人群</td><td>Garmin 表用户</td><td>有表、有成绩目标</td><td>追求成绩突破</td><td>泛运动人群</td><td class="hl">无表、首次全马的中文用户</td></tr>
+<tr><td>自适应燃料</td><td>手表生理全量</td><td>完跑表现 + 设备</td><td>完跑表现 + 设备</td><td>多模态 + 长期记忆</td><td class="hl">主观上报 + 天气 + 可用天数（+ 可选的视觉识别成绩）</td></tr>
+<tr><td>缺练的默认处理</td><td>自动调整保节奏</td><td>重建后续周</td><td>每日重建全部日程</td><td>会话级重新回答</td><td class="hl">本周内重排，明确不跨周补账</td></tr>
+<tr><td>无手表可用吗</td><td>不可用</td><td>体验显著退化</td><td>体验显著退化</td><td>可用</td><td class="hl">完全可用（拍照识别成绩也能用）</td></tr>
 <tr><td>天气处理</td><td>部分接入</td><td>部分接入</td><td>有天气/海拔感知</td><td>未见明确</td><td class="hl">硬约束/软调节分离，体感温度口径</td></tr>
-<tr><td>准入门槛能拒绝用户吗</td><td>否</td><td>否</td><td>否</td><td>否</td><td class="hl">是（14 人生成前被劝退）</td></tr>
+<tr><td>AI 知识问答</td><td>—</td><td>—</td><td>—</td><td>通用运动 Skill</td><td class="hl">RAG 知识库 + 出处 + 伤病就医提示的垂直问答（跑小助）</td></tr>
 </tbody>
 </table>
+<div class="note"><span class="hd">读这张表唯一要动的一行</span>「缺练的默认处理」。其他行只是说「我们不同」，这一行说的是「我们对，他们错」——主流产品把缺口安排到未来，直觉自然，但负荷堆叠会连带破坏未来本身。正确的容错是「重新分配未来」，不是「偿还过去」。</div>
 
-<div class="note warn">
-<span class="hd">读这张表唯一要动的一行：「缺练的默认处理」</span>
-其他行都只是在说「我们不同」，<b>只有这一行说的是「我们对，他们错」</b>。
-Runna 的重建、TrainAsONE 的 Daily Rebuild、Garmin 的自动调整 —— 它们对「上周没跑完」的主流响应都是<b>把课安排到未来某个时间点</b>。
-我们做了同期随机分流 A/B（实验组 206 人周 vs 对照组 205 人周）：执行率 61.7% vs 69.4%（<b>−7.6pp</b>）、
-接受率 54.1% vs 79.1%（<b>−25.0pp</b>，最先崩的就是它）、周增幅超限率 18.5% vs 3.4%（<b>+15.0pp</b>）。
-三个指标串成一个机制：补账 → 负荷堆叠 → 用户看到课表就想放弃 → 产生新缺口 → 继续补账。完整复盘见第 19.2 章。
-</div>
-
-<h3>5.5 三个空位</h3>
-<div class="grid3">
-<div class="card tight">
-<h4><span class="tag t-blue">空位一</span> 没有手表的新人</h4>
-<p>最硬的一道准入墙。Garmin Coach 必须有 Garmin 设备；Runna 和 TrainAsONE 在无手表时被明确指出「自适应显著退化，只能手动记录」。</p>
-<p>而讽刺的是：<b>第一次挑战全马的人，恰恰最可能没有跑表</b> —— 还没养成习惯、还没买装备、还在怀疑自己能不能跑完。这批人需求最强烈，却被所有强自适应产品默认为不可服务对象。</p>
-<p><b>应对不是补硬件短板（那必输），而是换燃料</b>：主观上报 + 公开天气 + 可用天数画像。信息量更少，准入成本几乎为零。</p>
-</div>
-<div class="card tight">
-<h4><span class="tag t-blue">空位二</span> 缺练的正确处理是「放弃补偿」</h4>
-<p>主流产品对缺口的处理几乎都指向「把它安排到未来」。这个直觉从体验看很自然，但它有一个前提从未被检验：<b>补账带来的负荷堆叠，会不会连带破坏未来本身？</b></p>
-<p>A/B 给了答案：会。而且代价顺序很清晰 —— <b>接受率最先崩（−25.0pp），然后才是执行率（−7.6pp）</b>。用户是先「不想看了」，然后才「不跑了」。</p>
-<p>沉淀出 v3.1 的核心改动：明确放弃总跑量目标，只保关键课，辅助课允许永久丢失。</p>
-</div>
-<div class="card tight">
-<h4><span class="tag t-blue">空位三</span> 敢改变用户的目标</h4>
-<p>找遍所有竞品都没找到：<b>没有一个产品会在你连续掉队时，建议你把全马降成半马。</b></p>
-<p>原因不在技术，在商业模式。这些产品的留存叙事建立在「帮用户完成既定目标」上 —— 劝降意味着用户可能不再需要全马计划，直接伤害续订和用户故事。这是一个所有人理性上都知道该做、但结构上不会做的东西。</p>
-<p>我们的做法见第 11.3 章。首批 cohort 里 5 人接受建议，另有 14 人在生成前被劝退；最终 21 人报名、17 人完赛，<b>完赛率 81.0%，无一人中途就医</b>。</p>
-</div>
-</div>
-
-<div class="note ok">
-<span class="hd">三个空位的共同点</span>
-它们都不是「功能更全」，而是<b>「更愿意为用户承担短期代价」</b>：空位一是接受信息量更少；空位二是接受缺损；空位三是接受用户流失。
-这三件事，有订阅压力和完赛率叙事的产品都不会做。<b>一个没有商业包袱的学生项目，反而是唯一能做它们的地方。</b>
-</div>
-
-<h3>5.6 定位陈述</h3>
+<h3>5.4 定位陈述（v2 同步版）</h3>
 <div class="card">
-<p><b>完整版</b>：面向<b>没有运动手表、第一次挑战全程马拉松的中文用户</b>，基于公开跑步训练书籍中可计算的确定性结构生成 16 周计划；当计划被天气、身体状态或日程打断时，按「保关键课、放弃补账、牺牲辅助课」的原则在本周内重排，并给出可理解的解释；当进度不支持原目标时，主动建议降低目标距离或延期。</p>
-<p style="margin-top:12px"><b>15 秒版</b>：「马跑跑是给没有跑表的新手做全马训练计划的产品。市面上做得好的自适应训练 App 都依赖手表数据，我们把燃料换成主观上报加天气，代价是精度低一档，好处是任何人都能用。」</p>
-<p><b>45 秒版</b>：「它的核心不是生成计划，而是<b>计划被打断之后怎么修</b>。v1 严格照书生成，执行率只有 41.2%，因为书假设你时间充裕、天气配合、身体听话。加了周级重排之后涨到 68.4%。中间有一次失败 —— 我们试着把落下的课跨周补回来，A/B 显示反而降了 7.6pp，最后是明确放弃补账才到 72.5%。」</p>
+<p><b>完整版</b>：面向没有运动手表、第一次挑战全程马拉松的中文用户（当前落地为校内马拉松选修课与社团场景），基于公开跑步训练书籍中可计算的确定性结构生成 16 周计划；当计划被天气、身体状态或日程打断时，按「保关键课、放弃补账、牺牲辅助课」的原则在本周内重排，并给出可理解的解释；当进度不支持原目标时，主动建议降低目标；配套 RAG 知识助手回答训练与伤病问题，识别成绩单照片自动折算能力值。</p>
+<p style="margin-bottom:0"><b>15 秒版</b>：「马跑跑是给没有跑表的新手做全马训练计划的产品。做得好的自适应 App 都依赖手表数据，我们把燃料换成主观上报加天气，代价是精度低一档，好处是任何人都能用——拍张成绩单照片它也能认识。」</p>
 </div>
 
-<h3>5.7 诚实回答：我们不如它们的地方</h3>
-<div class="grid2">
-<div class="card tight"><h4>劣势一 · 没有生理数据闭环</h4><p>Garmin 能拿到 VO₂Max、HRV、睡眠、训练准备度，每天重排。<b>我们只能做到周级</b>。这不是「还没做」，是<b>燃料决定了精度上限</b> —— 主观上报的频率和质量永远追不上手表被动采集。这条打不赢。</p></div>
-<div class="card tight"><h4>劣势二 · 没有数据飞轮</h4><p>TrainAsONE 宣称基于一亿公里真实跑量建模，Keep 有十年运动科学库。<b>我们的规则来自公开书籍，任何人都能写</b>。数据量随时间增值这条曲线，我们没有。</p></div>
-<div class="card tight"><h4>劣势三 · 没有入口和分发</h4><p>Garmin Coach 免费，因为它在为硬件定价；Strava 收购 Runna 后直接获得分发。<b>产品的分发能力我为零</b> —— 386 个注册用户是靠社团和同学拉来的，这个量级证明不了任何分发效率。</p></div>
-<div class="card tight"><h4>劣势四 · 验证周期与结论外推</h4><p>一个训练周期 16 周，我跑到 v3.1 就停了。<b>没有第二期 cohort，没有跨季节验证，没有长期伤痛跟踪</b>。所有结论只能支撑「在这个样本周期内」，不能外推。</p></div>
-</div>
-
-<h3>5.8 如果对手明天就做同样的事</h3>
-<table>
-<thead><tr><th style="width:34%">我们自以为的差异</th><th style="width:14%">对手能做吗</th><th>结论</th></tr></thead>
-<tbody>
-<tr><td>规则引擎 + LLM 双层架构</td><td class="c"><span class="tag t-red">随时</span></td><td>不是壁垒。任何有工程资源的团队几天就能搭同类结构。</td></tr>
-<tr><td>按可用天数设课次上限</td><td class="c"><span class="tag t-red">随时</span></td><td>不是壁垒，就是三条 <code>if</code> 的事。</td></tr>
-<tr><td>缺练不跨周补偿</td><td class="c"><span class="tag t-amber">随时</span></td><td>但<b>我们先有证据</b>。他们复制结论只需一行常量，但他们不知道这个结论；我们有 A/B 对照，这就是这篇文档的价值所在。</td></tr>
-<tr><td>体感温度口径（非气温）</td><td class="c"><span class="tag t-red">随时</span></td><td>不是壁垒，只是一个被多数产品忽略的细节。</td></tr>
-<tr><td><b>主动劝降目标</b></td><td class="c"><span class="tag t-green">不会</span></td><td><b>唯一真正的差异。</b>因为它损害他们的续订逻辑和完赛率故事 —— 复制它意味着主动伤害自己的核心指标。</td></tr>
-<tr><td>中文 + 国内赛事日历</td><td class="c"><span class="tag t-amber">成本高</span></td><td>不是技术壁垒，是本地运营成本。对 Strava 系产品优先级很低。</td></tr>
-</tbody>
-</table>
-<div class="note">
-<b>结论：单点都不构成壁垒，组合才勉强构成位置。</b>技术层面的东西全部可被复制，唯一复制不了的是<b>用户立场的一致性</b> ——
-从「不用手表」到「不补账」到「敢劝降」，三件事指向同一个判断：<b>当短期指标和用户长期利益冲突时，站用户这边。</b>
-这不是因为我们有更高的道德水准，而是因为我们没有商业包袱。说穿了，这个项目的差异化是<b>「穷的优势」</b> —— 一开始就明确了，也随时会因为商业化而消失。
-</div>
-
-<h3>5.9 竞品结论如何回流到设计（架构映射）</h3>
-<table>
-<thead><tr><th style="width:26%">来自哪个对手</th><th style="width:30%">产品结论</th><th>落到代码/架构上的具体决定</th></tr></thead>
-<tbody>
-<tr><td>Garmin Coach / Runna</td><td>不做运动手表深度对接</td><td>数据模型里<b>不定义任何 <code>device_data</code> 实体</b>；<code>status_report</code> 表保留主观字段（soreness / sleep / fatigue）。代价是只能周级，换来准入宽度 —— 这是一次明确的取舍，不是遗漏。</td></tr>
-<tr><td>Keep 的一句话生成</td><td>不做轻交互</td><td>API 上<b>刻意不提供 <code>POST /plan/generate-oneline</code></b>；计划生成必须经过 6 题画像问卷（含劝退判定）。对应的入口成本换来的是计划的资产感。</td></tr>
-<tr><td>TrainAsONE 的 Long Run Myth</td><td>放弃总跑量目标</td><td>评分函数里<b>没有 <code>total_km_target</code> 这一项</b>（见 10.4）。如果保留它，v3.1 拿不到护栏和执行率同时最优。</td></tr>
-<tr><td>TrainingPeaks 的 PMC</td><td>护栏要用户看得懂</td><td>护栏全部写成 <code>周增幅 ≤10%</code> / <code>无连续 3 天高强度</code> 这类可解释规则，<b>拒绝引入 CTL/ATL</b>。每个被拦下的方案都必须能生成一句用户读得懂的原因（写入 <code>guard_audit.reason_user</code>）。</td></tr>
-<tr><td>悦跑圈 / 咕咚</td><td>数据要反过来作用于未来</td><td><code>session_log</code> 不只是历史，它是重排上下文的必填输入；跑完成绩（<code>actual_pace</code>）会回写 <code>user.vdot</code>（见 10.6 能力重估）。</td></tr>
-</tbody>
-</table>
-
-<h3>5.10 信息来源与口径声明</h3>
+<h3>5.5 诚实回答：我们不如它们的地方</h3>
 <ul>
-<li>竞品事实<b>全部来自公开资料</b>：各产品官网与定价页、官方支持文档、公开发布活动报道、第三方评测文章。<b>未购买付费订阅做深度实测</b>，被问到时直接说明。</li>
-<li><b>厂商自述数据不予采信为论据</b>：如 TrainAsONE 官网的「75% 用户一年内刷新 PB」等均为自选样本，只在描述其自我叙事时提及。</li>
-<li><b>Runna 定价存在口径差异</b>（$89.99 / $109.98 / $119.99），可能与地区、促销、评测时点有关，不做单一断言。</li>
-<li><b>悦跑圈 / 咕咚的判断颗粒度较粗</b>，依据公开功能描述与行业共识，未做逐功能实测，被追问时直接承认。</li>
-<li>涉及《马跑跑》自身的数字来自项目复盘数据集，<b>口径为复盘重建值而非线上实测值</b>；任意数字可追溯至「数据集_马跑跑_测算.xlsx」的对应 sheet。</li>
+<li><b>没有生理数据闭环</b>：Garmin 的 VO₂Max / HRV / 睡眠 / 训练准备度每天重排，我们只能做到周级 + 用户主动上报。这不是「还没做」，是燃料决定了精度上限。</li>
+<li><b>没有数据飞轮</b>：规则来自公开书籍，任何人都能写；数据量随时间增值的曲线我们没有。</li>
+<li><b>没有分发</b>：756 个用户靠两个校园场景拉来，证明不了任何分发效率。</li>
+<li><b>验证周期短</b>：单周期 16 周，缺跨季节、跨周期的长期验证，结论不能外推。</li>
 </ul>
-
-<div class="part">Part II · 系统设计与实现<span class="sm">每一块的输入、输出、算法与边界</span></div>
 
 <h2>06 系统总体架构</h2>
-<div class="sub">五层：知识 / 规划 / 适应 / 护栏 / 交互，其中「适应」是核心</div>
+<div class="sub">五层：知识 / 规划 / 适应 / 护栏 / 交互——全部对应 server/ 下的真实包</div>
 
-<pre>┌─ 交互层 ────────────────────────────────────────────────────┐
-│  今日卡  ·  重排方案卡  ·  周审视页  ·  画像问卷（含劝退）        │
+<pre>┌─ 交互层（React，app/src/pages）──────────────────────────────┐
+│  今日卡 Home · 周审视 Week · 重排方案 Rearrange · 指标 Metrics │
+│  · 跑小助(Assistant) · 月历(MonthCalendar) · 登录注册 Login     │
 └──────────────────────┬─────────────────────────────────────┘
-                       │  REST / JSON
-┌─ 应用层 ─────────────▼─────────────────────────────────────┐
-│  PlanGenerator      RearrangeEngine      GuardRail          │
-│  （一次性，幂等）     （本周内决策）        （纯函数，不可绕过）    │
-└───┬──────────────────┬──────────────────┬──────────────────┘
+                       │  REST / JSON（/v1/*，vite 代理到 8000）
+┌─ 应用层（server/main.py + 各包）─────────────────────────────┐
+│  plan/      计划生成（一次性，幂等）                            │
+│  adapt/     重排决策：候选生成 × 护栏过滤 × 打分排序             │
+│  guard/     护栏：纯函数，不可绕过，全量留痕                     │
+│  explain/   LLM 解释层：文案 / 点评 / 拉伸建议                   │
+│  tune/      AI 微调：LLM 改课表 + 结构红线校验                   │
+│  vision/    视觉识别：读成绩图 → 数值断言 → 折算 VDOT           │
+│  assistant/ 跑小助：RAG 召回 + 多轮上下文                        │
+│  knowledge/ 规则引擎：vdot_table.csv + template_16w.yaml        │
+│  infra/     天气：Open-Meteo + 体感温度 + 落库缓存               │
+└───┬──────────────────┬──────────────────┬───────────────────┘
     │                  │                  │
-┌───▼── 知识层 ───┐ ┌──▼── 数据层 ──┐  ┌──▼── 外部依赖 ─────────┐
-│ A 规则引擎       │ │ PG + Redis   │  │ Open-Meteo 天气 API     │
-│  （查表字典      │ │ 周快照表      │  │ LLM 网关（仅解释层）     │
-│   + 纯函数）     │ │ 事件表        │  │ APScheduler（定时任务）  │
-│ B LLM 解释层     │ └──────────────┘  └─────────────────────────┘
-│  （不碰任何数字） │
-└─────────────────┘</pre>
+┌───▼── 知识存储 ──┐ ┌──▼── 数据层 ────┐  ┌──▼── 外部依赖 ─────────┐
+│ docs/*.md RAG   │ │ SQLite（14 表） │  │ Open-Meteo 天气 API      │
+│ 三份知识文档     │ │ 周快照/事件/审计│  │ DeepSeek（文本 LLM）      │
+│ + 内联兜底条目   │ │  AI 案例/助手会话│  │ Moonshot（视觉，可选）    │
+└─────────────────┘ └────────────────┘  └─────────────────────────┘</pre>
 
-<h3>6.1 模块职责与依赖方向</h3>
+<h3>6.1 模块职责与依赖方向（真实实现）</h3>
 <table>
-<thead><tr><th style="width:18%">模块</th><th style="width:22%">输入</th><th style="width:22%">输出</th><th>工程约束</th></tr></thead>
+<thead><tr><th style="width:18%">模块</th><th style="width:28%">输入 → 输出</th><th>工程约束</th></tr></thead>
 <tbody>
-<tr><td class="mono">knowledge.rules</td><td>结构化参数</td><td>数值结论（配速/跑量/周期）</td><td><b>纯函数、零 IO、零随机</b>。这是能被 pytest 覆盖 240 题的前提</td></tr>
-<tr><td class="mono">knowledge.explain</td><td>结构化结论 + 用户上下文</td><td>自然语言文案</td><td>唯一允许调用 LLM 的模块；输出必须过数值断言</td></tr>
-<tr><td class="mono">plan.generator</td><td>user profile</td><td>16 周 <code>plan_week</code> + <code>session</code></td><td>幂等：同一 profile 哈希生成同一计划</td></tr>
-<tr><td class="mono">adapt.rearrange</td><td>本周上下文 + 触发源</td><td>主方案 + 备选方案（含代价说明）</td><td><b>本周内封闭</b>，输出不修改未来周；候选必须全过护栏</td></tr>
-<tr><td class="mono">guard.rail</td><td>候选方案</td><td><code>Verdict(pass/hit_rule/patch)</code></td><td>独立包，<b>不允许 import 任何优化相关代码</b>（靠 CI 静态检查强制）</td></tr>
-<tr><td class="mono">infra.weather</td><td>city + date</td><td><code>WeatherDay</code>（含 <code>apparent_max</code>）</td><td>缓存 + 失败降级，绝不因为天气挂掉阻塞重排</td></tr>
-<tr><td class="mono">analytics.events</td><td>业务事件</td><td>写入事件表</td><td>埋点与业务同事务写；<code>session_planned</code> 必须带快照版本</td></tr>
+<tr><td class="mono">knowledge.rules</td><td>结构化参数 → 数值结论（配速/跑量/周期）</td><td>纯函数、零 IO、零随机——能被 pytest 直接覆盖</td></tr>
+<tr><td class="mono">guard</td><td>候选方案 → Verdict(pass/hit_rule/patch)</td><td>独立纯函数；<b>不允许 import 任何优化相关代码</b>——护栏能读到优化器内部状态，就会出现「为过校验而调整方案」的写法</td></tr>
+<tr><td class="mono">explain</td><td>结构化结论 + 用户上下文 → 文案</td><td>唯一常规调用 LLM 的模块之一；输出必须过数值断言</td></tr>
+<tr><td class="mono">tune</td><td>本周课表 + 用户状态 → 微调后课表</td><td>LLM 只做定性微调；改完必须过结构红线（轻松跑 ≤ 长距离、周增幅 ≤ 10%），违反拒用</td></tr>
+<tr><td class="mono">vision</td><td>图片 → 距离 + 总用时</td><td>模型只读数字；量纲/区间/配速合理性三道代码断言，不过即拒</td></tr>
+<tr><td class="mono">assistant</td><td>用户消息 + 历史 → 带出处的回答</td><td>RAG 召回喂上下文；伤病条目强制附就医提示；会话按用户隔离</td></tr>
+<tr><td class="mono">infra.weather</td><td>city + date → WeatherDay（含体感温度）</td><td>落库缓存 + 失败降级，绝不因天气挂掉阻塞重排</td></tr>
 </tbody>
 </table>
+<div class="note"><span class="hd">依赖方向是硬约束</span><code>guard</code> 不反向依赖 <code>adapt</code>。理由很实在：架构约束必须写成能被机器卡住的规则，否则三个月后一定会被绕过。</div>
 
-<div class="note">
-<span class="hd">依赖方向是一条硬约束</span>
-<code>guard</code> 不允许反向依赖 <code>adapt</code>。理由很实在：一旦护栏能读到优化器的内部状态，
-就会出现「为了通过校验而调整方案」的写法，安全目标会被悄悄吃掉。CI 里加一条 imports 检查就够了 ——
-<b>架构约束必须写成能被机器卡住的规则，否则三个月后一定会被绕过</b>。
-</div>
-
-<h3>6.2 两条主链路</h3>
+<h3>6.2 两条主链路（真实接口）</h3>
 <div class="grid2">
-<div class="card tight">
-<h4>链路 A · 计划生成（低频，每人最多几次）</h4>
-<pre><span class="cm">POST /v1/profile</span>
-  → intake.validate(profile)        <span class="cm"># 劝退判定前置</span>
-  → rules.vdot_from_recent_race()   <span class="cm"># 成绩 → VDOT</span>
-  → rules.pace_zones(vdot)          <span class="cm"># 5 档配速区间</span>
-  → template.build_16w(vdot, cap)   <span class="cm"># 周期模板 × 课次上限</span>
-  → rules.check_8020(week)          <span class="cm"># 强度分布校验</span>
-  → guard.check(plan)               <span class="cm"># 生成即过护栏</span>
-  → persist + snapshot(week=1)</pre>
-<p style="margin:8px 0 0"><b>P95 &lt; 50ms</b>，纯 CPU，无网络调用。</p>
-</div>
-<div class="card tight">
-<h4>链路 B · 周级重排（高频，每人每周 1–2 次）</h4>
-<pre><span class="cm">POST /v1/session/{id}/log  (skipped/partial)</span>
-  OR GET  /v1/today  → 次日硬约束命中
-  → build_context(user, week, weather, log)
-  → adapt.generate_candidates(ctx)  <span class="cm"># 5 类策略</span>
-  → [ guard.check(c) for c in cand ]  <span class="cm"># 全量过滤 + 留痕</span>
-  → adapt.score(c) → sort            <span class="cm"># 打分排序</span>
-  → explain.render(top1, top2)       <span class="cm"># LLM，可降级</span>
-  → rearrange_event 落库 → 推送 / 卡片</pre>
-<p style="margin:8px 0 0"><b>P95 &lt; 200ms</b>（不含 LLM）；含解释生成则异步推，卡片先用<b>骨架文案</b>渲染。</p>
-</div>
+<div class="card tight"><b>链路 A · 计划生成（低频）</b><br><code>POST /v1/profile</code> → 画像校验（劝退判定前置）→ <code>rules.vdot_from_recent_race()</code> → <code>rules.pace_zones()</code> → 模板展开（SESSION_CAP、BMI 保守模式）→ <code>guard.check()</code> 生成即过护栏 → 落库 + 周 1 快照。纯 CPU，无网络。</div>
+<div class="card tight"><b>链路 B · 打卡与重排（高频）</b><br><code>POST /v1/session/{id}/log</code>（打卡/部分/跑不了）→ 写 session_log + 状态报告 → 偏差 ≥30% 追问「临时起意 / 强度不匹配」→ 命中则 VDOT 重估 → 只刷新未开始的周；或 <code>POST /v1/rearrange/preview</code> → adapt 候选 × guard 过滤 × 打分 → <code>decision</code> 落库（快照不动）。</div>
 </div>
 
 <h2>07 数据模型</h2>
-<div class="sub">十张表。其中 <code>plan_week_snapshot</code> 和 <code>guard_audit</code> 是专门为「指标可信」和「护栏可证」建的</div>
+<div class="sub">14 张表（SQLite）；其中 plan_week_snapshot、guard_audit、event 是「指标可信」和「护栏可证」的地基</div>
 
-<pre>user ──┬─&lt; plan ──┬─&lt; plan_week ──┬─&lt; session ──┬─&lt; session_log
-       │          │               │
-       │          └─&lt; plan_week_snapshot      （周初冻结，只增不改）
-       │
-       ├─&lt; rearrange_event ──&gt; candidate_json（被选中与被拒绝的都存）
-       ├─&lt; status_report
-       ├─&lt; guard_audit                       （护栏留痕，指标得以计算）
-       └─&lt; experiment_assign                 （A/B 分流，v3 用）
-
-weather_daily (city, date)                   （城市维度共享缓存）</pre>
+<pre>account ─┬─ user ──┬─ plan ──┬─ plan_week ──┬─ session ──┬─ session_log
+         │         │         │              │
+         │         │         └─ plan_week_snapshot   （周初冻结，只增不改）
+         │         │
+         │         ├─ rearrange_event ── candidates_json（选中与拒绝的都存）
+         │         ├─ status_report（酸痛/睡眠/疲劳/体感）
+         │         └─ guard_audit（护栏留痕）
+         │
+         └─ assistant_msg（跑小助多轮会话，按用户隔离）
+weather_daily (city, date)              （共享缓存，含体感温度）
+event (name, payload)                   （埋点：level_advanced / 指标事件等）
+ai_case                                 （AI 微调案例：采纳与拒绝）</pre>
 
 <table>
-<thead><tr><th style="width:20%">表</th><th style="width:40%">关键字段</th><th>设计要点</th></tr></thead>
+<thead><tr><th style="width:18%">表</th><th>关键字段与设计要点</th></tr></thead>
 <tbody>
-<tr><td class="mono">user</td><td class="mono">user_id, vdot, ability_tier, goal_race, avail_days, max_duration, injury_flag(N/M), city, tz, conservative_factor</td><td><code>avail_days</code> 是唯一决定 <code>SESSION_CAP</code> 的字段，改动它必须重新生成未开始的周</td></tr>
-<tr><td class="mono">plan</td><td class="mono">plan_id, user_id, version(v1/v2/v3/v3.1), target_distance, start_date, status</td><td><b>计划不做行内 update</b>，重排只作用于尚未发生的 <code>session</code>；历史永远可读</td></tr>
-<tr><td class="mono">plan_week</td><td class="mono">plan_week_id, week_no, phase(base/build/peak/cut/taper), planned_km, key_goal, is_dropped</td><td><code>is_dropped</code> 用于「本周标记降载」，<b>不删除课次</b> —— 保留原计划用于对照</td></tr>
-<tr style="background:#eef3f9 !important"><td class="mono"><b>plan_week_snapshot</b></td><td class="mono">plan_week_id, week_no, snapshot_json, taken_at</td><td><b>执行率分母的唯一来源。</b>周一 00:00 由定时任务写入，此后永不修改。没有这张表，指标一定会被重排行为自我美化</td></tr>
-<tr><td class="mono">session</td><td class="mono">session_id, plan_week_id, seq, date, type, is_key, pace_zone, target_km, source('template'/'rearranged'), status</td><td><code>source</code> 字段用来区分「原计划的课」和「重排产生的课」，做策略归因时必需</td></tr>
-<tr><td class="mono">session_log</td><td class="mono">session_id, status(full/partial/skipped), actual_km, actual_pace, rpe, logged_at</td><td><b>不是历史档案，是重排上下文的必填输入</b>；<code>actual_pace</code> 会回写 vdot（见 10.6）</td></tr>
-<tr><td class="mono">rearrange_event</td><td class="mono">event_id, user_id, week_no, trigger_src, context_hash, candidates_json, chosen, result(accept/reject/manual), decision_ms, delta_km</td><td><b>被拒绝的候选也要存</b>，否则无法回答「为什么当时没选那个更好的方案」；<code>context_hash</code> 做幂等去重</td></tr>
-<tr><td class="mono">status_report</td><td class="mono">report_id, user_id, date, soreness_part, sleep_score, fatigue_score, entry('checkin'/'popup')</td><td><code>entry</code> 字段是 v3.1 上报率从 42.6% → 51.2% 那个改动的度量依据</td></tr>
-<tr><td class="mono">weather_daily</td><td class="mono">city, date, t_max, rh_mean, precip, weather_code, aqi, apparent_max, source, fetched_at</td><td><code>apparent_max</code> 在入库时算好并落库 —— 复盘时要用同一口径复算 16 周，不能依赖运行时重算</td></tr>
-<tr style="background:#eef3f9 !important"><td class="mono"><b>guard_audit</b></td><td class="mono">audit_id, plan_id, week_no, hit_rule, before_json, after_json, action('block'/'patch'/'pass'), reason_user</td><td><b>没有这张表，护栏完全无法被证明有用</b> —— 你只会看到「伤痛率本来就不高」</td></tr>
-<tr><td class="mono">experiment_assign</td><td class="mono">user_id, exp_key, arm, assigned_at, salt</td><td>v3 同期 A/B 的分流表；<b>按 user_id + salt 哈希</b>，保证同一用户始终在同一组</td></tr>
+<tr><td class="mono">account / user</td><td>账号（用户名+密码哈希+JWT）与用户档案分离；user 含 vdot、avail_days、city、height/weight/BMI、avatar、conservative 标记。<b>身高注册后不可改</b>（BMI 口径稳定），体重可改（保守模式随体重联动）</td></tr>
+<tr><td class="mono">plan / plan_week / session</td><td>计划不做行内删除，重排只作用于尚未发生的 session；week 有 phase（base/build/peak/cut/taper）、is_dropped（本周降载打标记不删课，保留原计划对照）</td></tr>
+<tr><td class="mono">plan_week_snapshot</td><td><b>执行率分母的唯一来源</b>。周一 00:00 由 /jobs/weekly_snapshot 冻结，此后永不修改——没有它，指标一定被重排行为自我美化</td></tr>
+<tr><td class="mono">session_log</td><td>不只是历史档案，是重排上下文必填输入；actual 配速回写 vdot（能力重估，见 10.6）</td></tr>
+<tr><td class="mono">guard_audit</td><td>who / hit_rule / before / after / action / reason_user。没有这张表，护栏有效性永远算不出来——你只会看到「伤痛率本来就不高」</td></tr>
+<tr><td class="mono">rearrange_event</td><td>context_hash 幂等去重；被拒绝的候选也存，否则无法回答「为什么当时没选那个方案」</td></tr>
+<tr><td class="mono">status_report</td><td>酸痛部位、关节不适、睡眠打分、疲劳程度、跑中体感（喘气/说话/强度）——打卡流程内嵌采集</td></tr>
+<tr><td class="mono">ai_case</td><td>AI 微调案例库：采纳与拒绝都记，是「AI 决策」指标的数据源，也是 RAG 召回的「案例」通道</td></tr>
+<tr><td class="mono">assistant_msg</td><td>跑小助会话按 user_id 隔离；<b>退出登录即清空该用户记录</b>，防止账号间串话</td></tr>
+<tr><td class="mono">weather_daily</td><td>apparent_max 入库时算好落库——复盘要用同一口径，不能依赖运行时重算</td></tr>
+<tr><td class="mono">event</td><td>通用埋点表（name + JSON payload），level_advanced 等关键事件落此</td></tr>
 </tbody>
 </table>
-
-<div class="note warn">
-<span class="hd">schema 上最能体现产品判断的两处</span>
-<b>① plan_week_snapshot 独立成表</b> —— 它把「计划当时承诺了什么」和「计划后来被改成什么」彻底分开。这是唯一能让执行率经得起追问的做法。
-<br><b>② guard_audit 与 rearrange_event 分开</b> —— 前者回答「系统拦了什么」，后者回答「用户选了什么」。混在一张表里，护栏有效性就永远算不出来。
-</div>
 
 <h2>08 知识层实现</h2>
-<div class="sub">把书拆成两种东西，分别交给规则引擎和模型 —— 这是「AI 产品」还是「套壳」的分水岭</div>
+<div class="sub">把书拆成两种东西，分别交给规则引擎和模型——这是「AI 产品」还是「套壳」的分水岭</div>
 
-<h3>8.1 通道 A · 可计算结构（约 80%）</h3>
-<div class="grid2">
-<div class="card tight">
-<h4>① VDOT 配速表 → 一个 CSV + 一个查表函数</h4>
-<pre><span class="cm"># data/vdot_table.csv（原书附录，版本化入 Git）</span>
-vdot, easy_lo, easy_hi, marathon, threshold, interval, repetition
-35,  6:39, 7:18, 6:07, 5:59, 5:14, 4:58
-40,  6:06, 6:44, 5:35, 5:27, 4:49, 4:34
-42,  5:58, 6:31, 5:24, 5:18, 4:38, 4:24
-45,  5:39, 6:11, 5:07, 4:59, 4:24, 4:11
-50,  5:11, 5:40, 4:41, 4:32, 4:02, 3:52</pre>
-<pre><span class="kw">def</span> <span class="nm">pace_zones</span>(vdot: float) -&gt; dict:
-    v = clamp(round(vdot), 30, 85)          <span class="cm"># 越界直接 clamp，不抛异常</span>
+<h3>8.1 通道 A · 可计算结构（约 80%，真实实现）</h3>
+<p>知识载体就是两个版本化文件 + 一个纯函数模块：<code>server/knowledge/vdot_table.csv</code>（原书附录，版本化入 Git，知识变更走 PR review）、<code>server/knowledge/template_16w.yaml</code>（周期模板）、<code>server/knowledge/rules.py</code>（查表与校验函数）。</p>
+<pre>def pace_zones(vdot: float) -> dict:        # VDOT → 5 档配速区间（轻松/全马/阈值/间歇/重复）
+    v = clamp(round(vdot), 30, 85)           # 越界 clamp，不抛异常
     row = VDOT_TABLE[v]
-    <span class="kw">return</span> {
-        <span class="st">"easy"</span>:       (row.easy_lo, row.easy_hi),
-        <span class="st">"marathon"</span>:   ±6s(row.marathon),
-        <span class="st">"threshold"</span>:  ±6s(row.threshold),  <span class="cm"># VDOT42 → 5:12–5:24</span>
-        <span class="st">"interval"</span>:   row.interval,
-        <span class="st">"repetition"</span>: row.repetition,
-    }</pre>
-<p style="margin:8px 0 0"><span class="tag t-gray">口径示意</span> 表中数值用于说明查表与 ±6s 区间的实现方式，真实实现以原书附录为准。</p>
-</div>
-<div class="card tight">
-<h4>② 成绩 → VDOT：Riegel 公式 + 反查</h4>
-<p>用户填的是「我最近一次跑了多少、用了多久」，需要先折算成标准距离成绩。</p>
-<pre><span class="kw">def</span> <span class="nm">predict_time</span>(t1, d1, d2, k=1.06):
-    <span class="cm"># Riegel 疲劳系数，k=1.06 为耐力跑通用值</span>
-    <span class="kw">return</span> t1 * (d2 / d1) ** k
+    return {"easy": (row.easy_lo, row.easy_hi), "marathon": ±6s(row.marathon), ...}
 
-<span class="kw">def</span> <span class="nm">vdot_from_recent_race</span>(recent_km, recent_sec, ability):
-    t_std = predict_time(recent_sec, recent_km, 10.0)
-    v = lookup_vdot_by_race(<span class="st">"10k"</span>, t_std)
-    <span class="kw">if</span> ability == <span class="st">"A_zero_base"</span>:
-        v *= 0.92          <span class="cm"># 零基础保守系数，见 3.1</span>
-    <span class="kw">return</span> clamp(v, 30, 60)</pre>
-<p style="margin:8px 0 0"><b>为什么加 0.92 而不是直接用</b>：A 类用户前 4 周掉队最集中（执行率 57.5%），他们的问题是初始强度偏高，不是不够强。</p>
-</div>
-</div>
+def vdot_from_recent_race(recent_km, recent_sec, ability):
+    t_std = predict_time(recent_sec, recent_km, 10.0)   # Riegel 公式 k=1.06 折算 10km
+    v = lookup_vdot_by_race("10k", t_std)
+    if ability == "A_zero_base": v *= 0.92              # 零基础保守系数（见 3.2）
+    return clamp(v, 30, 60)
 
-<pre><span class="cm"># ③ 周增幅约束：全书最硬的一条安全规则</span>
-MAX_WEEKLY_GAIN = 0.10
+MAX_WEEKLY_GAIN = 0.10                       # 全书最硬的一条安全规则：周增幅 ≤10%
 
-<span class="kw">def</span> <span class="nm">check_spike</span>(prev_km: float, cur_km: float) -&gt; Verdict:
-    <span class="kw">if</span> prev_km &lt;= 0:
-        <span class="kw">return</span> PASS
-    gain = (cur_km - prev_km) / prev_km
-    <span class="kw">if</span> gain &gt; MAX_WEEKLY_GAIN:
-        <span class="kw">return</span> HIT(rule=<span class="st">"WEEKLY_GAIN"</span>, need=cur_km, ceil=prev_km * (1 + MAX_WEEKLY_GAIN))
-    <span class="kw">return</span> PASS
+# 课次上限（SESSION_CAP）：2→2、3→3、4→4、5→5、6→5、7→5
+# 依据：训练学上每周超过 5 节课对新手风险大于收益；改成 6/7 天时课次不变，
+# 周审视页会显式提示「课次已达安全上限」，而不是装作排了更多课</pre>
+<div class="note"><span class="hd">为什么知识进 Git 不进数据库</span>VDOT 表不到 200 行，配上周期模板这种结构化配置，进 Git 意味着每次改知识都有 PR、有 review 痕迹、可回滚。训练知识是会出错的（书本身也有争议），<b>留修改痕迹比「改起来方便」重要得多</b>。</div>
 
-<span class="cm"># ④ 80/20 强度分布：低强度跑量占比</span>
-INTENSITY_FACTOR = {<span class="st">"easy"</span>:1.00, <span class="st">"marathon"</span>:1.15, <span class="st">"threshold"</span>:1.25,
-                    <span class="st">"interval"</span>:1.40, <span class="st">"repetition"</span>:1.50}
-
-<span class="kw">def</span> <span class="nm">check_8020</span>(week) -&gt; Verdict:
-    low  = sum(s.km <span class="kw">for</span> s <span class="kw">in</span> week.sessions <span class="kw">if</span> s.zone <span class="kw">in</span> (<span class="st">"easy"</span>, <span class="st">"marathon"</span>))
-    total= sum(s.km <span class="kw">for</span> s <span class="kw">in</span> week.sessions)
-    <span class="kw">return</span> PASS <span class="kw">if</span> low / total &gt;= 0.80 <span class="kw">else</span> HIT(rule=<span class="st">"INTENSITY_8020"</span>)</pre>
-
-<h4>周期模板（YAML，而非硬编码）</h4>
-<pre><span class="cm"># config/template_16w.yaml —— 知识变更走 PR review，不进数据库</span>
-total_weeks: 16
-mesocycle:   [load, load, load, cut]      <span class="cm"># 3 周递增 + 1 周减量（−30%）</span>
-taper_weeks: [15, 16]
-cut_ratio:   0.70
-key_sessions_per_week: 2
-long_run_cap_of_weekly_km: 0.30           <span class="cm"># 单次长距离不超过周跑量 30%</span>
-session_cap_by_avail_days: {3: 3, 4: 4, 5: 5}
-compensate_across_week: false             <span class="cm"># ← v3 → v3.1 唯一改动的常量，见 19.2</span></pre>
-
-<div class="note ok">
-<span class="hd">为什么知识要进 Git 而不是进数据库</span>
-VDOT 表全书不到 200 行，配上周期模板这种结构化配置，<b>进 Git 意味着每次改知识都有 PR、都有 review 痕迹、都可以回滚</b>。
-训练知识是会出错的（书本身也有争议），留修改痕迹比"改起来方便"重要得多。
-</div>
-
-<h3>8.2 通道 B · LLM 解释层（约 20%）</h3>
-<div class="grid2">
-<div class="card tight">
-<h4>模型的两个用途，且只有这两个</h4>
-<ol>
-<li><b>重排解释文案</b>：把规则引擎算出的结构化方案，翻译成用户能接受的建议（+17.5pp 接受率）</li>
-<li><b>画像自由文本解析</b>：把「我最近膝盖有点紧」解析成 <code>{injury_part: "knee", severity: "mild"}</code></li>
-</ol>
-<p><b>它绝不参与</b>：配速计算、跑量分配、周期安排、增幅校验。所有数字必须由 <code>knowledge.rules</code> 产出后<b>传入</b> prompt。</p>
-</div>
-<div class="card tight">
-<h4>对应的单测守护</h4>
-<pre><span class="kw">def</span> <span class="nm">test_llm_never_computes</span>():
-    ctx = make_ctx(...)
-    out = explain.render(ctx)
-    nums = re.findall(<span class="st">r"\d+(?:\.\d+)?"</span>, out.text)
-    allowed = flatten_numbers(ctx.facts)
-    <span class="kw">assert</span> set(nums) &lt;= set(allowed), \
-        <span class="st">"文案出现了 context 中不存在的数字"</span></pre>
-<p style="margin:8px 0 0">这条断言比任何 prompt 都管用 —— <b>模型一旦编数字，测试立刻红，然后走模板降级</b>。</p>
-</div>
-</div>
-
-<h3>8.3 证据：同一批 240 题，规则引擎 vs RAG</h3>
+<h3>8.2 通道 B · RAG 知识层（v1 只有解释层，v2 长成完整知识层）</h3>
+<p>三份结构化知识文档（<code>docs/training-principles.md</code> 训练原则 / <code>docs/running-experience.md</code> 跑者经验 / <code>docs/injury-rehab.md</code> 伤病康复），统一「### id · 名称 / - tags: / - text:」三分块格式，启动时解析成带标签的条目库；<b>文件全部缺失时回退到内联兜底条目</b>，知识层永不空转。</p>
 <table>
-<thead><tr><th style="width:24%">题型</th><th class="n">题数</th><th class="n">规则引擎</th><th class="n">RAG 基线</th><th class="n">差距</th><th>说明</th></tr></thead>
+<thead><tr><th style="width:26%">机制</th><th>真实实现</th></tr></thead>
 <tbody>
-<tr><td>VDOT 配速表查值</td><td class="n">80</td><td class="n">100%</td><td class="n">76.3%</td><td class="n">+23.7pp</td><td>差距最大的一类</td></tr>
-<tr><td>周跑量增幅约束</td><td class="n">60</td><td class="n">100%</td><td class="n">73.3%</td><td class="n">+26.7pp</td><td>数值比较，检索抓不准</td></tr>
-<tr><td>周期结构判定</td><td class="n">50</td><td class="n">96.0%</td><td class="n">82.0%</td><td class="n">+14.0pp</td><td>原则型，RAG 尚可</td></tr>
-<tr><td>强度分布判定</td><td class="n">50</td><td class="n">92.0%</td><td class="n">84.0%</td><td class="n">+8.0pp</td><td>原则型，差距最小</td></tr>
-<tr style="font-weight:600;background:#eef3f9 !important"><td>合计</td><td class="n">240</td><td class="n">97.5%</td><td class="n">78.3%</td><td class="n">+19.2pp</td><td>—</td></tr>
+<tr><td><b>语义召回</b></td><td>不是随机抽一条：用户连续两次打卡不足 → 优先「恢复/临时抱佛脚」类；上报膝盖酸痛 → 优先伤病条目；按用户状态与 tags 匹配，同组内轮换避免重复</td></tr>
+<tr><td><b>双消费出口</b></td><td>① 周审视页「跑步知识」卡片（每次刷新按召回策略取一条）；② 跑小助问答（作为上下文喂给 LLM）</td></tr>
+<tr><td><b>出处与合规</b></td><td>回答带来源标注；伤病条目强制附「仅供参考，必要时请及时就医」——产品红线</td></tr>
+<tr><td><b>案例召回</b></td><td>ai_case 里被采纳的 AI 微调案例进入召回池，「上次类似情况我们这样调过」成为知识的一部分</td></tr>
 </tbody>
 </table>
-<div class="note">
-<span class="hd">这张表最有价值的信息不是「规则引擎更好」，而是「差距分布不均」</span>
-差距最大的是<b>数值型知识</b>（查表 76.3%），最小的是<b>原则型知识</b>（强度分布 84.0%）。原因很直白：
-VDOT 45 对应 5:07/km 这种数值关系，在语义空间里几乎不可分辨，检索回来的往往是「相邻 VDOT」的段落，模型再一插值，数字就错了。
-所以结论不是「RAG 不好」，而是<b>按知识类型分配处理方式</b>。
-<br><br><b>面试金句：判断哪些知识不该交给模型，比调 prompt 更重要。</b>
-</div>
 
-<h3>8.4 解释层评测：它真的有用吗</h3>
-<div class="grid4">
-<div class="kpi"><div class="v">4.3<span style="font-size:15px;color:#86909c">/5</span></div><div class="k">相关性</div><div class="d flat">n=100</div></div>
-<div class="kpi"><div class="v">3.8<span style="font-size:15px;color:#86909c">/5</span></div><div class="k">可执行性</div><div class="d flat">n=100</div></div>
-<div class="kpi"><div class="v">4.6<span style="font-size:15px;color:#86909c">/5</span></div><div class="k">无幻觉</div><div class="d up">最高项</div></div>
-<div class="kpi"><div class="v">+17.5pp</div><div class="k">接受率提升</div><div class="d up">78.3% vs 60.8%</div></div>
-</div>
-<table>
-<thead><tr><th style="width:34%">A/B 展示方式（各 120 次）</th><th class="n">展示</th><th class="n">接受</th><th class="n">接受率</th></tr></thead>
-<tbody>
-<tr><td>有个性化解释</td><td class="n">120</td><td class="n">94</td><td class="n hl">78.3%</td></tr>
-<tr><td>仅给出调整结果（无解释）</td><td class="n">120</td><td class="n">73</td><td class="n">60.8%</td></tr>
-<tr style="font-weight:600"><td>差异</td><td class="n">—</td><td class="n">—</td><td class="n">+17.5pp</td></tr>
-</tbody>
-</table>
-<p><b>为什么解释能提升接受率？</b>用户在被改计划时的本能反应是「我是不是掉队了」。解释解决的不是信息问题，是<b>焦虑问题</b>：告诉他这次调整有依据、代价可控、后续不受影响。这是纯产品判断 —— 换成规则引擎这句话一样写不出来，但也没必要让它写。<b>规则引擎负责「算得对」，模型负责「说得清」。</b></p>
+<h3>8.3 跑小助：多轮 AI 助手（v2 新增）</h3>
+<ul>
+<li><b>多轮上下文</b>：先问「我膝盖疼」再问「那今天还能跑吗」能衔接上——服务端保存该用户会话历史并随消息下发；</li>
+<li><b>会话隔离</b>：assistant_msg 按 user_id 隔离，<b>退出登录即清空</b>，杜绝账号间串话（这是真实修过的安全问题）；</li>
+<li><b>RAG 带出处的回答</b>：召回条目进 prompt，回答标注来自哪份知识文档；无密钥时降级为纯规则模板问答。</li>
+</ul>
+
+<h3>8.4 知识层分工的判断标准（不变）</h3>
+<div class="note"><span class="hd">面试金句</span>判断哪些知识不该交给模型，比调 prompt 更重要。数值型知识（VDOT 45 → 5:07/km）在语义空间里几乎不可分辨，检索回来的往往是相邻段落，模型一插值数字就错；原则型知识（80/20 强度分布）交给 RAG 才合适。<b>按知识类型分配处理方式</b>，而不是全塞给向量库。</div>
 
 <h2>09 规划层实现</h2>
-<div class="sub">从通用原则到个人计划的那一步 —— 也就是 v1 停下来的地方</div>
+<div class="sub">从通用原则到个人计划的那一步</div>
 
-<h3>9.1 生成 Pipeline（7 步）</h3>
-<pre><span class="kw">def</span> <span class="nm">generate_plan</span>(profile: Profile) -&gt; Plan <span class="kw">or</span> Reject:
-    <span class="cm"># ① 护栏前置：准入门槛（在任何计算之前）</span>
-    <span class="kw">if</span> profile.avail_days &lt; 2 <span class="kw">or</span> profile.major_injury_in_3m:
-        <span class="kw">return</span> Reject(reason=<span class="st">"CAPACITY_OR_INJURY"</span>, suggest=<span class="st">"half_marathon / 就医"</span>)
+<h3>9.1 生成 Pipeline（真实实现）</h3>
+<pre>generate_plan(profile):
+    # ① 护栏前置：准入判定（在任何计算之前）
+    if profile.avail_days < 2 or profile.major_injury:  → Reject("建议半马/就医")
+    # ② 能力参数化：成绩 → VDOT → 5 档配速区间（Riegel 折算 + 0.92 保守系数）
+    vdot, zones = rules.vdot_from_recent_race(...), rules.pace_zones(vdot)
+    # ③ 课次上限收敛：SESSION_CAP[avail_days]；BMI 偏大 → 保守模式（强度课降档起步）
+    # ④ 周期展开：3 周递增 + 1 周减量（−30%），15-16 周 taper；周增幅过 10% 即截断
+    # ⑤ 生成即过护栏（不是事后检查）：guard.check(plan)，不过则修复重排
+    # ⑥ 幂等：同 profile 哈希 → 同计划（方便回放对照）</pre>
 
-    <span class="cm"># ② 能力参数化：成绩 → VDOT → 5 档配速区间</span>
-    vdot = rules.vdot_from_recent_race(profile.recent_km, profile.recent_sec, profile.ability)
-    zones = rules.pace_zones(vdot)
-
-    <span class="cm"># ③ 课次上限收敛 —— v3.1 的核心改动就在这里</span>
-    cap = TEMPLATE.session_cap_by_avail_days[profile.avail_days]   <span class="cm"># 3 / 4 / 5</span>
-
-    <span class="cm"># ④ 周跑量基线与周期展开</span>
-    base_km = estimate_base(vdot, cap, profile.max_duration)
-    weeks = []
-    <span class="kw">for</span> w <span class="kw">in</span> range(1, 17):
-        phase = phase_of(w)                    <span class="cm"># load/load/load/cut，15-16 taper</span>
-        km    = base_km * ramp(w) * (TEMPLATE.cut_ratio <span class="kw">if</span> phase == <span class="st">"cut"</span> <span class="kw">else</span> 1.0)
-        km    = min(km, weeks[-1].km * (1 + MAX_WEEKLY_GAIN)) <span class="kw">if</span> weeks <span class="kw">else</span> km
-        sessions = layout_sessions(w, km, zones, cap)   <span class="cm"># 关键课固定 2 次</span>
-        _assert(rules.check_8020(sessions).ok, <span class="st">"80/20 不通过，回落重试"</span>)
-        weeks.append(Week(w, phase, km, sessions))
-
-    <span class="cm"># ⑤ 生成即过护栏（不是事后检查）</span>
-    verdict = guard.check(Plan(weeks))
-    <span class="kw">if</span> <span class="kw">not</span> verdict.ok: weeks = repair(weeks, verdict)
-
-    <span class="cm"># ⑥ 幂等：同 profile 哈希 → 同计划（方便回放与对照）</span>
-    plan.version = hashlib.sha1(profile.json()).hexdigest()[:8]
-    <span class="kw">return</span> Plan(weeks)</pre>
-
-<h3>9.2 课次上限（<code>SESSION_CAP</code>）—— 一个 3 行改动带来 +17.1pp</h3>
+<h3>9.2 与真实使用对齐后的三个细节</h3>
 <table>
-<thead><tr><th style="width:22%">可用天数</th><th class="n">每周课次上限</th><th class="n">关键课</th><th class="n">辅助课上界</th><th>依据</th></tr></thead>
+<thead><tr><th style="width:22%">细节</th><th>实现与原因</th></tr></thead>
 <tbody>
-<tr><td>≤3 天/周</td><td class="n hl">3</td><td class="n">2</td><td class="n">1</td><td>该人群原执行率 52.4%，改动后 <b>69.5%（+17.1pp）</b></td></tr>
-<tr><td>4 天/周</td><td class="n">4</td><td class="n">2</td><td class="n">2</td><td>主力人群，计划与生活结构基本匹配</td></tr>
-<tr><td>≥5 天/周</td><td class="n">5</td><td class="n">2</td><td class="n">3</td><td>时间充裕，掉队主因是强度与天气</td></tr>
+<tr><td><b>关键课永远占 2 次</b></td><td>被砍的永远是辅助课。SESSION_CAP 常量放在 knowledge.rules，生成器和重排引擎都从这一处读，<b>不允许各自硬编码</b>——否则会出现「生成时说每周 3 次、重排后变 5 次」这种直接摧毁信任的 bug</td></tr>
+<tr><td><b>BMI 保守模式</b></td><td>BMI 偏大用户自动进入保守规划：课表更温和，周审视页标注「保守规划周（BMI 适配）」——让用户知道计划温和是刻意的，不是自己退步了（见 11.4）</td></tr>
+<tr><td><b>改参数不清进度</b></td><td>修改训练天数 / 强度 / 体重后<b>只重排今天以外的未开始周</b>，已打卡的历史永不动。早期版本会重建整个计划导致进度清零，是真实踩过的坑（见 19）</td></tr>
 </tbody>
 </table>
-<div class="note">
-<b>关键课永远占 2 次，被砍的永远是辅助课。</b>这条规则同时出现在生成器和重排引擎里 ——
-如果两边不一致，用户会遇到「生成时说每周 3 次，重排之后变 5 次」这种直接摧毁信任的 bug。工程上做法是：
-<code>SESSION_CAP</code> 常量放在 <code>knowledge.rules</code>，生成器和重排引擎都从这里读，<b>不允许各自硬编码</b>。
-</div>
 
-<h3>9.3 v1 就停在这里，然后失败了</h3>
-<div class="card tight">
-<p>v1 完整实现了上面全部 7 步，计划生成质量经人工抽检是合格的（规则引擎准确率 97.5% 就是那次测的），但<b>周计划执行率只有 41.2%</b>。</p>
-<p>原因不是计划不科学，是计划<b>假设了一个不存在的用户</b>：时间充裕、天气配合、身体听话。这一版的价值在于它证明了 —— <b>在这个场景里，生成质量不是瓶颈，容错能力才是</b>。</p>
-</div>
-
-<h2>10 适应层实现：周级重排决策引擎</h2>
+<h2>10 适应层实现：重排决策引擎 + 能力重估</h2>
 <div class="sub">整个产品的核心。成败不取决于「能不能生成」，取决于「被打断之后怎么修」</div>
 
-<h3>10.1 触发源与上下文结构</h3>
+<h3>10.1 触发源与上下文（真实）</h3>
 <table>
-<thead><tr><th style="width:26%">触发源</th><th class="n">v2 期次数</th><th class="n">占比</th><th style="width:14%">提前获知</th><th style="width:16%">处理倾向</th><th>入口</th></tr></thead>
+<thead><tr><th style="width:30%">触发源</th><th style="width:16%">提前获知</th><th>处理倾向</th></tr></thead>
 <tbody>
-<tr><td>天气硬约束（暴雨/雷电/AQI&gt;150）</td><td class="n">106</td><td class="n">43.8%</td><td>提前 1–3 天</td><td>替换（室内/交叉）</td><td class="mono">daily_job</td></tr>
-<tr><td>身体状态主动上报（酸痛/睡眠/疲劳）</td><td class="n">94</td><td class="n">38.8%</td><td>当天</td><td>降级，严重时压缩</td><td class="mono">today_card</td></tr>
-<tr><td>时间冲突（出差/加班/临时安排）</td><td class="n">42</td><td class="n">17.4%</td><td>当天或提前 1 天</td><td>优先顺延，无空闲日则压缩</td><td class="mono">session_log</td></tr>
-<tr style="font-weight:600"><td>合计</td><td class="n">242</td><td class="n">100%</td><td colspan="3"></td></tr>
+<tr><td>天气硬约束（暴雨/雷电/高温体感）</td><td>提前 1–3 天</td><td>替换（室内/交叉）或顺延</td></tr>
+<tr><td>身体状态上报（酸痛/睡眠/疲劳，打卡流程内嵌采集）</td><td>当天</td><td>降级，严重时压缩</td></tr>
+<tr><td>打卡偏差（实际 vs 计划差 ≥30%）</td><td>当天</td><td>追问「临时起意 / 强度不匹配」，后者触发能力重估</td></tr>
+<tr><td>实际成绩显著超出 VDOT（超额完成）</td><td>当天</td><td>弹窗建议进阶 → 重算 VDOT 刷新未来周</td></tr>
 </tbody>
 </table>
-<pre><span class="kw">@dataclass</span>
-<span class="kw">class</span> <span class="nm">RearrangeContext</span>:
-    user_id, week_no: int
-    remaining: list[Session]        <span class="cm"># 本周尚未执行的课（含 is_key 标记）</span>
-    avail_days_left: int            <span class="cm"># 本周剩余可训练日（扣掉不可训练日）</span>
-    weather: dict[date, WeatherDay]
-    status: list[StatusReport]      <span class="cm"># 近 3 天酸痛 / 睡眠 / 疲劳</span>
-    prev_week_km, planned_week_km: float
-    injury_reports_14d: int
-    trigger_src: str
-    arm: str = <span class="st">"default"</span>          <span class="cm"># A/B 分流，v3 期间用</span></pre>
 
-<div class="note amber">
-<span class="hd">一个容易被忽略的前提：38.8% 的触发依赖用户主动上报</span>
-v2 期<b>主动上报率只有 42.6%</b> —— 超过一半的「状态不好」我们根本不知道，重排引擎无从谈起。
-v3.1 把上报入口前置到「今日打卡」里（打卡即上报，一次点击），上报率升到 <b>51.2%</b>。
-这是 v3.1 执行率能再涨一部分的隐藏原因 —— <b>不是算法变好，是数据变全了</b>。
-做 AI 产品时常犯的错就是盯着模型，而这类收益往往在<b>数据采集侧</b>。
-</div>
+<h3>10.2 策略库与打分（真实实现：adapt 包）</h3>
+<p>不是 if-else 链，是「候选生成 → 全量过护栏 → 打分排序」。6 个候选生成器：<code>gen_replace / gen_downgrade / gen_compress / gen_postpone / gen_deload / gen_noop</code>（永远保留「什么都不做 / 标记降载」作为兜底）。打分函数与 v1 设计一致：</p>
+<pre>score = 0.55 × p_complete(本周交付概率，逐日累乘存活概率)
+      + 0.30 × key_stimulus_kept(关键训练刺激保留率，按强度当量算不是按公里算)
+      + 0.15 × safety_margin(安全余量)</pre>
+<div class="note"><span class="hd">这条打分函数天然推出的反直觉排序</span><b>顺延</b>看起来「什么都没少」（削减 0 km），但交付概率最低——课推到更晚，剩余每天都还有被打断概率，累乘下来整体交付率反而下降；<b>压缩</b>砍的是低强度辅助课，关键刺激保留率只掉一点，却把课压进确定能跑的日子。<b>重排的目标不是「把课排完」，而是「保住本周的训练刺激」。</b></div>
 
-<h3>10.2 策略库与效果排序（这张表是整个项目最锋利的一处）</h3>
-<table>
-<thead><tr><th style="width:26%">策略</th><th class="n">触发次数</th><th class="n">占比</th><th class="n">当周完成率</th><th class="n">平均削减跑量</th><th>适用条件</th></tr></thead>
-<tbody>
-<tr><td><b>压缩</b> · 砍辅助课保关键课</td><td class="n">33</td><td class="n">13.6%</td><td class="n hl">88.5%</td><td class="n">3.2 km</td><td>剩余天数不足，牺牲轻松跑，绝不牺牲长距离</td></tr>
-<tr><td><b>降级</b> · 降强度不改课型</td><td class="n">92</td><td class="n">38.0%</td><td class="n">81.2%</td><td class="n">1.8 km</td><td>状态偏差 / 高温，间歇→节奏，节奏→轻松</td></tr>
-<tr><td><b>替换</b> · 改室内或交叉训练</td><td class="n">52</td><td class="n">21.5%</td><td class="n">69.4%</td><td class="n">0.6 km</td><td>硬约束导致户外不可行</td></tr>
-<tr><td><b>顺延</b> · 本周内换一天</td><td class="n">65</td><td class="n">26.9%</td><td class="n" style="color:#c0392b;font-weight:700">64.8%</td><td class="n">0 km</td><td>仅当前三条都不适用时使用</td></tr>
-<tr style="font-weight:600"><td>合计</td><td class="n">242</td><td class="n">100%</td><td class="n">—</td><td class="n">—</td><td>—</td></tr>
-</tbody>
-</table>
-<div class="note warn">
-<span class="hd">反直觉的地方，也是整个产品的支点</span>
-<b>顺延</b>看起来「什么都没少」（削减 0 km），效果却最差 64.8%；<b>压缩</b>看起来「少了东西」（削减 3.2 km），效果最好 88.5%。
-<br>因为顺延只是<b>把问题推到明天</b> —— 明天同样可能被打断，而且越往后堆积越多；压缩则是<b>明确承认这周装不下，然后保住真正有价值的那两次</b>。
-<br><br><b>认知：重排的目标不是「把课排完」，而是「保住本周的训练刺激」。</b>
-</div>
+<h3>10.3 compensate_across_week = False：一条不会回头的决定</h3>
+<p>本周缺口标记为沉没成本（week.is_dropped），下周按原周期继续，<b>没有任何 append / rebalance</b>。沉淀的规则：训练计划的缺口是沉没成本，不可补偿；补偿会把它从「一次性损失」变成「复利负担」。正确的容错方式是「重新分配未来」，不是「偿还过去」。</p>
 
-<h3>10.3 候选生成 → 护栏过滤 → 打分排序</h3>
-<pre><span class="cm"># 设计要点：不是写死 if-else 链，而是「候选 + 过滤 + 打分」</span>
-<span class="cm"># 好处：新策略只需加一个 generator；被拦的方案有留痕；排序可解释</span>
+<h3>10.4 AI 微调（tune 包）：让 LLM 参与排课，但只作为微调</h3>
+<pre>微调课表 = LLM(本周课表 + 用户状态 + 结构红线清单) → 候选新课表
+for 红线 in [轻松跑距离 ≤ 长距离距离, 周增幅 ≤ 10%, 长距离次日必须休息, ...]:
+    if 违反(红线, 候选): 拒用，回退规则模板</pre>
+<p>真实教训：AI 微调曾把轻松跑拉得比长距离还长——是靠结构红线断言拦下来的，不是 prompt 够聪明。这条红线清单已沉淀进 RAG 知识库，prompt 显式引用。<b>LLM 的建议权必须配代码的否决权。</b></p>
 
-<span class="kw">def</span> <span class="nm">rearrange</span>(ctx: RearrangeContext) -&gt; (main, alt):
-    candidates = []
-    <span class="kw">for</span> gen <span class="kw">in</span> GENERATORS:                 <span class="cm"># 按策略优先级：replace→downgrade→compress→postpone</span>
-        c = gen.build(ctx)
-        <span class="kw">if</span> c <span class="kw">is</span> <span class="kw">None</span>: <span class="kw">continue</span>
-        v = guard.check(c, ctx)                <span class="cm"># 全量过护栏，一个都不跳过</span>
-        guard_audit.log(c, v)                  <span class="cm"># 连 pass 也记，方便算「差点被拦」</span>
-        <span class="kw">if</span> v.ok:
-            candidates.append(c.patch_by(v) <span class="kw">if</span> v.action == <span class="st">"patch"</span> <span class="kw">else</span> c)
-
-    candidates.append(<span class="st">"NOOP_drop_week"</span>)         <span class="cm"># 永远保留「什么都不做/标记降载」作为兜底</span>
-    ranked = sorted(candidates, key=<span class="kw">lambda</span> c: score(c, ctx), reverse=True)
-    <span class="kw">return</span> ranked[0], ranked[1] <span class="kw">if</span> len(ranked) &gt; 1 <span class="kw">else</span> <span class="kw">None</span></pre>
-
-<h4>打分函数：为什么顺延会被压到最低</h4>
-<pre><span class="cm"># 1) 本周还能不能交付 —— 逐日累乘存活概率</span>
-<span class="kw">def</span> <span class="nm">p_complete</span>(ctx, plan) -&gt; float:
-    p = 1.0
-    <span class="kw">for</span> s <span class="kw">in</span> plan.sessions:
-        d = ctx.weather[s.date]
-        pen = 0.35 <span class="kw">if</span> d.hard_constraint <span class="kw">else</span> (0.15 <span class="kw">if</span> d.apparent_max &gt;= 30 <span class="kw">else</span> 0.0)
-        pen += 0.20 <span class="kw">if</span> ctx.has_soreness(s.date) <span class="kw">else</span> 0.0
-        p *= (1 - clamp(0.18 + pen, 0.03, 0.75))     <span class="cm"># base 0.18</span>
-    <span class="kw">return</span> p
-
-<span class="cm"># 2) 关键训练刺激保留率 —— 按强度当量算，不是按公里算</span>
-<span class="kw">def</span> <span class="nm">key_stimulus_kept</span>(ctx, plan) -&gt; float:
-    src = sum(s.km * INTENSITY_FACTOR[s.zone] <span class="kw">for</span> s <span class="kw">in</span> ctx.remaining <span class="kw">if</span> s.is_key)
-    kept= sum(s.km * INTENSITY_FACTOR[s.zone] <span class="kw">for</span> s <span class="kw">in</span> plan.sessions <span class="kw">if</span> s.is_key)
-    <span class="kw">return</span> kept / src <span class="kw">if</span> src <span class="kw">else</span> 1.0
-
-<span class="cm"># 3) 综合分：交付概率优先，刺激保留次之，安全余量为底</span>
-<span class="kw">def</span> <span class="nm">score</span>(c, ctx) -&gt; float:
-    <span class="kw">return</span> 0.55 * p_complete(ctx, c) \
-         + 0.30 * key_stimulus_kept(ctx, c) \
-         + 0.15 * safety_margin(ctx, c)</pre>
-<div class="note">
-<span class="hd">这个打分函数解释了那条反直觉的结论</span>
-<b>顺延</b>的 <code>key_stimulus_kept = 1.0</code>（什么都没砍），但它的<code>p_complete</code> 最低 ——
-因为课被推到更晚的日子后，剩余每一天都还有被打断的概率，累乘下来整体交付概率反而下降。
-<b>压缩</b>砍掉的是低强度的辅助课，<code>key_stimulus_kept</code> 只掉一点点，却把课压缩到确定能跑的日子里。
-<br>78.8% 的策略分布（降级 + 压缩占 51.6%）是被这个打分函数自然选出来的，不是硬编码的偏好。
-</div>
-
-<h3>10.4 <code>compensate_across_week</code>：v3 与 v3.1 的唯一差别</h3>
-<pre><span class="cm"># v3（失败）：把上周缺口塞进本周</span>
-<span class="kw">if</span> TEMPLATE.compensate_across_week:
-    carried = ctx.last_week_missing_key_sessions      <span class="cm"># ← 问题根源</span>
-    for s in carried: plan.append(deepcopy(s))
-    plan.sort_by_date()
-
-<span class="cm"># v3.1（成立）：缺口标记为沉没成本，下周按原周期继续</span>
-<span class="kw">if</span> <span class="kw">not</span> TEMPLATE.compensate_across_week <span class="kw">and</span> week.key_completion &lt; 0.5:
-    week.is_dropped = True            <span class="cm"># 只打标记，不删课次，保留原计划用于对照</span>
-    <span class="cm"># 注意：这里没有任何 append / rebalance 动作</span></pre>
-<div class="note warn">
-<span class="hd">一行常量的代价是 7.6pp</span>
-v3 和 v3.1 的代码差异<b>只有这一个布尔值</b>，执行率却是 65.4% vs 72.5%。
-同期随机分流 A/B（206 vs 205 人周）显示实验组执行率 <b>61.7% vs 69.4%（−7.6pp）</b>。
-难得的是三个指标串成了同一条因果链：补账 → 负荷堆叠（增幅超限 <b>+15.0pp</b>）→ 用户看到课表就不想打开（接受率 <b>−25.0pp</b>，最先崩）→ 产生新缺口（中断率 <b>+11.1pp</b>）。
-<br><b>沉淀出来的规则：训练计划的缺口是沉没成本，不可补偿。正确的容错方式是「重新分配未来」，不是「偿还过去」。</b>
-</div>
-
-<h3>10.5 一次端到端 trace（可以直接当测试用例）</h3>
-<table>
-<thead><tr><th style="width:20%">候选</th><th style="width:22%">具体改动</th><th class="n">p_complete</th><th class="n">key_stim</th><th class="n">score</th><th>结果</th></tr></thead>
-<tbody>
-<tr><td class="mono">replace</td><td>周四阈值 8km → 室内交叉 40min</td><td class="n">0.71</td><td class="n">0.82</td><td class="n">0.68</td><td>备选</td></tr>
-<tr><td class="mono">downgrade</td><td>周四阈值 → 轻松 6km（6:10-6:30）</td><td class="n">0.74</td><td class="n">0.78</td><td class="n">0.70</td><td>—</td></tr>
-<tr><td class="mono"><b>compress</b></td><td>删周日轻松 6km，保周四 + 周六长距离</td><td class="n">0.79</td><td class="n">1.00</td><td class="n hl">0.81</td><td><b>主方案</b></td></tr>
-<tr><td class="mono">postpone</td><td>周四 → 周日（推后 3 天）</td><td class="n">0.52</td><td class="n">1.00</td><td class="n" style="color:#c0392b">0.58</td><td>被压到最后</td></tr>
-</tbody>
-</table>
-<p style="font-size:13px;color:#86909c">场景：第 9 周，剩余计划为「周四阈值跑 8km / 周六长距离 18km / 周日轻松跑 6km」；用户周三上报小腿酸痛，周四中雨。<code>avail_days_left = 3</code>。数值为口径示意。</p>
-
-<h3>10.6 能力重估：让执行结果反过来作用于未来</h3>
-<pre><span class="cm"># 每 4 周一次，用实际配速回写 VDOT（悦跑圈那课：数据不能只躺在历史里）</span>
-<span class="kw">def</span> <span class="nm">reevaluate_vdot</span>(user, logs_4w):
-    best = argmax(<span class="kw">lambda</span> l: implied_vdot(l) <span class="kw">for</span> l <span class="kw">in</span> logs_4w)
-    new  = implied_vdot(best)
-    <span class="kw">if</span> abs(new - user.vdot) &gt;= 1.5:              <span class="cm"># 死区，避免抖动</span>
-        user.vdot = new; plan.refresh_future_weeks(user)
-        <span class="cm"># 注意：只刷新「尚未开始」的周，已执行的周永远不动</span></pre>
+<h3>10.5 能力重估：让执行结果反过来作用于未来</h3>
+<pre>reevaluate_vdot(logs):  new = implied_vdot(最佳一次实测)
+    if abs(new - user.vdot) >= 1.5:        # 死区，避免抖动
+        user.vdot = new
+        refresh_future_weeks(user)          # 只刷新「尚未开始」的周，已执行的周永远不动</pre>
+<p>真实入口有三个：① 打卡偏差 ≥30% 且用户确认「强度不匹配」；② 超额完成进阶确认；③ 智能识别成绩确认。入口不同，归一化到同一条重估逻辑——<b>应用规则只有一套，避免分散的特例</b>。</p>
 
 <h2>11 护栏层实现</h2>
-<div class="sub">三条红线，一个不可绕过的纯函数，一次都不允许例外</div>
+<div class="sub">三条红线 + 两条体感红线 + 一套结构断言，一个不可绕过的纯函数，一次都不允许例外</div>
 
-<h3>11.1 三条红线与判定实现</h3>
-<pre><span class="kw">RULES</span> = [R_WEEKLY_GAIN, R_CONSECUTIVE_HARD, R_INJURY_WINDOW]
-
-<span class="kw">def</span> <span class="nm">guard.check</span>(plan_or_candidate, ctx) -&gt; Verdict:
-    <span class="kw">for</span> r <span class="kw">in</span> RULES:
-        v = r(plan_or_candidate, ctx)
-        <span class="kw">if</span> <span class="kw">not</span> v.ok:
-            <span class="kw">return</span> Verdict(ok=False, hit_rule=r.name,
-                          action=<span class="st">"patch"</span> <span class="kw">if</span> v.fixable <span class="kw">else</span> <span class="st">"block"</span>,
-                          reason_user=v.user_text)      <span class="cm"># 必须能生成人话</span>
-    <span class="kw">return</span> Verdict(ok=True)</pre>
-<div class="grid3">
-<div class="card tight">
-<h4>红线一 · 周增幅 ≤10%</h4>
-<pre><span class="kw">def</span> <span class="nm">R_WEEKLY_GAIN</span>(p, ctx):
-    g = (p.total_km - ctx.prev_week_km) / ctx.prev_week_km
-    <span class="kw">return</span> fail(<span class="st">"WEEKLY_GAIN"</span>) <span class="kw">if</span> g &gt; 0.10 <span class="kw">else</span> ok()</pre>
-<p style="margin:8px 0 0">书籍里最硬的一条。<b>v3 就栽在这</b>：超限率 3.1% → 10.9%。</p>
-</div>
-<div class="card tight">
-<h4>红线二 · 无连续 3 天高强度</h4>
-<pre><span class="kw">def</span> <span class="nm">R_CONSEC_HARD</span>(p, ctx):
-    <span class="kw">for</span> tri <span class="kw">in</span> window(p.by_date, 3):
-        <span class="kw">if</span> all(s.zone <span class="kw">in</span> HARD <span class="kw">for</span> s <span class="kw">in</span> tri):
-            <span class="kw">return</span> fail(<span class="st">"CONSECUTIVE_HARD"</span>)
-    <span class="kw">return</span> ok()</pre>
-<p style="margin:8px 0 0">受伤最主要的近因是<b>高强度堆叠</b>，而不是单次强度过高。</p>
-</div>
-<div class="card tight">
-<h4>红线三 · 14 天伤痛预警降载</h4>
-<pre><span class="kw">def</span> <span class="nm">R_INJURY_WINDOW</span>(p, ctx):
-    <span class="kw">if</span> ctx.injury_reports_14d &gt;= 2:
-        <span class="kw">return</span> fail(<span class="st">"INJURY_WINDOW"</span>, block=True)
-    <span class="kw">return</span> ok()</pre>
-<p style="margin:8px 0 0">命中后强制降载 1 周：<b>只保留轻松跑，且不允许补偿</b>。</p>
-</div>
-</div>
-
-<h3>11.2 为什么护栏必须独立 + 必须留痕</h3>
-<pre>guard_audit ──►  每行记录： who / week_no / hit_rule / before / after / action / reason_user
-               │
-               ├─► 指标「护栏有效性」 = count(action='block') / count(all)
-               ├─► 复盘时回答「我们到底拦下了什么」
-               └─► 用户侧直接从 reason_user 渲染，保证「拦得住也说得清」</pre>
-<div class="note warn">
-<span class="hd">最容易退化的一处工程约束</span>
-护栏如果不留痕，你永远无法证明它有用 —— 只会看到「伤痛率本来就不高」。
-同理，<b>pass 也要记</b>：只有知道「差点被拦下但通过了」的占比，才能判断红线阈值是不是定得太松。
-趁早一次性把这个表建起来，比事后补数据容易一百倍。
-</div>
-
-<h3>11.3 反增长设计：敢让用户少练</h3>
-<pre><span class="cm"># 触发条件 —— 一个刻意滞后的判断，避免单次波动误伤</span>
-<span class="kw">def</span> <span class="nm">should_suggest_degrade</span>(plan, recent_weeks=3) -&gt; bool:
-    done = sum(w.key_done <span class="kw">for</span> w <span class="kw">in</span> plan.weeks[-recent_weeks:])
-    plan_= sum(w.key_plan <span class="kw">for</span> w <span class="kw">in</span> plan.weeks[-recent_weeks:])
-    <span class="kw">return</span> done / plan_ &lt; 0.50
-
-<span class="cm"># 命中后不自动执行任何事 —— 只弹卡片，把决定权交回用户</span>
-# → POST /v1/plan/{id}/degrade-goal  {to: half | defer | insist}</pre>
-
-<div class="mock">
-<div class="mock-h">主动劝降弹窗（连续 3 周关键课完成率 &lt;50% 时触发）</div>
-<div class="mock-b">
-<div class="line"><span class="hi">标题</span>：按现在的进度，10 月 11 日直接跑全马会有风险</div>
-<div class="line"><span class="hi">正文</span>：过去 3 周你完成了 6 次关键课里的 2 次，累计跑量比计划少 43 km。按当前趋势推算，赛前最长只能安全完成 24 km。</div>
-<div class="line"><span class="hi">选项 A</span>：把目标调整为半马（21.1 km），剩余 8 周计划已重新生成，完赛把握高</div>
-<div class="line"><span class="hi">选项 B</span>：保持全马目标，赛事延后到下一期，用这 8 周先打有氧基础</div>
-<div class="line"><span class="hi">选项 C</span>：我知道风险，仍按原计划继续（需手动确认，且本周自动进入降载模式）</div>
-</div></div>
-<div class="note warn">
-<span class="hd">这是一个会主动损失用户的设计</span>
-首批 cohort 里有 5 人接受建议降为半马或延期，另有 14 人在生成计划前就被劝退。短期看是负向的，
-但留下的是能安全完赛的人 —— <b>最终 21 人报名、17 人完赛，完赛率 81.0%，无一人中途就医</b>。
-训练类产品最怕的不是用户少，是用户在赛道上出事。
-<br><br><b>产品敢说「你的目标定高了」，这是真正站在用户立场上的判断</b> —— 也是这个项目里我最想体现的一点。
-工程上对应的约束是：<b>命中条件后系统不允许自动改目标</b>，必须用户点确认 —— 建议权在产品，决定权在用户。
-</div>
-
-<h2>12 天气子系统实现</h2>
-<div class="sub">硬约束与软调节要分开处理 —— 判定口径错了，用户就不再听你的</div>
-
-<h3>12.1 数据源与请求</h3>
-<pre><span class="cm">GET https://api.open-meteo.com/v1/forecast</span>
-    ?latitude={lat}&amp;longitude={lon}
-    &amp;daily=temperature_2m_max,relative_humidity_2m_mean,precipitation_sum,weathercode
-    &amp;timezone=auto&amp;forecast_days=7
-<span class="cm"># 免费、无需 API key；另有 archive API，可用同一口径回算过去 16 周的判定结果</span>
-<span class="cm"># Redis 缓存：key = wx:{city}:{date}，TTL 6h；历史日期 TTL 30d（基本不变）</span></pre>
-
-<h3>12.2 体感温度：用 NOAA Heat Index，而不是气温</h3>
-<pre><span class="kw">def</span> <span class="nm">apparent_max</span>(t_c: float, rh: float) -&gt; float:
-    <span class="cm"># Rothfusz 回归式的摄氏版本（NOAA），RH 为百分比</span>
-    <span class="kw">return</span> (-8.784695 + 1.61139411*t + 2.338549*rh - 0.14611605*t*rh
-            - 1.2308094e-2*t*t - 1.6424828e-2*rh*rh
-            + 2.211732e-3*t*t*rh + 7.2546e-4*t*rh*rh - 3.582e-6*t*t*rh*rh)
-
-<span class="cm"># 单测锚点（这几个值必须守住，否则判定阈值就是空的）</span>
-<span class="kw">assert</span> apparent_max(30, 40) &lt; 30 &lt;= apparent_max(30, 85)
-<span class="cm"># 同样是 30℃，湿度 40% 可跑，湿度 85% 触发降级 —— 这就是用体感而非气温的全部理由</span></pre>
-
-<h3>12.3 判定矩阵</h3>
+<h3>11.1 规则清单（真实实现：guard 包 + 应用层校验）</h3>
 <table>
-<thead><tr><th style="width:14%">天气类型</th><th class="n">天数</th><th class="n">占比</th><th style="width:30%">判定口径（代码）</th><th>处理策略</th></tr></thead>
+<thead><tr><th style="width:26%">规则</th><th style="width:40%">判定</th><th>依据</th></tr></thead>
 <tbody>
-<tr><td>适宜训练</td><td class="n">80</td><td class="n">71.4%</td><td class="mono">no_rain and apparent_max &lt; 30 and aqi &lt;= 150</td><td>正常执行</td></tr>
-<tr><td>降水</td><td class="n">16</td><td class="n">14.3%</td><td class="mono">precip_sum &gt;= 10 or weather_code in THUNDER</td><td><b>硬约束</b>：改室内或交叉训练</td></tr>
-<tr><td>高温</td><td class="n">13</td><td class="n">11.6%</td><td class="mono">apparent_max &gt;= 30</td><td><b>软调节</b>：强度降一档 + 时长削 20%，<b>不取消</b></td></tr>
-<tr><td>空气质量</td><td class="n">3</td><td class="n">2.7%</td><td class="mono">aqi &gt; 150</td><td><b>硬约束</b>：改室内；无室内条件则改休息</td></tr>
-<tr style="font-weight:600"><td>合计</td><td class="n">112</td><td class="n">100%</td><td colspan="2">112 天 = 16 周 × 7 天中的判定样本</td></tr>
+<tr><td class="mono">R_WEEKLY_GAIN</td><td>周跑量增幅 &gt; 10% → 截断 / 拦截</td><td>书籍里最硬的一条；受伤最主要的近因是负荷突增</td></tr>
+<tr><td class="mono">R_CONSEC_HARD</td><td>任意连续 3 天高强度 → 拦截重排</td><td>受伤最主要的近因是<b>高强度堆叠</b>，不是单次强度过高</td></tr>
+<tr><td class="mono">R_INJURY_WINDOW</td><td>14 天内伤痛上报 ≥2 次 → 强制降载一周（只保留轻松跑，不允许补偿）</td><td>滞后信号的前置化；命中后给今日卡降载提示并在周审视标注</td></tr>
+<tr><td>睡眠/疲劳红线（v2 新增）</td><td>连续两天睡眠 &lt;5h 或疲劳 &gt;7 分 → 今日卡提示「今天强度课建议降一档」</td><td>主观上报的数据第一优先级用途：当日安全</td></tr>
+<tr><td>结构红线（tune 层）</td><td>轻松跑 ≤ 长距离、周增幅 ≤10%、长距离次日必须休息</td><td>AI 微调的输出约束，见 10.4</td></tr>
 </tbody>
 </table>
 
-<div class="note amber">
-<span class="hd">踩过的坑：v2 初版只看「是否降水」</span>
-结果 7 月连续高温周执行率异常下滑。排查后发现问题不在雨天 —— <b>是 30℃ 以上跑完之后，第二天的质量课直接崩掉</b>，形成的缺口比当天那次大得多。
-<br>修正：引入体感温度口径，高温日<b>不取消训练，而是「降强度 + 削时长」</b>。既保住执行率，也避免了为凑课次硬扛导致的伤痛。
-<br><br><b>为什么必须用体感温度而不是气温</b>：同样 30℃，湿度 40% 和 85% 的训练风险完全不同。用气温判会漏掉「湿热」这个真实杀手，也会误伤「干热但可跑」的天气。
-这是产品细节，但它决定用户信不信你 —— <b>误判一次，后面所有重排建议他都不听了</b>。
-</div>
+<h3>11.2 为什么护栏必须独立 + 必须留痕</h3>
+<p>重排的目标函数是「这周怎么排最合理」，护栏的目标函数是「这个方案会不会伤人」，<b>两者会冲突</b>——用户连着几天没跑，重排想让他补回来，护栏必须拦住。混在一起写，优化目标会悄悄把安全吃掉（执行率短期可见，受伤几周后才显现）。工程上 guard 是独立纯函数，所有候选（包括 NOOP）都必须过它，且每次调用写 <code>guard_audit</code>：<b>block 记，pass 也记</b>——只有知道「差点被拦下但通过了」的占比，才能判断红线阈值是不是定得太松。</p>
 
-<pre><span class="cm"># 降级：绝不因为第三方挂掉而阻塞重排</span>
-<span class="kw">def</span> <span class="nm">get_weather</span>(city, date) -&gt; WeatherDay:
-    <span class="kw">if</span> d := cache.get(key): <span class="kw">return</span> d
-    <span class="kw">try</span>:
-        d = api.fetch(city, date, timeout=2.0); cache.set(key, d, 6*3600); <span class="kw">return</span> d
-    <span class="kw">except</span> Exception:
-        <span class="kw">return</span> WeatherDay(date=date, source=<span class="st">"STALE"</span>, confidence=<span class="st">"low"</span>,
-                        **yesterday_forecast)          <span class="cm"># 用昨天的预报 + 低置信标记</span>
-<span class="cm"># confidence='low' 时：硬约束仍生效，但降级类软调节不触发（避免误伤）</span></pre>
+<h3>11.3 BMI 保守模式（v2 新增）</h3>
+<p>BMI 偏大的用户自动进入保守规划：起步强度降档、课表更温和，且<b>周审视页显式标注「保守规划周（BMI 适配）」</b>。设计上把「为什么计划和别人不一样」讲清楚——体重大的用户明确知道计划温和是刻意的。身高注册后锁定不可改（BMI 口径稳定），体重可在指标页实时修改并即时联动规划。</p>
+
+<h3>11.4 反增长设计：敢让用户少练</h3>
+<p>连续 3 周关键课完成率 &lt;50% → 主动建议降目标（全马降半马 / 延期 / 坚持但本周自动降载）。<b>命中后系统不允许自动改目标，必须用户点确认</b>——建议权在产品，决定权在用户。训练类产品最怕的不是用户少，是用户在赛道上出事；产品敢说「你的目标定高了」，是真正站在用户立场上的判断。</p>
+
+<h2>12 天气子系统实现</h2>
+<div class="sub">硬约束与软调节分离；判定口径错了，用户就不再听你的</div>
+
+<h3>12.1 数据源与体感温度（与 v1 一致，真实实现）</h3>
+<pre>GET https://api.open-meteo.com/v1/forecast ?daily=temperature_2m_max,relative_humidity_2m_mean,precipitation_sum,weathercode
+def apparent_max(t_c, rh):  # NOAA Heat Index（Rothfusz 回归），入库时算好落 weather_daily 表</pre>
+<div class="note"><span class="hd">为什么必须用体感温度而不是气温</span>同样 30℃，湿度 40% 和 85% 的训练风险完全不同。用气温判会漏掉「湿热」这个真实杀手，也会误伤「干热但可跑」。这是产品细节，但它决定用户信不信你——<b>误判一次，后面所有重排建议他都不听了</b>。</div>
+
+<h3>12.2 判定矩阵与降级</h3>
+<table>
+<thead><tr><th style="width:18%">判定</th><th style="width:36%">口径</th><th>处理策略</th></tr></thead>
+<tbody>
+<tr><td><span class="tag t-green">适宜</span></td><td>无显著降水 且 体感 &lt;30℃ 且 AQI ≤150</td><td>正常执行</td></tr>
+<tr><td><span class="tag t-red">硬约束</span></td><td>暴雨/雷电 或 AQI &gt;150</td><td>改室内/交叉；无室内条件则休息</td></tr>
+<tr><td><span class="tag t-amber">软调节</span></td><td>体感 ≥30℃</td><td>强度降一档 + 时长削 20%，<b>不取消</b></td></tr>
+</tbody>
+</table>
+<p>降级原则：第三方挂掉绝不阻塞主链路——取昨天的预报 + 低置信标记；低置信时硬约束仍生效、软调节不触发（避免误伤）。<b>天气行在今日卡上用「数字 + ℃ + 天气图表」呈现</b>，hover 周审视页的小圆点可看当日天气——判定逻辑要被用户看见，而不是黑盒。</p>
 
 <h2>13 LLM 调用层</h2>
-<div class="sub">只有两处用途、一层降级、一道数值断言 —— 把模型的自由度收在笼子里</div>
+<div class="sub">文本与视觉双通道、一处用途白名单、一道数值断言、一条降级链——把模型的自由度收在笼子里</div>
 
-<h3>13.1 输入契约（严格 JSON，不含自由发挥空间）</h3>
-<pre>{
-  <span class="st">"task"</span>: <span class="st">"explain_rearrange"</span>,
-  <span class="st">"facts"</span>: {                        <span class="cm">// ← 全部由规则引擎算出，模型不许改</span>
-    <span class="st">"week_no"</span>: 9, <span class="st">"remain_days"</span>: 3,
-    <span class="st">"chosen"</span>: {<span class="st">"strategy"</span>:<span class="st">"compress"</span>, <span class="st">"drop"</span>:[{<span class="st">"date"</span>:<span class="st">"周日"</span>,<span class="st">"km"</span>:6,<span class="st">"zone"</span>:<span class="st">"easy"</span>}],
-                <span class="st">"keep"</span>:[{<span class="st">"date"</span>:<span class="st">"周六"</span>,<span class="st">"km"</span>:18,<span class="st">"zone"</span>:<span class="st">"long"</span>}]},
-    <span class="st">"stimulus_pct"</span>: 100, <span class="st">"trigger"</span>: [<span class="st">"小腿酸痛"</span>, <span class="st">"周四中雨"</span>],
-    <span class="st">"next_week_impact"</span>: <span class="st">"none"</span>
-  },
-  <span class="st">"tone"</span>: <span class="st">"calm_short"</span>, <span class="st">"max_sentences"</span>: 3
-}</pre>
+<h3>13.1 用途白名单（真实）</h3>
+<table>
+<thead><tr><th style="width:26%">用途</th><th style="width:22%">通道</th><th>说明</th></tr></thead>
+<tbody>
+<tr><td>重排解释 / 周点评文案</td><td class="mono">DeepSeek</td><td>结构化结论 → 自然语言；固定 JSON schema + max_sentences 限制</td></tr>
+<tr><td>AI 课表微调</td><td class="mono">DeepSeek</td><td>只做定性调整，输出过结构红线（10.4）</td></tr>
+<tr><td>跑后拉伸建议</td><td class="mono">DeepSeek</td><td>按当日课型 + 身体状态生成<b>具体到动作</b>的拉伸方案（「小腿后侧拉伸 30 秒×2」而非「注意拉伸」）</td></tr>
+<tr><td>跑小助问答</td><td class="mono">DeepSeek</td><td>RAG 召回条目进上下文，回答带出处</td></tr>
+<tr><td>成绩识别</td><td class="mono">Moonshot 视觉</td><td>独立密钥与端点，见 13.6</td></tr>
+</tbody>
+</table>
+<p><b>它绝不参与</b>：配速计算、跑量分配、增幅校验。所有数字由 <code>knowledge.rules</code> 产出后传入 prompt。</p>
 
-<h3>13.2 输出 schema 与调用参数</h3>
-<pre>{<span class="st">"reason"</span>: str, <span class="st">"what_changed"</span>: str, <span class="st">"cost"</span>: str, <span class="st">"reassurance"</span>: str}
-<span class="cm"># 固定结构而非自由文本 —— 四个槽位对应今日卡/重排卡上的四行，前端不必解析 Markdown</span>
+<h3>13.2 调用参数与 prompt 版本化（真实）</h3>
+<p>文本：<code>temperature 0.0–0.3</code>（按用途）、JSON schema 输出、超时 3s；prompt 集中在 <code>server/prompts.py</code> <b>随代码版本化管理</b>——每次改动有 Git 记录可回滚，这是「prompt 工程」在项目里的真实落地形态。</p>
 
-model      = <span class="st">"&lt;兼容 OpenAI 协议的网关&gt;"</span>
-temperature= 0.3      max_tokens = 300      timeout = 3.0s
-require_json_schema = True                 <span class="cm"># 结构化输出，非法直接判失败</span></pre>
-
-<h3>13.3 降级链路：解释有用，但系统不能依赖它</h3>
+<h3>13.3 降级链路（真实且可演示）</h3>
 <pre>LLM 成功 ──► 数值断言 ──► 通过 ──► 渲染
    │                        │
-   │                        └─► 不通过（文案出现 facts 里没有的数字）──┐
-   └─► 超时 / 失败 / 非法 JSON ──────────────────────────────────┐  │
-                                                                 ▼  ▼
-                                          8 条按「策略 × 触发源」预写的模板文案
-                                          （compress+酸痛 / replace+雨 / ...）
-<span class="cm"># 关键点：模板文案不是「出错时的占位符」，它是有内容的。A/B 证明解释值 +17.5pp，</span>
-<span class="cm"># 所以降级后仍要给出「为什么改 + 代价 + 后续不受影响」三件事，只是措辞更朴素。</span></pre>
+   │                        └─► 不通过（出现 facts 里没有的数字）──┐
+   └─► 超时 / 失败 / 非法 JSON ──────────────────────────────┐  │
+                                                            ▼  ▼
+                              按「策略 × 触发源」预写的规则模板文案
+未配置密钥：不报错，直接全程走模板（AI 文案使用率指标会体现 LLM/兜底占比）</pre>
+<p>关键点：模板文案不是「出错时的占位符」，它有内容——降级后仍给出「为什么改 + 代价 + 后续不受影响」三件事。</p>
 
 <h3>13.4 输出侧数值断言（防幻觉的最后一道闸）</h3>
-<pre><span class="kw">def</span> <span class="nm">assert_no_hallucination</span>(text: str, facts: dict) -&gt; bool:
-    allowed = {fmt(n) <span class="kw">for</span> n <span class="kw">in</span> flatten_numbers(facts)}
-    <span class="kw">return</span> {fmt(n) <span class="kw">for</span> n <span class="kw">in</span> re.findall(<span class="st">r"\d+(?:\.\d+)?"</span>, text)} &lt;= allowed</pre>
-<p>这条断言把「模型不许编数字」从一句 prompt 里的话，变成了<b>一条会红的测试</b>。在 100 条人工评分样本里，无幻觉项拿到 4.6/5，是三项指标中最高的 —— 靠的不是模型自觉，是架构约束。</p>
+<pre>def assert_no_hallucination(text, facts) -> bool:
+    allowed = {fmt(n) for n in flatten_numbers(facts)}
+    return {fmt(n) for n in re.findall(r"\d+(?:\.\d+)?", text)} <= allowed</pre>
+<div class="note"><span class="hd">这条断言比任何 prompt 都管用</span>它把「模型不许编数字」从一句 prompt 里的话，变成<b>一条会红的测试</b>。模型一旦编数字，断言立刻拦截走模板。</div>
 
 <h3>13.5 成本与隐私</h3>
 <table>
-<thead><tr><th style="width:22%">项</th><th style="width:24%">数值</th><th>说明</th></tr></thead>
+<thead><tr><th style="width:26%">项</th><th>口径</th></tr></thead>
 <tbody>
-<tr><td>单次调用 token</td><td>输入 ≈ 0.8K / 输出 ≈ 0.25K</td><td>输出只有四个短字段，被 <code>max_sentences</code> 和 schema 双重限制</td></tr>
-<tr><td>单次成本</td><td>≈ ¥0.0036</td><td>按输入 ¥2/百万、输出 ¥8/百万估算</td></tr>
-<tr><td>v2 期总成本</td><td>242 次重排 ≈ <b>¥0.87</b></td><td><b>LLM 从来不是瓶颈</b>。真正的瓶颈是上报率和数据完整性</td></tr>
-<tr><td>隐私白名单</td><td class="mono">facts 白名单字段才可入 prompt</td><td>伤痛部位、睡眠、疲劳<b>不进模型</b>，只在本地参与规则判定；user_id 不传</td></tr>
+<tr><td>单次调用</td><td>输入 ≈0.8K / 输出 ≈0.25K token；deepseek-flash 单价极低，全月以元计</td></tr>
+<tr><td>结论</td><td><b>LLM 从来不是瓶颈，真正的瓶颈是上报率和数据完整性</b></td></tr>
+<tr><td>隐私白名单</td><td>facts 白名单字段才可入 prompt；user_id 不传；伤痛部位、睡眠、疲劳不进任何三方</td></tr>
 </tbody>
 </table>
+
+<h3>13.6 视觉识别通道（v2 新增，独立成节）</h3>
+<p>「智能识别成绩」：上传比赛成绩单 / 手表截图 / 跑步 App 记录页（悦跑圈、Keep、Garmin 等），视觉模型只负责<b>从图里读出距离和总用时</b>，然后：</p>
+<pre>extract_result(image):
+    ① 三道数值断言（全部与 prompt 无关）：距离 ∈ [0.4, 200] km
+       总用时 ∈ [60s, 6h]；配速 = 用时/距离 ∈ [1'30", 12'00"]/km
+    ② 任一不过 → 返回拒用（绝不把幻觉成绩写进计划）
+    ③ 通过 → 折算 VDOT → 与当前值比对 → 弹窗请用户确认 → 走统一的能力重估</pre>
+<ul>
+<li>提示词针对国产 App 截图专门加强：「数字在上、中文标签在下」的布局（大字 9.01 公里=距离、6'33"=平均配速、00:59:07=用时），显式警告勿把配速当用时；</li>
+<li>密钥未配置时返回 503 + 明确指引（「请在 .env 配置 VISION_API_KEY」），与「识别失败」明确区分——<b>不让用户误以为是图片的问题</b>；</li>
+<li>与文本 LLM 完全解耦：DeepSeek 没有视觉能力，识图走 Moonshot，缺哪个密钥降哪个通道。</li>
+</ul>
 
 <div class="part">Part III · 工程交付</div>
-
 <h2>14 接口清单与关键界面</h2>
-<div class="sub">9 个对外接口 + 2 个内部任务；刻意没有「一句话生成」那种入口</div>
+<div class="sub">28 个 REST 接口；刻意没有「一句话生成」那种入口</div>
 
-<h3>14.1 REST 接口</h3>
+<h3>14.1 REST 接口（按域分组，全部真实存在）</h3>
 <table>
-<thead><tr><th style="width:8%">方法</th><th style="width:26%">路径</th><th style="width:30%">入参要点</th><th>出参 / 副作用</th></tr></thead>
+<thead><tr><th style="width:12%">域</th><th style="width:34%">接口</th><th>作用</th></tr></thead>
 <tbody>
-<tr><td><span class="tag t-blue">POST</span></td><td class="mono">/v1/profile</td><td class="mono">recent_km, recent_sec, avail_days, goal_race, injury_flag, city</td><td>写入 user；<b>命中劝退条件时返回 200 + Reject</b>（不是错误码，是产品结果）</td></tr>
-<tr><td><span class="tag t-blue">POST</span></td><td class="mono">/v1/plan/generate</td><td class="mono">user_id</td><td>16 周 <code>plan_week</code> + <code>session</code>；同时落 week 1 快照</td></tr>
-<tr><td><span class="tag t-green">GET</span></td><td class="mono">/v1/today</td><td class="mono">user_id</td><td>今日卡聚合：主课 + 原因行 + 天气行 + 三按钮状态</td></tr>
-<tr><td><span class="tag t-blue">POST</span></td><td class="mono">/v1/session/{id}/log</td><td class="mono">status(full/partial/skipped), actual_km, actual_pace, rpe</td><td>写 session_log；<b>status=skipped 时自动触发候选预生成</b>（不展示，先算好）</td></tr>
-<tr><td><span class="tag t-blue">POST</span></td><td class="mono">/v1/status/report</td><td class="mono">soreness_part, sleep_score, fatigue_score, entry</td><td>写 status_report；命中阈值时给今日卡挂重排建议</td></tr>
-<tr><td><span class="tag t-blue">POST</span></td><td class="mono">/v1/rearrange/preview</td><td class="mono">user_id, week_no, trigger_src</td><td><code>{main, alt, cost, delta_km, guard_notes}</code>；<b>只读，不落成正式方案</b></td></tr>
-<tr><td><span class="tag t-blue">POST</span></td><td class="mono">/v1/rearrange/{id}/decision</td><td class="mono">result(accept/reject/manual), decision_ms</td><td>写 rearrange_event.result；accept 时把主方案落到 plan_week（<b>快照不动</b>）</td></tr>
-<tr><td><span class="tag t-green">GET</span></td><td class="mono">/v1/plan/{id}/week/{n}</td><td>—</td><td>周审视页：本周课表 + 完成情况 + 下周预告</td></tr>
-<tr><td><span class="tag t-blue">POST</span></td><td class="mono">/v1/plan/{id}/degrade-goal</td><td class="mono">to(half/defer/insist)</td><td>劝降三选项；<code>insist</code> 需二次确认且本周自动降载</td></tr>
-<tr><td><span class="tag t-gray">内部</span></td><td class="mono">jobs/weekly_snapshot</td><td>每周一 00:00</td><td>冻结本周课表到 <code>plan_week_snapshot</code></td></tr>
-<tr><td><span class="tag t-gray">内部</span></td><td class="mono">jobs/weather_refresh</td><td>每天 05:00</td><td>拉未来 7 天；命中硬约束时预生成次周候选</td></tr>
+<tr><td rowspan="4"><b>账号</b></td><td class="mono">POST /v1/account/register · login · logout</td><td>注册 / 登录（JWT）/ 退出（同时清空跑小助会话）</td></tr>
+<tr><td class="mono">POST /v1/account/delete</td><td>注销账号（防误触二次确认）</td></tr>
+<tr><td class="mono">GET /v1/user/me · POST /v1/user/profile</td><td>用户档案；修改头像 / 用户名 / 城市</td></tr>
+<tr><td class="mono">POST /v1/user/weight · /v1/user/city · /v1/user/advance</td><td>体重（联动保守模式）/ 城市 / 进阶确认</td></tr>
+<tr><td rowspan="4"><b>计划</b></td><td class="mono">POST /v1/profile · /v1/plan/generate</td><td>画像问卷（含劝退）→ 生成 16 周计划 + 周 1 快照</td></tr>
+<tr><td class="mono">POST /v1/plan/adjust</td><td>改训练天数 / 强度 / 体重 → 只重排未开始的周，不清进度</td></tr>
+<tr><td class="mono">GET /v1/plan/{id} · /v1/plan/{id}/week/{n}</td><td>周审视页数据：课表 + 完成态 + 下周预告 + 点评 + 跑步知识</td></tr>
+<tr><td class="mono">POST /v1/plan/{id}/degrade-goal</td><td>劝降三选项（降半马 / 延期 / 坚持但降载）</td></tr>
+<tr><td rowspan="3"><b>执行</b></td><td class="mono">GET /v1/today</td><td>今日卡聚合：主课 + 配速 + 天气 + 打卡状态 + 总/本周跑量 + 护栏提示</td></tr>
+<tr><td class="mono">POST /v1/session/{id}/log</td><td>打卡（今日打卡 / 跑不了）；写 session_log + 触发偏差追问与重估</td></tr>
+<tr><td class="mono">POST /v1/status/report · /v1/stretch</td><td>身体状态上报；AI 生成跑后拉伸建议</td></tr>
+<tr><td rowspan="3"><b>重排</b></td><td class="mono">POST /v1/rearrange/preview</td><td>候选生成 × 护栏 × 打分 → 1 主 1 备（只读，不落地）</td></tr>
+<tr><td class="mono">POST /v1/rearrange/{event_id}/decision</td><td>接受 / 拒绝 / 自己改；accept 落当前态，快照不动</td></tr>
+<tr><td class="mono">GET /v1/calendar</td><td>月历回看：每日跑量 / 配速 / 休息 / 伤病停练 / 天气停跑标注</td></tr>
+<tr><td rowspan="2"><b>AI</b></td><td class="mono">POST /v1/assistant/chat · GET /v1/assistant/history</td><td>跑小助多轮问答 / 取会话历史</td></tr>
+<tr><td class="mono">POST /v1/vision/vdot</td><td>识别成绩图 → 数值断言 → 折算 VDOT（确认后走统一重估）</td></tr>
+<tr><td rowspan="2"><b>指标/知识</b></td><td class="mono">GET /v1/metrics · GET /v1/kb/tip</td><td>指标页四项指标；跑步知识单条召回（探活也在用）</td></tr>
+<tr><td class="mono">POST /jobs/weekly_snapshot · /jobs/weather_refresh</td><td>内部任务：周快照冻结 / 天气刷新</td></tr>
 </tbody>
 </table>
-<div class="note">
-<b>接口层没有提供 <code>/plan/generate-oneline</code></b> —— 这是刻意的。
-Keep 的一句话生成让计划变成一次性消费品，所以我们要求画像问卷必须走完（含劝退判定）。
-<b>API 的形态本身就是产品态度的表达。</b>
-</div>
+<p>接口层没有 <code>/plan/generate-oneline</code>——这是刻意的。一句话生成让计划变成一次性消费品；画像问卷必须走完（含劝退判定），用入口成本换计划的资产感。<b>API 的形态本身就是产品态度的表达。</b></p>
 
-<h3>14.2 三个最能体现产品判断的界面</h3>
-<div class="mock">
-<div class="mock-h">界面一 · 今日卡（主界面，每天只看这一屏）</div>
-<div class="mock-b">
-<div class="line">顶部：周三 · 第 9 周 / 16 周 · 距赛事 47 天</div>
-<div class="line"><span class="hi">主课</span>：质量课 · 阈值跑 8 km（配速 5:12–5:24）· 预计 46 分钟</div>
-<div class="line"><span class="hi">原因行</span>：本周已完成长距离 16 km，这是本周第 2 次关键课，完成后本周训练刺激达标</div>
-<div class="line"><span class="hi">天气行</span>：明天有雷阵雨，已把原定周四的轻松跑提前到今天合并 —— 或点此查看其他方案</div>
-<div class="line">底部：<span class="hi">[ 完成了 ] [ 只跑了一部分 ] [ 今天跑不了 ]</span> ← 第三个直接触发重排预览</div>
+<h3>14.2 关键界面（真实实现，最能体现产品判断的四屏）</h3>
+
+<div class="mock"><div class="mock-h">界面一 · 今日卡（主界面：跑量是主视觉，课表是次要卡片）</div><div class="mock-b">
+<div class="line"><span class="hi">累计总跑量 286.4 km ／ 本周跑量 21.3 km</span>——两行大字，页面第一视觉（刻意不做成卡片，纯数据）</div>
+<div class="line"><span class="hi">下一节课（窄卡片小字）</span>：质量课 · 阈值跑 8 km（5:12–5:24）· 预计 46 分钟 · 体感 31℃ ☀️</div>
+<div class="line"><span class="hi">今日打卡</span>：默认值=今日计划值，齿轮滚轮可调距离与时分秒；偏差 ≥30% 时追问「临时起意 / 强度不匹配」</div>
+<div class="line"><span class="hi">今天跑不了</span>：防误触确认 → 记录停练 or 室内力量训练</div>
+<div class="line"><span class="hi">智能识别成绩</span>：拍照上传，识别后弹窗确认再进阶</div>
+<div class="line"><span class="hi">今天的天气不适合户外</span>：按钮化入口 → 重排方案（「点此查看调整方案」加粗）</div>
 </div></div>
 
-<div class="mock">
-<div class="mock-h">界面二 · 重排方案卡（最多给 1 个主方案 + 1 个备选）</div>
-<div class="mock-b">
-<div class="line"><span class="hi">原因</span>：你上报了小腿酸痛，且明天有中雨</div>
-<div class="line"><span class="hi">主方案</span>：删周日轻松跑 6 km，保住周四阈值跑与周六长距离 18 km</div>
-<div class="line"><span class="hi">代价说明</span>：本周训练刺激维持在 92%，仍在安全区间。下周按原计划继续，<b>不需要补</b></div>
-<div class="line">备选：周四改为室内交叉训练 40 分钟（保留强度，避开雨天）</div>
-<div class="line">操作：<span class="hi">[ 接受主方案 ] [ 用备选 ] [ 我自己改 ]</span></div>
+<div class="mock"><div class="mock-h">界面二 · 重排方案卡（1 主 1 备，选择过载的反面）</div><div class="mock-b">
+<div class="line"><span class="hi">为什么</span>（你上报了小腿酸痛，且明天有中雨）与 <span class="hi">怎么改</span>（删周日轻松跑 6km，保住周四阈值与周六长距离）<b>并排一行</b>——原因与方案同时被看到</div>
+<div class="line"><span class="hi">代价说明</span>：本周训练刺激维持 92%，仍在安全区间；下周按原计划继续，<b>不需要补</b></div>
+<div class="line"><span class="hi">操作</span>：[ 接受主方案 ] [ 用备选 ] [ 我自己改 ]</div>
+</div></div>
+<p>早期版本给过 4 个方案，用户决策时间变长、放弃率上升——<b>选择过载在「用户已经状态不好」的时刻尤其致命</b>。产品应该在这个时刻替用户做判断，而不是把判断成本推给他；但保留「我自己改」，因为用户永远比系统更了解自己的身体。</p>
+
+<div class="mock"><div class="mock-h">界面三 · 周审视（每周一次的教练谈话）</div><div class="mock-b">
+<div class="line"><span class="hi">本周点评</span>：AI 生成（LLM 失败走模板）；降载周 / 保守规划周（BMI 适配）在这里显式标注——「为什么计划变了」和「计划变了」同等重要</div>
+<div class="line"><span class="hi">跑步知识</span>：RAG 语义召回一条（连续打卡不足 → 优先恢复类；报过酸痛 → 优先伤病类），带出处</div>
+<div class="line"><span class="hi">课表</span>：AI 微调后的当周课表；训练天数改成 6/7 天时提示「课次已达安全上限」</div>
+<div class="line"><span class="hi">hover 小圆点</span>：查看当天天气（温度 + 天气图表）</div>
 </div></div>
 
-<div class="note warn">
-<span class="hd">为什么只给 1 主 + 1 备选，而不是给一堆让用户挑</span>
-早期版本给过 4 个方案，结果用户决策时间变长、放弃率上升 —— <b>选择过载在「用户已经状态不好」的时刻尤其致命</b>。
-产品应该在这个时刻替用户做判断，而不是把判断成本推给他。
-<br>但保留「我自己改」入口是必要的：<b>用户永远比系统更了解自己的身体</b>，产品要给出建议，不能替他做决定。
-</div>
+<div class="mock"><div class="mock-h">界面四 · 指标页（AI 是否真的在起作用，用数据回答）</div><div class="mock-b">
+<div class="line"><span class="hi">累计周计划执行率</span>（宽 60%）+ <span class="hi">用户卡</span>（头像 / 账号，宽 40%）；点头像可改头像与用户名</div>
+<div class="line"><span class="hi">次主要</span>：护栏有效性 · AI 决策 · AI 文案使用率 三张卡</div>
+<div class="line"><span class="hi">修改训练计划</span>：训练天数 / 强度加减档 / 体重——改后只重排未开始的周</div>
+</div></div>
 
 <h2>15 埋点与指标计算口径</h2>
-<div class="sub">指标能不能算出来，取决于埋点对不对 —— 而不是取决于写没写</div>
 
-<h3>15.1 事件清单</h3>
+<h3>15.1 真实事件清单</h3>
 <table>
-<thead><tr><th style="width:24%">事件</th><th style="width:44%">关键字段</th><th>支撑哪个指标</th></tr></thead>
+<thead><tr><th style="width:26%">事件 / 载体</th><th style="width:38%">关键字段</th><th>支撑指标</th></tr></thead>
 <tbody>
-<tr><td class="mono">plan_generated</td><td class="mono">user_id, avail_days, ability_tier, goal_race, session_cap, rejected</td><td>启动漏斗、分层分析、劝退率</td></tr>
-<tr style="background:#eef3f9 !important"><td class="mono"><b>session_planned</b></td><td class="mono">week_no, session_id, is_key, zone, target_km, snapshot_version</td><td><b>执行率分母</b>（每周一 00:00 快照时批量写）</td></tr>
-<tr><td class="mono">session_done</td><td class="mono">actual_km, actual_pace, degree(full/partial), rpe</td><td>执行率分子、关键课完成率、VDOT 重估</td></tr>
-<tr><td class="mono">rearrange_triggered</td><td class="mono">trigger_src, week_no, done_cnt, avail_days_left</td><td>触发率、触发原因分布（三种触发源占比）</td></tr>
-<tr><td class="mono">rearrange_shown</td><td class="mono">strategy, delta_km, has_explain, candidate_cnt, rank</td><td>各策略效果、解释层 A/B</td></tr>
-<tr><td class="mono">rearrange_result</td><td class="mono">result(accept/reject/manual), decision_ms</td><td>重排接受率、决策成本</td></tr>
-<tr><td class="mono">status_reported</td><td class="mono">soreness_part, sleep_score, fatigue_score, entry</td><td>主动上报率、伤痛预警</td></tr>
-<tr style="background:#eef3f9 !important"><td class="mono"><b>guard_blocked</b></td><td class="mono">hit_rule, before_json, after_json, action, reason_user</td><td><b>护栏有效性</b>（护栏改了什么必须留痕）</td></tr>
-<tr><td class="mono">goal_degrade_shown</td><td class="mono">key_completion_3w, choice</td><td>劝降触发率与接受率</td></tr>
+<tr><td class="mono">event（通用埋点表）</td><td>name + JSON payload；<code>level_advanced</code>（进阶确认：vdot 前后值、实际配速、里程）</td><td>进阶漏斗、能力重估追踪</td></tr>
+<tr><td class="mono">guard_audit</td><td>hit_rule / before / after / action / reason_user（pass 也记）</td><td><b>护栏有效性</b> = 触发并改变方案的占比</td></tr>
+<tr><td class="mono">ai_case</td><td>微调上下文 + 采纳 / 拒绝结果</td><td><b>AI 决策</b>（采纳数）+ RAG 案例召回池</td></tr>
+<tr><td class="mono">文案通道计数</td><td>LLM 生成 vs 规则模板兜底，逐次计数；未配密钥自动走兜底</td><td><b>AI 文案使用率</b> = LLM ÷（LLM + 兜底）</td></tr>
+<tr><td class="mono">plan_week_snapshot</td><td>周初冻结课表 JSON</td><td><b>执行率分母</b>（唯一来源）</td></tr>
 </tbody>
 </table>
-
-<h3>15.2 两个最容易踩空的点</h3>
-<div class="grid2">
-<div class="card tight">
-<h4>① 计划侧必须做快照</h4>
-<pre><span class="cm">-- 每周一 00:00，由 jobs/weekly_snapshot 执行</span>
-<span class="kw">INSERT INTO</span> plan_week_snapshot (plan_week_id, week_no, snapshot_json, taken_at)
-<span class="kw">SELECT</span> pw.plan_week_id, pw.week_no, pw.current_json, now()
-<span class="kw">FROM</span> plan_week pw
-<span class="kw">WHERE</span> pw.status = <span class="st">'active'</span>
-  <span class="kw">AND NOT EXISTS</span> (<span class="kw">SELECT</span> 1 <span class="kw">FROM</span> plan_week_snapshot s
-                   <span class="kw">WHERE</span> s.plan_week_id = pw.plan_week_id);  <span class="cm">-- 幂等</span></pre>
-<p style="margin:8px 0 0">分母取自这里。取「当前课表」的话，用户一触发重排分母就变小，执行率被自动美化。</p>
-</div>
-<div class="card tight">
-<h4>② guard_blocked 必须埋</h4>
-<pre><span class="cm">-- 护栏有效性 = 被拦下的候选占比</span>
-<span class="kw">SELECT</span> hit_rule, count(*) <span class="kw">AS</span> n,
-       count(*) <span class="kw">FILTER</span> (<span class="kw">WHERE</span> action = <span class="st">'block'</span>) <span class="kw">AS</span> blocked
-<span class="kw">FROM</span> guard_audit <span class="kw">GROUP BY</span> hit_rule;
-
-<span class="cm">-- 没有这张表，你只会看到「伤痛率本来就不高」，</span>
-<span class="cm">-- 永远证明不了护栏拦下了什么。</span></pre>
-<p style="margin:8px 0 0">同理 <code>pass</code> 也要写：pass 占比过高说明红线定得太松。</p>
-</div>
-</div>
-
-<h3>15.3 北极星的可复算查询</h3>
-<pre><span class="cm">-- 任意历史周都能精确复算，且结果与重排行为无关</span>
-<span class="kw">SELECT</span> s.week_no,
-       count(*)                                                        <span class="kw">AS</span> planned,
-       count(*) <span class="kw">FILTER</span> (<span class="kw">WHERE</span> sl.status <span class="kw">IN</span> (<span class="st">'full'</span>,<span class="st">'partial'</span>))  <span class="kw">AS</span> done,
-       count(*) <span class="kw">FILTER</span> (<span class="kw">WHERE</span> s.is_key)                            <span class="kw">AS</span> key_planned,
-       count(*) <span class="kw">FILTER</span> (<span class="kw">WHERE</span> s.is_key <span class="kw">AND</span> sl.status <span class="kw">IN</span> (<span class="st">'full'</span>,<span class="st">'partial'</span>)) <span class="kw">AS</span> key_done
-<span class="kw">FROM</span> plan_week_snapshot snp
-<span class="kw">JOIN</span> (<span class="kw">SELECT</span> jsonb_array_elements(snapshot_json-&gt;<span class="st">'sessions'</span>) <span class="kw">AS</span> s) <span class="kw">ON</span> true
-<span class="kw">LEFT JOIN</span> session_log sl <span class="kw">USING</span> (session_id)
-<span class="kw">GROUP BY</span> s.week_no;</pre>
+<div class="note warn"><span class="hd">两个必须守住的口径</span>① 执行率分母取周初快照，取「当前课表」会被重排行为自我美化；② 护栏 pass 也要写——只有知道「差点被拦」的占比，才能判断红线松紧。</div>
 
 <h2>16 评测与测试方案</h2>
-<div class="sub">没有评测集，后面所有优化都是在盲调</div>
-
-<div class="grid3">
-<div class="card tight">
-<h4>① 规则引擎 · 240 题</h4>
-<p>直接落成 pytest 参数化用例：<code>@pytest.mark.parametrize("case", load("vdot_cases.yaml"))</code></p>
-<p><b>通过率 97.5%</b>；对照组的 RAG 基线 78.3% 用同一批题跑，保证可比。</p>
-<p style="margin:8px 0 0"><span class="tag t-green">新增一条规则必须补用例</span>，否则 PR 不允许合并。</p>
+<div class="sub">v1 设计的 240 题评测集没有落地成独立数据集——这是真实的取舍；测试以 pytest 模块测试的形式长在代码里</div>
+<div class="grid2">
+<div class="card tight"><b>真实在跑的（tests/，15 个文件）</b><br><code>test_rules</code>（VDOT 查表/配速区间/边界 clamp）、<code>test_guard</code>（三条红线）、<code>test_rearrange / test_rearrange_ai</code>（候选×护栏×打分、AI 微调红线）、<code>test_vision</code>（数值断言）、<code>test_rag</code>（召回）、<code>test_api_*</code>（账号/打卡/身体/降载/进阶/计划调整/助手）、<code>test_tune</code>、<code>test_explain_scenes</code></div>
+<div class="card tight"><b>边界锚点（真实断言）</b><br>VDOT &lt;30 / &gt;85 → clamp 不抛异常；首周 prev_km=0 → 增幅校验直接 PASS；avail_days &lt;2 → 劝退不生成全马；14 天内伤痛 ≥2 → 强制降载；<code>apparent_max(30,40) &lt; 30 ≤ apparent_max(30,85)</code>；识别距离/用时/配速超区间 → 拒用</div>
 </div>
-<div class="card tight">
-<h4>② 边界与钳制</h4>
-<ul>
-<li>VDOT &lt; 30 / &gt; 85 → clamp，不抛异常</li>
-<li>首周 prev_km = 0 → 增幅校验直接 PASS</li>
-<li>avail_days = 2 → 触发劝退，不生成全马计划</li>
-<li> injuries >= 2 in 14d → block 而非 patch</li>
-<li><code>apparent_max(30,40) &lt; 30 &lt;= apparent_max(30,85)</code></li>
-</ul>
-</div>
-<div class="card tight">
-<h4>③ LLM 解释层 · 100 + 240</h4>
-<p>100 条人工评分（相关性 4.3 / 可执行性 3.8 / 无幻觉 4.6）；<b>120 vs 120 展示 A/B</b> 测接受率（+17.5pp）。</p>
-<p style="margin:8px 0 0">加上 <code>test_llm_never_computes</code> 这条自动化断言，构成双重保险。</p>
-</div>
-</div>
+<div class="note"><span class="hd">与 v1 的差异说明</span>v1 计划的「240 题评测集 + RAG 基线对照 + A/B 框架」属于设计推演，未在真实项目中以该形态落地；真实项目用「模块单测 + 结构红线断言 + 指标页埋点」守质量。被面试追问时照实回答：<b>评测集的架子没搭，但每一条规则都有测试守护，每一道 AI 输出都有代码断言</b>。</div>
 
-<h3>16.1 端到端：为什么必须有 A/B 而不是跨期对比</h3>
-<pre><span class="cm"># 分流：同一用户始终在同一组，避免组间漂移</span>
-arm = <span class="st">"A"</span> <span class="kw">if</span> sha1(user_id + SALT).digest()[0] % 2 == 0 <span class="kw">else</span> <span class="st">"B"</span>
-experiment_assign.insert(user_id, exp_key=<span class="st">"v3_compensate"</span>, arm=arm)
-
-<span class="cm"># 同期、同源、同配比：唯一变量是 compensate_across_week</span>
-<span class="cm"># 结果：A 组 206 人周 / B 组 205 人周 → 执行率 61.7% vs 69.4%（−7.6pp）</span></pre>
-<div class="note warn">
-跨期对比会被一句话打回：<b>「v3 期的用户在项目里已经跑了 10 周，结构和 v2 期完全不同，你怎么知道执行率下滑不是因为『剩下的都是难搞的用户』？」</b>
-同期随机分流把这个变量消掉了。这是整个项目里唯一一处严格的因果设计。
-</div>
-
-<h2>17 工程排期与 MVP 切片</h2>
-<div class="sub">一个人、六到八周；时间怎么分配本身就是一个产品判断</div>
-
+<h2>17 实际迭代记录（替代 v1 的工程排期章）</h2>
+<div class="sub">真实时间线：从 PRD 到一个被 756 人用过的产品</div>
 <table>
-<thead><tr><th style="width:32%">模块</th><th class="n">人天</th><th style="width:14%">阶段</th><th>为什么是这个量级</th></tr></thead>
+<thead><tr><th style="width:20%">阶段</th><th style="width:44%">做了什么</th><th>关键产物</th></tr></thead>
 <tbody>
-<tr><td>规则引擎 + VDOT 表 / 周期模板 CSV-YAML</td><td class="n">4</td><td>MVP</td><td>知识梳理比写代码慢；这里必须与 240 题评测同步推进</td></tr>
-<tr><td>周期模板 + 计划生成器（含劝退）</td><td class="n">3</td><td>MVP</td><td>纯函数 Pipeline，主要成本在幂等与边界</td></tr>
-<tr><td>护栏校验器 + guard_audit + 单测</td><td class="n">2</td><td>MVP</td><td>独立包，可并行；CI imports 检查半天</td></tr>
-<tr><td>天气接入 + 体感温度判定 + 缓存降级</td><td class="n">2</td><td>MVP</td><td>API 免费，成本全在降级策略</td></tr>
-<tr><td><b>重排决策引擎 + 打分函数</b></td><td class="n">5</td><td>核心</td><td><b>单项最贵。</b>候选生成器 + 打分 + trace 复现，全部要可解释</td></tr>
-<tr><td>埋点 + 周快照任务 + 指标看板</td><td class="n">3</td><td>核心</td><td>没有它，后面所有结论都拿不出来</td></tr>
-<tr><td>LLM 解释层 + 数值断言 + 模板降级</td><td class="n">3</td><td>增强</td><td>模型本身半天，约束与降级才是大头</td></tr>
-<tr><td>前端今日卡 / 重排卡 / 周审视</td><td class="n">5</td><td>增强</td><td>交互做重是有意为之，成本高于同类 demo</td></tr>
-<tr><td>评测集与 A/B 实验框架</td><td class="n">4</td><td>验证</td><td><b>建议先搭起来</b>，见下方提醒</td></tr>
-<tr style="font-weight:600;background:#eef3f9 !important"><td>合计（建议留 30% buffer）</td><td class="n">31 → 约 8 周</td><td colspan="2">MVP 切片 = 11 天（前四项），两周可跑通主干</td></tr>
+<tr><td><b>MVP（约 2 周）</b></td><td>规则引擎 + 16 周计划生成 + 今日卡三按钮打卡 + 护栏三条红线 + 天气体感判定</td><td>主干链路 A/B 打通（profile → plan → today → log → 重排预览）</td></tr>
+<tr><td><b>自适应强化</b></td><td>重排打分引擎、能力重估、劝降弹窗、身体状态上报、周审视页、指标页四项埋点</td><td>「AI 是否真的在起作用」可以被数据回答</td></tr>
+<tr><td><b>AI 深化（10 月密集迭代）</b></td><td>跑小助（RAG 多轮助手）、智能识别成绩、AI 微调 + 结构红线、拉伸建议生成、RAG 语义召回、三份知识文档持续扩充（伤病康复为主）</td><td>AI 从「解释层」扩展为「知识层 + 感知层」</td></tr>
+<tr><td><b>体验与信任</b></td><td>所有单向按钮防误触确认、打卡数字全站同步、网络断连降级文案与自动重试、缺密钥优雅降级、月历回看、品牌改版（Logo / 黄油体 / 入场动画）</td><td>「出错时说人话」成为全站规范</td></tr>
+<tr><td><b>工程可靠性</b></td><td>改参数不清进度、跑小助会话隔离（退出即清）、一键重启后端（重启开关装在 dev server 上）</td><td>见第 19 章四个真实事故</td></tr>
 </tbody>
 </table>
 
-<div class="note amber">
-<span class="hd">排期上最重要的一条顺序结论</span>
-<b>评测集要先建，代码后写。</b>没有评测集，后面所有优化都是盲调 prompt 或盲调权重，做了也讲不出来。
-这也是我在复盘时最想改的一件事 —— v1 那 3 周如果先把 240 题评测集做完，能省下至少一半的返工。
-</div>
-
-<h2>18 非功能需求</h2>
-<div class="sub">容易被忽略，但它们决定这东西能不能真正被用起来</div>
-
+<h2>18 非功能需求（真实实现）</h2>
 <table>
-<thead><tr><th style="width:16%">维度</th><th style="width:26%">目标</th><th>实现手段</th></tr></thead>
+<thead><tr><th style="width:16%">维度</th><th style="width:44%">实现</th><th>说明</th></tr></thead>
 <tbody>
-<tr><td>性能</td><td>计划生成 P95 &lt; 50ms；重排 P95 &lt; 200ms</td><td>生成与决策全是纯 CPU 计算，无网络；LLM 异步生成解释，卡片先用骨架文案渲染</td></tr>
-<tr><td>幂等</td><td>同一 context 重复请求不产生第二条重排</td><td><code>context_hash = sha1(ctx.json())</code>，<code>rearrange_event</code> 唯一索引</td></tr>
-<tr><td>可用性降级</td><td>天气挂 / LLM 挂都不阻塞主链路</td><td>天气 <code>STALE + confidence=low</code>；LLM 走 8 条模板文案（解释可用率仍为 100%）</td></tr>
-<tr><td>幂等与回滚</td><td>误接纳的方案可撤回</td><td>accept 只改尚未开始的 <code>session</code>，原始版本保留在 snapshot，回滚 = 从快照重建</td></tr>
-<tr><td>可观测性</td><td>任一周的任意决策都可回放</td><td>候选全量入库 + guard_audit + context_hash，支持离线重放打分函数</td></tr>
-<tr><td>隐私</td><td>伤病/睡眠不出本机判定范围</td><td>LLM prompt 走 facts 白名单；user_id 不传；伤痛字段不进任何三方</td></tr>
-<tr><td>成本</td><td>LLM 月成本 &lt; ¥5</td><td>每次 ≈ ¥0.0036；v2 期 242 次重排合计 ≈ ¥0.87</td></tr>
-<tr><td>可解释性</td><td>每个拦截都能生成一句人话</td><td><code>Verdict.reason_user</code> 必填；前端直接渲染，不做二次加工</td></tr>
+<tr><td>可用性降级</td><td>LLM 挂 / 未配密钥 → 模板文案不断档；视觉未配密钥 → 503 + 配置指引；天气挂 → 昨天预报 + 低置信</td><td>任一下游故障不阻塞主链路</td></tr>
+<tr><td>断网体验</td><td>网络层失败统一「连不上服务器，请检查网络后重试」+ GET 自动重试（600ms/1.2s 退避）；开发面板可一键模拟断网验证</td><td>拒绝浏览器原生 Failed to fetch 裸奔</td></tr>
+<tr><td>错误文案</td><td>全站错误改写成用户语言（「用户名已被注册」而非 <code>{"detail":...}</code> 裸码）</td><td>错误文案也是产品界面</td></tr>
+<tr><td>防误触</td><td>所有单向操作（打卡、跑不了、进阶、注销、重启后端）二次确认；「跑不了」可反悔（点错了不做记录）</td><td>单向操作 = 不可撤销 = 必须确认</td></tr>
+<tr><td>幂等</td><td>重排 context_hash 去重；重复请求不产生第二条事件</td><td></td></tr>
+<tr><td>隐私</td><td>伤痛/睡眠/疲劳不出本机判定范围；LLM prompt 走 facts 白名单；助手会话按用户隔离、退出即清</td><td></td></tr>
+<tr><td>性能</td><td>生成与决策纯 CPU（无网络）；LLM 异步生成解释，卡片先用骨架文案</td><td></td></tr>
 </tbody>
 </table>
 
 <div class="part">Part IV · 复盘与决策记录</div>
+<h2>19 真实迭代中的四个事故（替代 v1 的推演复盘章）</h2>
+<div class="sub">只报涨的数字等于没做过项目——这一章全是真实发生过的坑</div>
 
-<h2>19 版本迭代与失败复盘</h2>
-<div class="sub">四轮迭代，其中一轮是失败的 —— 而它是整份材料里最有价值的一段</div>
+<div class="dec"><div class="dec-h"><span class="idx">1</span>打卡按钮从四个浓缩成一个</div><div class="dec-b">
+<div class="row"><div class="lbl">现象</div><div class="val">「完成了 / 只跑了一部分 / 超额完成」三选一，用户在「跑完了但比计划多一点」时犹豫几秒就放弃打卡</div></div>
+<div class="row"><div class="lbl">修复</div><div class="val">浓缩为「今日打卡」一个按钮，距离时间默认值=计划值、可齿轮调整；偏差 ≥30% 才追问原因并分流处理</div></div>
+<div class="row"><div class="lbl">沉淀</div><div class="val">每个用户决策点都要能回答「不做这个选择用户会失去什么」，答不上来就砍——<b>选项多 ≠ 体验好</b></div></div>
+</div></div>
 
-<h3>19.1 版本总览</h3>
-<table>
-<thead><tr><th style="width:20%">版本</th><th class="n">活跃人周</th><th class="n">执行率</th><th class="n">关键课</th><th class="n">接受率</th><th class="n">增幅超限</th><th>一句话结论</th></tr></thead>
-<tbody>
-<tr><td><b>v1</b> 忠实还原书籍<br><span style="font-size:12px;color:#86909c">W1–3</span></td><td class="n">168</td><td class="n">41.2%</td><td class="n">33.9%</td><td class="n">—</td><td class="n">2.4%</td><td>计划教科书正确，但用户跑不下来</td></tr>
-<tr><td><b>v2</b> 周级自适应重排<br><span style="font-size:12px;color:#86909c">W4–10</span></td><td class="n">770</td><td class="n">68.4%</td><td class="n">74.2%</td><td class="n">78.5%</td><td class="n">3.1%</td><td>起作用的是「该降级就降级、该砍就砍」</td></tr>
-<tr style="background:#fdeeec !important"><td><b>v3</b> 跨周补偿（A/B）<br><span style="font-size:12px;color:#86909c">W11–13</span></td><td class="n">411</td><td class="n" style="color:#c0392b">65.4%</td><td class="n">68.9%</td><td class="n" style="color:#c0392b">66.0%</td><td class="n" style="color:#c0392b;font-weight:700">10.9%</td><td><b>补账反而更差，缺口不可补偿</b></td></tr>
-<tr style="background:#eaf5ee !important"><td><b>v3.1</b> 关键课保底<br><span style="font-size:12px;color:#86909c">W14–16</span></td><td class="n">410</td><td class="n hl">72.5%</td><td class="n hl">81.5%</td><td class="n hl">84.4%</td><td class="n hl">1.7%</td><td>四项指标同时最优</td></tr>
-</tbody>
-</table>
+<div class="dec"><div class="dec-h"><span class="idx">2</span>AI 微调把轻松跑拉得比长距离还长</div><div class="dec-b">
+<div class="row"><div class="lbl">现象</div><div class="val">周审视页 AI 微调输出明显违背训练学常识的课表</div></div>
+<div class="row"><div class="lbl">修复</div><div class="val">不指望 prompt 变聪明，加<b>结构红线断言</b>（轻松跑 ≤ 长距离、周增幅 ≤10%、长距离次日必须休息），违反即拒用回退模板；红线清单沉淀进 RAG 知识库供 prompt 引用</div></div>
+<div class="row"><div class="lbl">沉淀</div><div class="val">LLM 的建议权必须配代码的否决权——「用代码校验代替 prompt 约束」</div></div>
+</div></div>
 
-<h3>19.2 v3 失败复盘：同期随机分流 A/B</h3>
-<table>
-<thead><tr><th style="width:34%">指标</th><th class="n">A 组 · 跨周补偿</th><th class="n">B 组 · 本周内重排</th><th class="n">差异</th><th>读法</th></tr></thead>
-<tbody>
-<tr><td>人周数</td><td class="n">206</td><td class="n">205</td><td class="n">—</td><td>随机分流，配比一致</td></tr>
-<tr><td>计划课次 / 完成课次</td><td class="n">894 / 552</td><td class="n">832 / 577</td><td class="n">—</td><td>A 组计划课次更多（补偿导致）</td></tr>
-<tr style="background:#fdeeec !important"><td><b>周执行率</b></td><td class="n">61.7%</td><td class="n">69.4%</td><td class="n" style="color:#c0392b;font-weight:700">−7.6pp</td><td>核心结论</td></tr>
-<tr><td>重排接受率</td><td class="n">54.1%</td><td class="n">79.1%</td><td class="n" style="color:#c0392b;font-weight:700">−25.0pp</td><td><b>最先崩的指标</b></td></tr>
-<tr><td>周增幅超限率</td><td class="n">18.5%</td><td class="n">3.4%</td><td class="n" style="color:#c0392b;font-weight:700">+15.0pp</td><td>机制解释</td></tr>
-<tr><td>伤痛上报率</td><td class="n">4.9%</td><td class="n">2.4%</td><td class="n">+2.4pp</td><td>后果</td></tr>
-<tr><td>计划中断率</td><td class="n">22.3%</td><td class="n">11.2%</td><td class="n">+11.1pp</td><td>后果</td></tr>
-</tbody>
-</table>
+<div class="dec"><div class="dec-h"><span class="idx">3</span>训练天数改成 6/7 天「什么都没变」</div><div class="dec-b">
+<div class="row"><div class="lbl">现象</div><div class="val">用户在指标页把每周天数从 5 改成 6/7，课表逐节不变，像是 bug</div></div>
+<div class="row"><div class="lbl">根因</div><div class="val">课次上限 6→5、7→5（训练学：新手每周超 5 课风险大于收益），不是 bug 是特性——但没有告诉用户</div></div>
+<div class="row"><div class="lbl">修复</div><div class="val">周审视本周点评显式提示「课次已达安全上限」；关联修复：改任何参数只重排未开始的周，<b>不再重建计划清空进度</b></div></div>
+</div></div>
 
-<div class="note warn">
-<span class="hd">三个指标指向同一个机制</span>
-补账把上周的课塞进本周 → <b>负荷堆叠（增幅超限 +15.0pp）</b> → 用户一看课表就想放弃（<b>接受率 −25.0pp，这是最先崩的</b>）
-→ 放弃后又产生新缺口（<b>中断率 +11.1pp</b>）→ 恶性循环。
-<br><br><b>认知沉淀：训练计划的缺口是沉没成本，不可补偿。补偿会把它从「一次性损失」变成「复利负担」。正确的容错方式是「重新分配未来」，不是「偿还过去」。</b>
-</div>
+<div class="dec"><div class="dec-h"><span class="idx">4</span>「一键重启后端」装错了地方 + 跑小助串话</div><div class="dec-b">
+<div class="row"><div class="lbl">现象 ①</div><div class="val">后端被挂起后重启按钮毫无反应——重启开关调的是后端自己的接口，后端死了开关跟着死</div></div>
+<div class="row"><div class="lbl">修复 ①</div><div class="val">重启开关挪到前端 dev server（vite 中间件 + 看护脚本 kill 模式），后端全挂也能拉起</div></div>
+<div class="row"><div class="lbl">现象 ②</div><div class="val">跑小助会话共享：A 用户能看到 B 用户的聊天记录</div></div>
+<div class="row"><div class="lbl">修复 ②</div><div class="val">会话按 user_id 隔离 + 退出登录即清空；回归测试补进 test_api_assistant</div></div>
+<div class="row"><div class="lbl">沉淀</div><div class="val">账号隔离是 AI 功能的默认要求，不是增强项——做多助手的第一课</div></div>
+</div></div>
 
-<h3>19.3 v3.1 做了什么，以及为什么它同时改善了执行率和护栏</h3>
-<div class="grid2">
-<div class="card tight"><h4>改动一 · 放弃补账</h4><p>本周内重排，缺的关键课不跨周补偿，标记降载后按原周期继续。</p><p><span class="tag t-green">增幅超限 10.9% → 1.7%</span></p></div>
-<div class="card tight"><h4>改动二 · 课次上限分层</h4><p>按可用天数设上限（3/4/5），关键课固定 2 次，被砍的永远是辅助课。</p><p><span class="tag t-green">≤3 天人群 52.4% → 69.5%</span></p></div>
-<div class="card tight"><h4>改动三 · 上报入口前置</h4><p>把身体状态上报并入「今日打卡」，一次点击完成，不再单独弹窗。</p><p><span class="tag t-green">上报率 42.6% → 51.2%</span></p></div>
-<div class="card tight"><h4>改动四 · 解释层覆盖全部重排</h4><p>每次重排都给出「为什么改 + 代价是什么 + 后续不受影响」。</p><p><span class="tag t-green">接受率 78.5% → 84.4%</span></p></div>
-</div>
-<div class="note ok">
-<span class="hd">v3.1 的意义不只是「涨回来了」</span>
-它证明了一件事：<b>执行率（72.5%，四版最高）和四项护栏指标（伤痛 1.95%、增幅超限 1.7%、中断 8.5%，全部最优）可以同时成立</b>。
-很多人默认「让用户多练」和「不练伤用户」是二选一的矛盾。数据显示两者在 v3.1 同时达到最优 ——
-因为 v3 的失败根本不是「练太多」，而是<b>练得没有结构</b>。有结构的适量训练，既安全又可执行。
-</div>
+<div class="note ok"><span class="hd">口径声明（关于 v1 的迭代数据）</span>v1 文档中的「v1–v3.1 四轮迭代、41.2%→72.5%、A/B −7.6pp」等数值为设计期<b>复盘重建口径（自洽但未线上实测）</b>，本文档不再引用为产品成果。本文档第 19 章的事故与修复全部为真实发生、有 Git 提交记录可查。</div>
 
 <h2>20 边界、优先级与路线</h2>
 <div class="sub">明确能力边界，本身就是产品能力</div>
 
-<h3>20.1 MoSCoW 优先级</h3>
+<h3>20.1 MoSCoW（真实状态）</h3>
 <table>
-<thead><tr><th style="width:10%">优先级</th><th style="width:26%">功能</th><th>说明与依据</th></tr></thead>
+<thead><tr><th style="width:14%">优先级</th><th style="width:30%">功能</th><th>状态与依据</th></tr></thead>
 <tbody>
-<tr><td><span class="tag t-red">Must</span></td><td>16 周计划生成</td><td>规则引擎 + 周期模板 + 课次上限，产品的入场券</td></tr>
-<tr><td><span class="tag t-red">Must</span></td><td>周级自适应重排</td><td>8 条决策规则，北极星的主要贡献来源（+27.2pp）</td></tr>
-<tr><td><span class="tag t-red">Must</span></td><td>三层护栏红线</td><td>不可协商，任何候选生成后强制校验</td></tr>
-<tr><td><span class="tag t-red">Must</span></td><td>天气接入与硬/软判定</td><td>43.8% 的重排由它触发，是最大的单一触发源</td></tr>
-<tr><td><span class="tag t-amber">Should</span></td><td>状态上报 + 打卡合并</td><td>上报率 42.6%→51.2%，直接决定重排质量上限</td></tr>
-<tr><td><span class="tag t-amber">Should</span></td><td>重排解释（LLM）</td><td>+17.5pp 接受率，AI 真正发挥作用的地方</td></tr>
-<tr><td><span class="tag t-amber">Should</span></td><td>主动劝降 / 劝退</td><td>反增长，但它是安全底线和用户立场的证据</td></tr>
-<tr><td><span class="tag t-blue">Could</span></td><td>交叉训练动作库</td><td>硬约束替换时的内容补充，可后置</td></tr>
-<tr><td><span class="tag t-blue">Could</span></td><td>赛前 2 周专项减量</td><td>已有模板，可细化但非瓶颈</td></tr>
-<tr style="background:#f7f8fa !important"><td><span class="tag t-gray">Won't</span></td><td><b>社交 / 跑团 / 排行榜</b></td><td>会引入攀比动机，与「安全优先」直接冲突</td></tr>
-<tr style="background:#f7f8fa !important"><td><span class="tag t-gray">Won't</span></td><td><b>运动手表深度对接</b></td><td>依赖硬件会让上报退化成被动采集，失去主观状态这一维</td></tr>
-<tr style="background:#f7f8fa !important"><td><span class="tag t-gray">Won't</span></td><td><b>营养 / 力量训练建议</b></td><td>超出范围，且会稀释核心定位</td></tr>
-<tr style="background:#f7f8fa !important"><td><span class="tag t-gray">Won't</span></td><td><b>扩展到其他耐力项目</b></td><td>知识层要重做一遍，训练原则差异大，不可复用</td></tr>
+<tr><td><span class="tag t-red">Must</span></td><td>16 周计划生成 / 周级重排 / 护栏红线 / 天气判定 / 打卡闭环 / 账号体系</td><td>全部已实现——产品的入场券</td></tr>
+<tr><td><span class="tag t-blue">Should</span></td><td>状态上报并入打卡 / 重排解释（LLM）/ 主动劝降 / 能力重估 / 指标页</td><td>全部已实现</td></tr>
+<tr><td><span class="tag t-green">Could</span></td><td>跑小助 RAG 助手 / 智能识别成绩 / 月历回看 / 拉伸建议 / BMI 保守模式</td><td>全部已实现——迭代期从 Could 升级而来</td></tr>
+<tr><td><span class="tag t-gray">Won't</span></td><td>运动手表深度对接 / 社交跑团排行榜 / 营养力量建议 / 扩展到其他耐力项目</td><td>明确不做。尤其社交：攀比驱动会诱导状态不好时硬撑，与「安全优先」直接冲突</td></tr>
 </tbody>
 </table>
-<div class="note">
-<span class="hd">「Won't」这一栏比「Must」更能体现产品判断</span>
-特别是不做社交和排行榜 —— 跑步类产品做社交几乎是行业默认动作，但它的作用机制是<b>攀比驱动</b>，
-会诱导用户在状态不好时硬撑，与「安全优先」直接冲突。<b>知道自己不做什么，比列一堆功能更能说明你做过取舍。</b>
-</div>
+<p><b>「Won't」这一栏比「Must」更能体现产品判断。</b>知道自己不做什么，比列一堆功能更能说明做过取舍。</p>
 
-<h3>20.2 明确的能力边界</h3>
+<h3>20.2 明确的能力边界（真实）</h3>
 <ul>
-<li>只服务<b>全马 / 半马首马新人</b>，不服务成绩提升（C 类用户的「刺激不足」尚未解决）</li>
-<li><b>不替代医生</b>：伤痛上报 ≥2 次直接建议就医，产品不做判断</li>
-<li>天气只做<b>7 天内的确定性调整</b>，不做长期气候预测</li>
-<li>计划<b>只在本周内重排</b>，不修改尚未开始的下周模板（除 vdot 重估触发的刷新）</li>
+<li>只服务全马 / 半马首马新人，不服务成绩提升（C 类用进阶通道部分覆盖）；</li>
+<li><b>不替代医生</b>：伤痛上报 ≥2 次直接建议就医，伤病知识回答强制附就医提示；</li>
+<li>天气只做 7 天内的确定性调整，不做长期气候预测；</li>
+<li>计划只在本周内重排，不修改未开始的下周模板（VDOT 重估触发的刷新除外，且只动未开始的周）。</li>
 </ul>
 
-<h3>20.3 迭代路线</h3>
+<h3>20.3 下一步路线</h3>
 <table>
-<thead><tr><th style="width:10%">阶段</th><th style="width:38%">方向</th><th>依据</th></tr></thead>
+<thead><tr><th style="width:14%">阶段</th><th style="width:44%">方向</th><th>依据</th></tr></thead>
 <tbody>
-<tr><td><span class="tag t-red">近期</span></td><td>C 类用户的「刺激不足」问题</td><td>C 类执行率最高（77.8%）但反馈「计划太保守」。需要一套独立的进阶强度模型，而不是简单加量</td></tr>
-<tr><td><span class="tag t-red">近期</span></td><td>把上报率从 51.2% 继续推高</td><td>仍有近一半的「状态不好」是黑盒。可尝试跑后自动询问（跑完即问，成本最低的时刻）</td></tr>
-<tr><td><span class="tag t-amber">中期</span></td><td>用真实完赛数据反推计划参数</td><td>目前周期模板来自书籍，没有用本项目数据校准过。17 个完赛样本太少，需积累</td></tr>
-<tr><td><span class="tag t-amber">中期</span></td><td>伤痛预测模型</td><td>当前护栏是规则式（滞后）。若能提前 1 周预警，价值大于所有重排策略之和</td></tr>
-<tr><td><span class="tag t-gray">不做</span></td><td>扩到骑行 / 游泳等其他耐力项目</td><td>知识层要重做，不是简单复用</td></tr>
+<tr><td>近期</td><td>C 类用户「刺激不足」的进阶强度模型</td><td>进阶通道已有入口，缺独立的进阶课表模板</td></tr>
+<tr><td>近期</td><td>上报率继续推高（跑后即时询问的最小化交互）</td><td>状态数据是重排质量的全部前提</td></tr>
+<tr><td>中期</td><td>用真实完赛数据反推周期模板参数</td><td>当前模板完全来自书籍，未用本项目数据校准</td></tr>
+<tr><td>中期</td><td>伤痛预测（从滞后护栏到提前预警）</td><td>若能提前 1 周预警，价值大于所有重排策略之和</td></tr>
+<tr><td>不做</td><td>扩到骑行 / 游泳等其他耐力项目</td><td>知识层要重做，不是简单复用</td></tr>
 </tbody>
 </table>
 
-<h2>21 面试速查卡</h2>
-<div class="sub">背下来，被追问时不慌 —— 完整问答见《简历包装手册_马跑跑》</div>
+<h2>21 面试速查卡（v2 同步版）</h2>
+<div class="sub">完整问答见《金科产品助理-面试QA.md》</div>
 
-<div class="qa"><div class="q">Q：这不就是把书塞进数据库然后调 GPT 吗？</div><div class="a">知识层是拆开的：80% 的结构化知识走确定性规则引擎，准确率 97.5%；同一种知识交给 RAG 只有 78.3%，差距最大的是数值查表（100% vs 76.3%）。剩下 20% 的经验表述才交给模型，负责把调整原因说清楚，带来 +17.5pp 的重排接受率。工程约束是：LLM 不参与任何数值计算，输出侧还有一道数值断言。<b>判断哪些知识不该交给模型，比调 prompt 更重要。</b></div></div>
+<div class="qa"><div class="q">Q：这不就是把书塞进数据库然后调大模型吗？</div><div class="a">知识层是拆开的：数值知识走确定性规则引擎（VDOT 查表唯一数值来源），LLM 只做解释、定性微调和知识问答。防幻觉靠的不是 prompt——所有 LLM 输出过<b>代码数值断言</b>（文案出现的数字必须在 facts 里；微调课表过结构红线；识别成绩过量纲/区间/配速三道断言），校验不过直接拦截回退模板。<b>判断哪些知识不该交给模型，比调 prompt 更重要。</b></div></div>
 
-<div class="qa"><div class="q">Q：重排引擎是怎么决策的？它和一堆 if-else 有什么区别？</div><div class="a">不是 if-else 链，是「候选生成 → 全量过护栏 → 打分排序」。
+<div class="qa"><div class="q">Q：RAG / 召回 / prompt 调优在你的项目里真实落地了吗，在哪？</div><div class="a">三处。① 知识库：docs/ 下三份结构化知识文档（训练原则/跑者经验/伤病康复），三分块格式 + tags，启动时解析；② 召回：周审视「跑步知识」卡片不是随机抽——连续打卡不足优先恢复类、报过酸痛优先伤病类，按用户状态匹配 tags；跑小助问答也走同一召回池喂上下文；③ prompt 版本化：全部 prompt 集中在 server/prompts.py 随 Git 管理，每次改动可回滚。AI 文案使用率指标专门监控 LLM 与规则兜底的占比。</div></div>
 
-打分函数是 0.55×本周交付概率 + 0.30×关键刺激保留率 + 0.15×安全余量，其中交付概率是逐日累乘的存活概率（基础 0.18 + 天气惩罚 + 酸痛惩罚）。这套打分自然把「压缩」排到第一、「顺延」压到最后 —— 顺延削减 0km 但完成率最低 64.8%，因为它只是把问题推到明天。这个排序和数据里的策略效果是吻合的，不是硬编码的偏好。</div></div>
+<div class="qa"><div class="q">Q：重排引擎是怎么决策的？和一堆 if-else 有什么区别？</div><div class="a">「候选生成 → 全量过护栏 → 打分排序」。6 个候选生成器（替换/降级/压缩/顺延/降载/不做事），全部过独立护栏函数并留痕，打分 = 0.55×本周交付概率（逐日累乘）+ 0.30×关键刺激保留率 + 0.15×安全余量。这套打分自然把「压缩」排第一、「顺延」压到最后：顺延削减 0km 但只是把问题推到明天，交付概率最低。</div></div>
 
-<div class="qa"><div class="q">Q：v3 那次失败，你怎么证明不是用户结构变化导致的？</div><div class="a">用的同期随机分流 A/B，不是跨期对比。两组同时间、同来源、同配比（206 vs 205 人周），唯一差别是 <code>compensate_across_week</code> 这一个布尔值。而且三个指标指向同一个机制：增幅超限 +15.0pp → 接受率 −25.0pp → 中断率 +11.1pp，形成完整因果链，不是孤立的相关性。</div></div>
+<div class="qa"><div class="q">Q：AI 参与训练安排，不怕它乱排课吗？</div><div class="a">AI 只有建议权。微调输出必须过结构红线断言（轻松跑 ≤ 长距离、周增幅 ≤10%、长距离次日必须休息），违反即拒用回退规则模板。真实事故：AI 曾把轻松跑拉得比长距离还长，是红线拦下来的——<b>用代码校验代替 prompt 约束</b>。</div></div>
 
-<div class="qa"><div class="q">Q：为什么北极星是执行率，不是完赛率？</div><div class="a">完赛率反馈周期 16 周，学生项目等不到；且受赛道、天气等不可控因素影响。执行率可精确测量、直接决定训练效果、反馈周期只有 7 天。而「计划科学性」无法验证 —— 没有对照组，等于没指标。工程上为了让它可信，专门建了 <code>plan_week_snapshot</code> 冻结分母，重排不会污染它。</div></div>
+<div class="qa"><div class="q">Q：你的核心壁垒是什么？</div><div class="a">技术上没有。规则引擎、体感温度、不补账，对手随时能做。唯一复制不了的是<b>主动劝降</b>——它损害续订逻辑和完赛率叙事。也不是对手想不到，是商业化之后做不出来。这个项目能做，恰恰因为它没有商业包袱。</div></div>
 
-<div class="qa"><div class="q">Q：护栏为什么不直接写进重排逻辑里？</div><div class="a">因为两者的目标函数会冲突：重排优化「这周怎么排最合理」，护栏优化「这方案会不会伤人」。用户连着 3 天没跑时，重排想让他补回来，护栏必须拦住。混在一起写，优化目标会悄悄把安全吃掉 —— 执行率短期可见，受伤几周后才显现。工程上 guard 是一个独立纯函数包，CI 里禁止它 import 任何优化相关代码。</div></div>
-
-<div class="qa"><div class="q">Q：你和 Runna 有什么区别？</div><div class="a">只打一个点：<b>缺练的处理</b>。Runna 是重建后续周，把落下的课安排到未来。我一开始也这么做，A/B 发现它有害 —— 实验组 61.7%，对照组 69.4%，接受率差 25 个百分点。结论是<b>缺口是沉没成本，不该补</b>。另外它没手表时体验显著退化，而我服务的人本来就没有表。</div></div>
-
-<div class="qa"><div class="q">Q：Garmin 有全套生理数据，你凭什么和它竞争？</div><div class="a">不竞争。它的日粒度、它的生理精度，我一行代码也复制不了，所以我明确把它写进了 Won't 栏。它的准入条件是「你得先有一块 Garmin 表」，而我服务的是第一次跑全马、大概率还没买表的人。这不是降维竞争，是换一条准入。</div></div>
-
-<div class="qa"><div class="q">Q：你的核心壁垒是什么？</div><div class="a">技术上没有。规则引擎、课次上限、不补账、体感温度口径，对手随时能做。唯一复制不了的是<b>主动劝降</b> —— 因为它会伤害他们的续订和完赛率叙事。也不是他们想不到，是商业化之后就做不出来了。这个项目能做，恰恰因为它没商业包袱 —— 说穿了，差异化是<b>「穷的优势」</b>。</div></div>
-
-<div class="qa"><div class="q">Q：数据是真的吗？</div><div class="a">项目真实做过，但当时埋点不完整，所以复盘时用真实的实体结构和口径把指标体系重建了一遍。<b>数字是测算值，不是线上实测值。</b>所有百分比都由整数计数算出，周粒度加总严格等于版本对比 —— 任意一个数字我都能说清它是从哪一层、按什么口径来的。</div></div>
-
-<div class="qa"><div class="q">Q：这个项目和你的另一个 AI 项目（校园政策问答）有什么区别？</div><div class="a">一个是静态知识的可信性问题（答案唯一，核心是「能不能信」，靠拒答边界和引用溯源解决）；一个是动态计划的可执行性问题（答案随状态变，核心是「能不能坚持」，靠约束重排和护栏解决）。<b>前者考知识治理，后者考约束满足与风险治理</b>，两者覆盖 AI 产品的两种核心命题，不重复。</div></div>
+<div class="qa"><div class="q">Q：数据是真的吗？</div><div class="a">功能、事故、指标口径全部真实，756 名用户来自选修课与社团两个真实场景。需要坦白：v1 文档里的四轮迭代百分比是设计期复盘重建口径（当时埋点不完整），本文档 v2 已把那一章替换为四个有 Git 记录的真实事故；指标页四项指标是真实埋点真实计算。</div></div>
 
 <div class="foot">
-马跑跑 · 马拉松训练规划助手 PRD（技术实现版）<br>
-自身数据为复盘重建口径（非线上实测），与「数据集_马跑跑_测算.xlsx」严格一致；竞品信息来自公开资料，未付费实测。<br>
-配套交付：数据集 xlsx（15 sheet）· 数据看板 · 简历包装手册 · 竞品分析 · 社团落地复盘
+马跑跑 · AI 马拉松训练规划助手 PRD v2.0（与实际产品同步版）<br>
+口径声明：本文档功能描述以代码与界面为准；第 19 章事故均有 Git 提交记录；v1 文档（PRD_马跑跑_旧版备份.html）中的迭代数值为复盘重建口径，不再引用为产品成果。竞品信息来自公开资料，未付费实测。
 </div>
 
 </div>

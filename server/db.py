@@ -39,6 +39,8 @@ class User(Base):
     weight_kg: Mapped[float | None] = mapped_column(Float, nullable=True)
     nickname: Mapped[str | None] = mapped_column(String(32), nullable=True)  # 展示名，默认同用户名
     avatar: Mapped[str | None] = mapped_column(Text, nullable=True)          # 头像 base64 data URL
+    cohort: Mapped[str | None] = mapped_column(String(32), nullable=True)    # 学期批次（B 端分组变量）
+    consent_version: Mapped[str | None] = mapped_column(String(8), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
@@ -50,6 +52,7 @@ class Account(Base):
     salt: Mapped[str] = mapped_column(String(64))
     password_hash: Mapped[str] = mapped_column(String(128))
     token: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)  # 登录凭证，退出即作废
+    role: Mapped[str] = mapped_column(String(12), default="user")   # user / teacher（实验室 B 端）
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
@@ -215,6 +218,93 @@ class AssistantMsg(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
+# ---------------------------------------------------------------- B 端：实验室（v3.2）
+class PlanConfig(Base):
+    """适配层配置：B 端提案 → 审批 → 生效。只存收紧方向的覆盖值（v3.3 引擎消费）。"""
+    __tablename__ = "plan_config"
+    config_id: Mapped[str] = mapped_column(String(40), primary_key=True)
+    plan_id: Mapped[str] = mapped_column(String(32), index=True)
+    scope: Mapped[str] = mapped_column(String(12), default="plan")       # plan / cohort
+    volume_multiplier: Mapped[float] = mapped_column(Float, default=1.0)
+    gain_cap: Mapped[float | None] = mapped_column(Float, nullable=True)
+    aux_cap_ratio: Mapped[float | None] = mapped_column(Float, nullable=True)
+    proposed_by: Mapped[str] = mapped_column(String(32))
+    proposed_reason: Mapped[str] = mapped_column(Text, default="")
+    status: Mapped[str] = mapped_column(String(12), default="pending")   # pending / approved / rejected
+    approved_by: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class TuneSuggestion(Base):
+    """系统规则建议（非 LLM）：完成率异常 → 建议调参。v3.3 生成器上线前先落表结构。"""
+    __tablename__ = "tune_suggestion"
+    suggestion_id: Mapped[str] = mapped_column(String(40), primary_key=True)
+    target_type: Mapped[str] = mapped_column(String(12))          # plan / cohort
+    target_id: Mapped[str] = mapped_column(String(32), index=True)
+    metric: Mapped[str] = mapped_column(String(24))
+    metric_value: Mapped[float] = mapped_column(Float)
+    suggested_json: Mapped[dict] = mapped_column(JSON)
+    reason_user: Mapped[str] = mapped_column(Text, default="")
+    status: Mapped[str] = mapped_column(String(12), default="pending")  # pending / adopted / dismissed
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class Survey(Base):
+    """问卷定义（前测/每周/后测统一配置化，内容变更走实验室确认）。"""
+    __tablename__ = "survey"
+    survey_id: Mapped[str] = mapped_column(String(40), primary_key=True)
+    kind: Mapped[str] = mapped_column(String(12))                 # pre / weekly / post
+    title: Mapped[str] = mapped_column(String(64))
+    schema_json: Mapped[dict] = mapped_column(JSON)
+    active: Mapped[bool] = mapped_column(Boolean, default=True)
+    week_no: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class SurveyInstance(Base):
+    """每周问卷待填清单：定时任务每周日生成（唯一约束保幂等）。"""
+    __tablename__ = "survey_instance"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[str] = mapped_column(String(32), index=True)
+    survey_id: Mapped[str] = mapped_column(String(40), index=True)
+    week_ref: Mapped[str] = mapped_column(String(12))
+    status: Mapped[str] = mapped_column(String(12), default="pending")  # pending / done
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    __table_args__ = (UniqueConstraint("user_id", "survey_id", "week_ref", name="uq_instance"),)
+
+
+class SurveyResponse(Base):
+    __tablename__ = "survey_response"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[str] = mapped_column(String(32), index=True)
+    survey_id: Mapped[str] = mapped_column(String(40), index=True)
+    week_ref: Mapped[str] = mapped_column(String(12), default="")
+    answers_json: Mapped[dict] = mapped_column(JSON)
+    source: Mapped[str] = mapped_column(String(12), default="weekly")   # pre / weekly / post
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class ConsentRecord(Base):
+    """知情同意留痕：协议可能改版，每次同意单独成记录（伦理审查要这个）。"""
+    __tablename__ = "consent_record"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[str] = mapped_column(String(32), index=True)
+    version: Mapped[str] = mapped_column(String(8))
+    agreed_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class ExportLog(Base):
+    """导出审计：谁、何时、哪个范围；匿名盐哈希留痕（盐本身不随导出包走）。"""
+    __tablename__ = "export_log"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    teacher_id: Mapped[str] = mapped_column(String(32))
+    cohort: Mapped[str] = mapped_column(String(32), default="")
+    date_from: Mapped[Date] = mapped_column(Date)
+    date_to: Mapped[Date] = mapped_column(Date)
+    anon_salt_sha: Mapped[str] = mapped_column(String(16))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
 def init_db() -> None:
     Base.metadata.create_all(engine)
     if DB_URL.startswith("sqlite"):
@@ -233,7 +323,10 @@ def init_db() -> None:
                         "ALTER TABLE status_report ADD COLUMN breath_state VARCHAR(16)",
                         "ALTER TABLE plan ADD COLUMN bmi_conservative INTEGER",
                         "ALTER TABLE user ADD COLUMN nickname VARCHAR(32)",
-                        "ALTER TABLE user ADD COLUMN avatar TEXT"):
+                        "ALTER TABLE user ADD COLUMN avatar TEXT",
+                        "ALTER TABLE account ADD COLUMN role VARCHAR(12)",
+                        "ALTER TABLE user ADD COLUMN cohort VARCHAR(32)",
+                        "ALTER TABLE user ADD COLUMN consent_version VARCHAR(8)"):
                 try:
                     conn.execute(text(ddl))
                 except Exception:

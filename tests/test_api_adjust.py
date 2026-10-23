@@ -38,7 +38,7 @@ def test_adjust_avail_days_replans_future_keeps_progress():
     """改训练天数：不重建计划（plan_id 不变、旧计划不作废），只重排今天之后的课，进度保留。"""
     from datetime import date as _date
     _fresh_db()
-    uid = c.post("/v1/account/register", json={"username": "adjd", "password": "run12345"}).json()["user_id"]
+    uid = c.post("/v1/account/register", json={"agree_data_use": True, "username": "adjd", "password": "run12345"}).json()["user_id"]
     plan_id = _onboard(uid)                       # 4 天/周
     today = _date.today()
     with db.SessionLocal() as s:
@@ -70,7 +70,7 @@ def test_adjust_intensity_changes_vdot_and_pace():
     """增加一级强度：VDOT +2，今天之后课程的配速刷新，计划 plan_id 不变。"""
     from datetime import date as _date
     _fresh_db()
-    uid = c.post("/v1/account/register", json={"username": "adjv", "password": "run12345"}).json()["user_id"]
+    uid = c.post("/v1/account/register", json={"agree_data_use": True, "username": "adjv", "password": "run12345"}).json()["user_id"]
     plan_id = _onboard(uid)
     old_vdot = c.get(f"/v1/metrics?user_id={uid}").json()["user"]["vdot"]
     today = _date.today()
@@ -94,7 +94,7 @@ def test_adjust_intensity_changes_vdot_and_pace():
 def test_adjust_intensity_boundary():
     """最低 VDOT 30 再减一级 → 400，不产生新计划。"""
     _fresh_db()
-    uid = c.post("/v1/account/register", json={"username": "adjb", "password": "run12345"}).json()["user_id"]
+    uid = c.post("/v1/account/register", json={"agree_data_use": True, "username": "adjb", "password": "run12345"}).json()["user_id"]
     plan_id = _onboard(uid)
     with db.SessionLocal.begin() as s:
         s.get(db.User, uid).vdot = 30
@@ -107,7 +107,7 @@ def test_adjust_intensity_boundary():
 def test_adjust_noop_returns_unchanged():
     """没有实际改动 → changed=False，不重建计划。"""
     _fresh_db()
-    uid = c.post("/v1/account/register", json={"username": "adjn", "password": "run12345"}).json()["user_id"]
+    uid = c.post("/v1/account/register", json={"agree_data_use": True, "username": "adjn", "password": "run12345"}).json()["user_id"]
     plan_id = _onboard(uid)
     r = c.post("/v1/plan/adjust", json={"user_id": uid, "avail_days": 4, "intensity_shift": 0})
     assert r.json() == {"ok": True, "changed": False, "message": "没有需要修改的内容"}
@@ -123,7 +123,7 @@ def test_plan_uses_real_vdot_not_placeholder():
     """
     from server.knowledge.rules import pace_zones, sec_to_pace
     _fresh_db()
-    uid = c.post("/v1/account/register", json={"username": "realv", "password": "run12345"}).json()["user_id"]
+    uid = c.post("/v1/account/register", json={"agree_data_use": True, "username": "realv", "password": "run12345"}).json()["user_id"]
     _onboard(uid)   # 10km/3600s → VDOT 明显高于占位折算的 30
     with db.SessionLocal() as s:
         vdot = s.get(db.User, uid).vdot
@@ -143,7 +143,7 @@ def test_plan_uses_real_vdot_not_placeholder():
 def test_adjust_days_same_cap_keeps_plan():
     """天数变化但课次上限相同（5→6→7 都是 5 节）→ 不重建计划，保留进度。"""
     _fresh_db()
-    uid = c.post("/v1/account/register", json={"username": "adjc", "password": "run12345"}).json()["user_id"]
+    uid = c.post("/v1/account/register", json={"agree_data_use": True, "username": "adjc", "password": "run12345"}).json()["user_id"]
     c.post("/v1/profile", json={**{
         "user_id": uid, "recent_km": 10, "recent_sec": 3600, "avail_days": 5,
         "goal_race": "half", "ability": "B_base", "injury_flag": "N",
@@ -159,7 +159,7 @@ def test_adjust_days_same_cap_keeps_plan():
 def test_week_review_notes_extra_days():
     """训练天数 6/7（课次上限 5）→ 周审视本周点评带补充提醒；4 天不带。"""
     _fresh_db()
-    uid = c.post("/v1/account/register", json={"username": "note6", "password": "run12345"}).json()["user_id"]
+    uid = c.post("/v1/account/register", json={"agree_data_use": True, "username": "note6", "password": "run12345"}).json()["user_id"]
     c.post("/v1/profile", json={**{
         "user_id": uid, "recent_km": 10, "recent_sec": 3600, "avail_days": 6,
         "goal_race": "half", "ability": "B_base", "injury_flag": "N",
@@ -169,7 +169,7 @@ def test_week_review_notes_extra_days():
     note = r["comment"]["note"]
     assert note and "每周 6 天" in note and "力量训练" in note and "最多排 5 节课" in note
     # 4 天 → 上限 4，无提醒
-    uid2 = c.post("/v1/account/register", json={"username": "note4", "password": "run12345"}).json()["user_id"]
+    uid2 = c.post("/v1/account/register", json={"agree_data_use": True, "username": "note4", "password": "run12345"}).json()["user_id"]
     plan2 = _onboard(uid2)
     r2 = c.get(f"/v1/plan/{plan2}/week/1").json()
     assert r2["comment"]["note"] is None
@@ -178,7 +178,7 @@ def test_week_review_notes_extra_days():
 def test_adjust_days_validation():
     """天数越界 → 400。"""
     _fresh_db()
-    uid = c.post("/v1/account/register", json={"username": "adjx", "password": "run12345"}).json()["user_id"]
+    uid = c.post("/v1/account/register", json={"agree_data_use": True, "username": "adjx", "password": "run12345"}).json()["user_id"]
     _onboard(uid)
     assert c.post("/v1/plan/adjust", json={"user_id": uid, "avail_days": 1}).status_code == 400
     assert c.post("/v1/plan/adjust", json={"user_id": uid, "avail_days": 8}).status_code == 400

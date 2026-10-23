@@ -109,7 +109,8 @@ def _token_user_id(token: str) -> str | None:
         return acc.user_id if acc else None
 
 
-_PUBLIC_PATHS = {"/v1/account/login", "/v1/account/register", "/v1/account/logout"}
+_PUBLIC_PATHS = {"/v1/account/login", "/v1/account/register", "/v1/account/logout",
+                 "/v1/consent/doc"}   # 协议文档：未登录的注册页必须能读到
 
 
 @app.middleware("http")
@@ -233,6 +234,8 @@ class DegradeIn(BaseModel):
 class AccountIn(BaseModel):
     username: str
     password: str
+    agree_data_use: bool = False          # 注册必须勾选《数据使用协议》（v3.2 伦理层）
+    consent_version: str = ""             # 客户端从 /v1/consent/doc 获取的协议版本
 
 
 class CityIn(BaseModel):
@@ -386,7 +389,11 @@ def _hash_password(password: str, salt_hex: str) -> str:
 
 @app.post("/v1/account/register")
 def register(body: AccountIn, request: Request):
-    """注册：用户名 + 密码，建账号并给一个占位用户，问卷阶段回写画像。"""
+    """注册：用户名 + 密码，建账号并给一个占位用户，问卷阶段回写画像。
+
+    v3.2 伦理层：必须勾选《数据使用协议》才能注册；同意记录单独成表（consent_record），
+    协议改版可追溯每次同意用的版本号——伦理审查的标准配置。
+    """
     username = body.username.strip()
     ip = request.client.host if request.client else "?"
     if _hit_rate_limit(f"register|{ip}|{username}"):
@@ -395,6 +402,9 @@ def register(body: AccountIn, request: Request):
         raise HTTPException(400, "用户名长度需为 3-20 个字符")
     if len(body.password) < 6:
         raise HTTPException(400, "密码至少 6 位")
+    from server.lab import CONSENT_VERSION
+    if not body.agree_data_use:
+        raise HTTPException(400, "请先阅读并勾选《数据使用协议》，不同意则无法注册")
     with db.SessionLocal.begin() as s:
         if s.get(db.Account, username):
             raise HTTPException(409, "用户名已被注册")
@@ -402,12 +412,15 @@ def register(body: AccountIn, request: Request):
         salt = os.urandom(16).hex()
         token = secrets.token_urlsafe(32)
         s.add(db.User(user_id=user_id, vdot=30, ability_tier="B_base", goal_race="full",
-                      avail_days=3, city="上海", lat=31.23, lon=121.47))
+                      avail_days=3, city="上海", lat=31.23, lon=121.47,
+                      consent_version=CONSENT_VERSION))
         s.add(db.Account(username=username, user_id=user_id, salt=salt,
                          password_hash=_hash_password(body.password, salt), token=token))
+        s.add(db.ConsentRecord(user_id=user_id, version=CONSENT_VERSION))
         s.add(db.Event(name="account_registered", user_id=user_id,
-                       payload={"username": username}))
-    return {"ok": True, "user_id": user_id, "has_plan": False, "token": token}
+                       payload={"username": username, "consent": CONSENT_VERSION}))
+    return {"ok": True, "user_id": user_id, "has_plan": False, "token": token,
+            "role": "user"}
 
 
 @app.post("/v1/account/login")
@@ -426,8 +439,9 @@ def login(body: AccountIn, request: Request):
         acc.token = token          # 重新登录即轮换凭证，旧 token 同时作废
         has_plan = s.query(db.Plan).filter_by(user_id=acc.user_id,
                                               status="active").first() is not None
-        user_id = acc.user_id
-    return {"ok": True, "user_id": user_id, "has_plan": has_plan, "token": token}
+        user_id, role = acc.user_id, acc.role
+    return {"ok": True, "user_id": user_id, "has_plan": has_plan, "token": token,
+            "role": role}
 
 
 @app.post("/v1/account/logout")
@@ -1844,17 +1858,31 @@ def plan_overview(plan_id: str):
                            "is_dropped": w.is_dropped} for w in weeks]}
 
 
+# ================================================================ v3.2 实验室 B 端（M1/M2）
+from server.lab.routes import router as lab_router   # noqa: E402  （放最后注册，避免循环 import）
+
+app.include_router(lab_router)
+
+
 @app.on_event("startup")
 def _startup():
     db.init_db()
-    # APScheduler：每周一 00:00 周快照；每天 05:00 天气刷新。启动即补一次本周快照。
+    # APScheduler：每周一 00:00 周快照；每天 05:00 天气刷新；周日 20:07 生成本周问卷实例。
+    # 启动即补一次本周快照 + 问卷实例（幂等）。
     try:
         from apscheduler.schedulers.background import BackgroundScheduler
         sched = BackgroundScheduler(timezone="Asia/Shanghai")
         sched.add_job(weekly_snapshot_job, "cron", day_of_week="mon", hour=0, minute=0)
         sched.add_job(weather_refresh_job, "cron", hour=5, minute=0)
+        from server.lab.routes import weekly_survey_job, tune_suggest_job
+        sched.add_job(weekly_survey_job, "cron", day_of_week="sun", hour=20, minute=7)
+        sched.add_job(tune_suggest_job, "cron", day_of_week="mon", hour=0, minute=32)
         sched.start()
         app.state.scheduler = sched
     except Exception:
         app.state.scheduler = None
     weekly_snapshot_job()
+    try:
+        weekly_survey_job()
+    except Exception:
+        pass

@@ -32,11 +32,11 @@ def _onboard(uid):
 
 def test_register_login_flow():
     _fresh_db()
-    r = c.post("/v1/account/register", json={"username": "paopao", "password": "run12345"})
+    r = c.post("/v1/account/register", json={"agree_data_use": True, "username": "paopao", "password": "run12345"})
     assert r.status_code == 200 and r.json()["user_id"]
     uid = r.json()["user_id"]
     # 重复注册 → 409
-    assert c.post("/v1/account/register", json={"username": "paopao", "password": "x12345"}).status_code == 409
+    assert c.post("/v1/account/register", json={"agree_data_use": True, "username": "paopao", "password": "x12345"}).status_code == 409
     # 错误密码 → 401
     assert c.post("/v1/account/login", json={"username": "paopao", "password": "wrong66"}).status_code == 401
     # 正确登录，无计划
@@ -59,7 +59,7 @@ def test_change_city_keeps_plan_and_progress():
     """
     from datetime import date as _date
     _fresh_db()
-    uid = c.post("/v1/account/register", json={"username": "cityuser", "password": "run12345"}).json()["user_id"]
+    uid = c.post("/v1/account/register", json={"agree_data_use": True, "username": "cityuser", "password": "run12345"}).json()["user_id"]
     plan_id = _onboard(uid)
     # 先打一次卡，验证切换城市后打卡记录保留
     sessions = c.get(f"/v1/plan/{plan_id}/week/1").json()["sessions"]
@@ -86,7 +86,7 @@ def test_change_city_keeps_plan_and_progress():
 
 def test_delete_account_cascades():
     _fresh_db()
-    uid = c.post("/v1/account/register", json={"username": "byeuser", "password": "run12345"}).json()["user_id"]
+    uid = c.post("/v1/account/register", json={"agree_data_use": True, "username": "byeuser", "password": "run12345"}).json()["user_id"]
     plan_id = _onboard(uid)
     # 制造打卡与上报数据，验证级联删除
     w1 = c.get(f"/v1/plan/{plan_id}/week/1").json()
@@ -116,5 +116,5 @@ def test_delete_account_cascades():
         assert s.query(db.GuardAudit).filter_by(plan_id=plan_id).count() == 0
         assert s.query(db.Event).filter_by(user_id=uid).count() == 0
     # 删掉的账号可以重新注册（用户名被释放）
-    r = c.post("/v1/account/register", json={"username": "byeuser", "password": "newpass123"})
+    r = c.post("/v1/account/register", json={"agree_data_use": True, "username": "byeuser", "password": "newpass123"})
     assert r.status_code == 200 and r.json()["user_id"] != uid

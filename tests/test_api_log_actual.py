@@ -38,7 +38,7 @@ def _first_session(plan_id):
 def test_over_done_triggers_rearrange():
     """超额完成（>110% 目标）：记 full + actual_km，返回 over_done 并重排预生成。"""
     _fresh_db()
-    uid = c.post("/v1/account/register", json={"username": "overu", "password": "run12345"}).json()["user_id"]
+    uid = c.post("/v1/account/register", json={"agree_data_use": True, "username": "overu", "password": "run12345"}).json()["user_id"]
     plan_id = _onboard(uid)
     sess = _first_session(plan_id)
     sid, target = sess["session_id"], sess["target_km"]
@@ -61,7 +61,7 @@ def test_over_done_triggers_rearrange():
 def test_partial_with_km_under_half_triggers_rearrange():
     """只跑了一部分且不足目标 50%：缺口记入，预生成重排候选。"""
     _fresh_db()
-    uid = c.post("/v1/account/register", json={"username": "partu", "password": "run12345"}).json()["user_id"]
+    uid = c.post("/v1/account/register", json={"agree_data_use": True, "username": "partu", "password": "run12345"}).json()["user_id"]
     plan_id = _onboard(uid)
     sess = _first_session(plan_id)
     sid, target = sess["session_id"], sess["target_km"]
@@ -82,7 +82,7 @@ def test_partial_with_km_under_half_triggers_rearrange():
 def test_partial_with_km_above_half_no_rearrange():
     """部分完成但 ≥50%：只记录，不触发重排。"""
     _fresh_db()
-    uid = c.post("/v1/account/register", json={"username": "partok", "password": "run12345"}).json()["user_id"]
+    uid = c.post("/v1/account/register", json={"agree_data_use": True, "username": "partok", "password": "run12345"}).json()["user_id"]
     plan_id = _onboard(uid)
     sess = _first_session(plan_id)
     sid, target = sess["session_id"], sess["target_km"]
@@ -100,7 +100,7 @@ def test_partial_with_km_above_half_no_rearrange():
 def test_exact_target_is_not_over():
     """刚好完成目标（≤110%）不算超额，走普通完成路径。"""
     _fresh_db()
-    uid = c.post("/v1/account/register", json={"username": "exactu", "password": "run12345"}).json()["user_id"]
+    uid = c.post("/v1/account/register", json={"agree_data_use": True, "username": "exactu", "password": "run12345"}).json()["user_id"]
     plan_id = _onboard(uid)
     sess = _first_session(plan_id)
     sid, target = sess["session_id"], sess["target_km"]
@@ -114,7 +114,7 @@ def test_exact_target_is_not_over():
 def test_over_status_from_frontend_button():
     """前端「超额完成」按钮发 status="over"：必须按完成受理，触发 over_done 与重排预生成。"""
     _fresh_db()
-    uid = c.post("/v1/account/register", json={"username": "overbtn", "password": "run12345"}).json()["user_id"]
+    uid = c.post("/v1/account/register", json={"agree_data_use": True, "username": "overbtn", "password": "run12345"}).json()["user_id"]
     plan_id = _onboard(uid)
     sess = _first_session(plan_id)
     sid, target = sess["session_id"], sess["target_km"]
@@ -136,7 +136,7 @@ def test_over_status_from_frontend_button():
 def test_over_status_counts_as_done_in_metrics():
     """「超额完成」计入执行率/关键课完成统计（周报、降载判定都读 session_log.status）。"""
     _fresh_db()
-    uid = c.post("/v1/account/register", json={"username": "overcnt", "password": "run12345"}).json()["user_id"]
+    uid = c.post("/v1/account/register", json={"agree_data_use": True, "username": "overcnt", "password": "run12345"}).json()["user_id"]
     plan_id = _onboard(uid)
     sess = _first_session(plan_id)
     sid, target = sess["session_id"], sess["target_km"]
@@ -150,7 +150,7 @@ def test_over_status_counts_as_done_in_metrics():
 def test_dev_reason_impulse_keeps_plan_unchanged():
     """偏差 >±30% 且用户选择「临时起意」：只记录，VDOT/计划不动（即使数据暗示能力大变）。"""
     _fresh_db()
-    uid = c.post("/v1/account/register", json={"username": "impulseu", "password": "run12345"}).json()["user_id"]
+    uid = c.post("/v1/account/register", json={"agree_data_use": True, "username": "impulseu", "password": "run12345"}).json()["user_id"]
     plan_id = _onboard(uid)
     with db.SessionLocal() as s:
         base_vdot = s.get(db.User, uid).vdot
@@ -174,7 +174,7 @@ def test_dev_reason_mismatch_adjusts_plan():
                "duration_sec": 990, "rpe": None, "skip_kind": ""}
     # 对照组：同样数据（隐含 VDOT 47，偏移仅 1）不带原因标记 → 低于 1.5 门槛，不重估
     _fresh_db()
-    uid = c.post("/v1/account/register", json={"username": "mismatchctl", "password": "run12345"}).json()["user_id"]
+    uid = c.post("/v1/account/register", json={"agree_data_use": True, "username": "mismatchctl", "password": "run12345"}).json()["user_id"]
     plan_id = _onboard(uid)
     with db.SessionLocal() as s:
         base_vdot = s.get(db.User, uid).vdot
@@ -182,7 +182,7 @@ def test_dev_reason_mismatch_adjusts_plan():
     assert "vdot_update" not in r1.json(), "无原因标记时小偏移不应重估（对照组）"
     # 实验组：选「强度不匹配」→ 放宽到 0.5 门槛，偏移 1 也要重估
     _fresh_db()
-    uid = c.post("/v1/account/register", json={"username": "mismatches", "password": "run12345"}).json()["user_id"]
+    uid = c.post("/v1/account/register", json={"agree_data_use": True, "username": "mismatches", "password": "run12345"}).json()["user_id"]
     plan_id = _onboard(uid)
     r2 = c.post(f"/v1/session/{_first_session(plan_id)['session_id']}/log", json={**payload, "dev_reason": "mismatch"})
     assert r2.status_code == 200

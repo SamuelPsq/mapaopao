@@ -13,6 +13,7 @@ import { Slider } from "@/components/ui/slider"
 import { Label } from "@/components/ui/label"
 import { CityPicker } from "@/components/CityPicker"
 import MonthCalendar from "@/components/MonthCalendar"
+import { SurveyBanner } from "@/components/SurveyBanner"
 import type { CityInfo } from "@/lib/cities"
 import { CalendarDays, ChartNoAxesColumnIncreasing, ChevronRight, CloudSun, Dumbbell, Flame, House, Lightbulb, MapPin, MoonStar, PersonStanding, ScanLine, Target, Timer, TriangleAlert, Wrench } from "lucide-react"
 
@@ -305,6 +306,9 @@ export default function Today() {
           <Badge className="bg-amber-500 hover:bg-amber-500 gap-1"><Flame className="h-3 w-3" />本周降载</Badge>
         ) : null}
       </div>
+
+      {/* 本周问卷（有待填时出现；周问卷由周日定时任务生成实例） */}
+      <SurveyBanner />
 
       {/* 查看月记录：整行右上的热区加大，避免小字难点（触控目标 ≥40px） */}
       <div className="flex justify-end -mb-2">

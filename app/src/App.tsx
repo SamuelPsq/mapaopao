@@ -7,6 +7,7 @@ import Rearrange from './pages/Rearrange'
 import Week from './pages/Week'
 import Metrics from './pages/Metrics'
 import Degrade from './pages/Degrade'
+import Lab from './pages/Lab'
 import Assistant from './components/Assistant'
 import DevTools from './components/DevTools'
 import { loadUser } from './lib/api'
@@ -27,6 +28,7 @@ export default function App() {
         <Route path="/week/:no?" element={<Week />} />
         <Route path="/metrics" element={<Metrics />} />
         <Route path="/degrade" element={<Degrade />} />
+        <Route path="/lab" element={<Lab />} />
       </Routes>
       {/* AI 跑步助手：全站悬浮入口（登录页除外由组件自行判断未登录不渲染） */}
       <Assistant />
