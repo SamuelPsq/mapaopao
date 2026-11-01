@@ -103,15 +103,19 @@ def _raw_call(payload: dict, base: str, key: str) -> str:
 
 
 def assistant_llm(question: str, context: dict, kb: list[dict],
-                  history: Optional[list[dict]] = None) -> Optional[str]:
+                  history: Optional[list[dict]] = None,
+                  user_id: Optional[str] = None) -> Optional[str]:
     """调用兼容 OpenAI 协议的网关；未配置或失败返回 None（走知识拼接降级）。
 
     history 为「近期对话」（旧→新，每条 {role, content}），注入 system 与当前问题之间，
     让 LLM 能衔接指代词（「那/还是/这样」）和上文提到的部位/问题。
+    user_id 用于解析该用户自配的 AI 引擎（设置页 v3.3），未配置回退 .env。
     """
-    base, key, model = os.getenv("LLM_BASE_URL"), os.getenv("LLM_API_KEY"), os.getenv("LLM_MODEL")
-    if not (base and key and model):
+    from server import llmconf
+    resolved = llmconf.resolve_text(user_id)
+    if not resolved:
         return None
+    base, key, model = resolved
     try:
         kb_in = [{"no": i + 1, "出处": f"{c['source']}·{c['name']}", "内容": c["text"]}
                  for i, c in enumerate(kb)]
@@ -167,7 +171,7 @@ def answer(user_id: str, question: str) -> dict:
     # （badcase：「没有手表怎么判断强度」top4 混入伤病块 → medical 误判 True）
     medical = bool(_MEDICAL_RE.search(question))
     context = _user_context(user_id)
-    text = assistant_llm(question, context, kb, history=history)
+    text = assistant_llm(question, context, kb, history=history, user_id=user_id)
     from_llm = bool(text)
     if text and medical and "就医" not in text:
         text += f"\n\n{DISCLAIMER}"      # LLM 漏带就医提示时兜底补上

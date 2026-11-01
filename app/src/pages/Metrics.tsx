@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import ConfirmButton from "@/components/ConfirmButton"
-import { LogOut, UserRound, UserRoundX, SlidersHorizontal, Scale, Minus, Plus, ChevronUp, ChevronDown, PencilLine } from "lucide-react"
+import { LogOut, UserRound, UserRoundX, SlidersHorizontal, Scale, Minus, Plus, ChevronUp, ChevronDown, PencilLine, Sparkles } from "lucide-react"
 import { Shell, NavBar } from "./Today"
 
 interface Metrics {
@@ -258,6 +258,12 @@ export default function MetricsPage() {
         onClick={() => { setWeightInput(m.user?.weight_kg ? String(m.user.weight_kg) : ""); setWeightOpen(true) }}>
         <Scale className="h-4 w-4 mr-1.5" />修改体重
         {m.user?.bmi ? <span className="ml-auto text-xs text-muted-foreground">BMI {m.user.bmi}</span> : null}
+      </Button>
+
+      {/* AI 引擎：自选模型与 API（v3.3），不填走服务器默认配置 */}
+      <Button variant="outline" className="w-full mt-2 bg-card" onClick={() => nav("/settings")}>
+        <Sparkles className="h-4 w-4 mr-1.5" />AI 引擎设置
+        <span className="ml-auto text-xs text-muted-foreground">模型 / API Key</span>
       </Button>
 
       {/* 账号：退出登录 / 切换账号（数据保留在服务端，重新登录可继续） */}

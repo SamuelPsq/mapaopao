@@ -122,14 +122,18 @@ _SCHEMA = {"type": "object",
            "required": ["ops"]}
 
 
-def propose_ops(facts: dict, rag_ctx: Optional[dict] = None) -> Optional[list]:
+def propose_ops(facts: dict, rag_ctx: Optional[dict] = None,
+                user_id: Optional[str] = None) -> Optional[list]:
     """调网关让 LLM 提微调建议；失败/非法返回 None。
 
     rag_ctx 非空时走 tune_v2（注入知识库 + 召回案例）；为 None 时保持 v1 行为。
+    user_id 用于解析该用户自配的 AI 引擎，未配置回退 .env。
     """
-    base, key, model = os.getenv("LLM_BASE_URL"), os.getenv("LLM_API_KEY"), os.getenv("LLM_MODEL")
-    if not (base and key and model):
+    from server import llmconf
+    resolved = llmconf.resolve_text(user_id)
+    if not resolved:
         return None
+    base, key, model = resolved
     try:
         import httpx
         from .prompts import build_tune_prompt
@@ -188,7 +192,7 @@ def maybe_tune_week(user: db.User, plan: db.Plan, week_no: int, bad_dates: list[
         phase = (s.query(db.PlanWeek).filter_by(plan_id=plan.plan_id, week_no=week_no).first()
                  or None)
         facts = build_facts(week_no, phase.phase if phase else "", sessions, bad_dates, sore_part)
-    ops = propose_ops(facts)
+    ops = propose_ops(facts, user_id=user.user_id)
     ok = validate_ops(ops, sessions, week_start) if ops is not None else None
     src = "llm" if ok is not None else "template"
     if ok:
@@ -254,7 +258,7 @@ def tune_after_deviation(user: db.User, plan: db.Plan, week_no: int, trigger: st
     rag_ctx = rag.build_rag_context(user.user_id, query, phase, trigger, dev_ratio)
     ver = TUNE_PROMPT_VERSION
 
-    raw = propose_ops(facts, rag_ctx)
+    raw = propose_ops(facts, rag_ctx, user_id=user.user_id)
     ok = validate_ops(raw, sessions, week_start) if raw is not None else None
     applied = bool(ok)
     if applied:

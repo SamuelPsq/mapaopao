@@ -47,7 +47,7 @@ def test_endpoint_returns_computed_vdot(monkeypatch):
     _fresh_db()
     uid = _register("visok")
     monkeypatch.setattr(vision, "extract_result",
-                        lambda b, m: {"distance_km": 10.02, "duration_sec": 3504,
+                        lambda b, m, user_id=None: {"distance_km": 10.02, "duration_sec": 3504,
                                       "type": "watch", "note": "Garmin 10.02km 58:24"})
     r = c.post("/v1/vision/vdot", params={"user_id": uid},
                files={"file": ("run.jpg", b"\xff\xd8fake", "image/jpeg")})
@@ -63,7 +63,7 @@ def test_endpoint_rejects_when_recognition_fails(monkeypatch):
     """识别失败：422 + 人话文案，引导手动输入，绝不静默吞掉。"""
     _fresh_db()
     uid = _register("visbad")
-    monkeypatch.setattr(vision, "extract_result", lambda b, m: None)
+    monkeypatch.setattr(vision, "extract_result", lambda b, m, user_id=None: None)
     r = c.post("/v1/vision/vdot", params={"user_id": uid},
                files={"file": ("blur.jpg", b"\xff\xd8fake", "image/jpeg")})
     assert r.status_code == 422
@@ -90,7 +90,7 @@ def test_vision_result_applies_through_advance(monkeypatch):
         "city": "上海", "lat": 31.23, "lon": 121.47, "max_duration": 90})
     c.post(f"/v1/plan/generate?user_id={uid}")
     monkeypatch.setattr(vision, "extract_result",
-                        lambda b, m: {"distance_km": 10.02, "duration_sec": 3504,
+                        lambda b, m, user_id=None: {"distance_km": 10.02, "duration_sec": 3504,
                                       "type": "race_result", "note": ""})
     got = c.post("/v1/vision/vdot", params={"user_id": uid},
                  files={"file": ("race.jpg", b"\xff\xd8fake", "image/jpeg")}).json()

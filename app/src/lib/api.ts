@@ -50,6 +50,8 @@ export const api = {
   get: <T>(path: string) => req<T>(path),
   post: <T>(path: string, body?: unknown) =>
     req<T>(path, { method: "POST", body: body === undefined ? undefined : JSON.stringify(body) }),
+  put: <T>(path: string, body?: unknown) =>
+    req<T>(path, { method: "PUT", body: body === undefined ? undefined : JSON.stringify(body) }),
   postForm: <T>(path: string, form: FormData) =>
     req<T>(path, { method: "POST", body: form }),
 }

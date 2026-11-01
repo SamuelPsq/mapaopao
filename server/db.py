@@ -305,6 +305,25 @@ class ExportLog(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
+class LLMConfig(Base):
+    """每用户 AI 引擎配置（v3.3）：文本与视觉两条通道各自覆盖 env。
+
+    某通道全空 = 回退 .env；用户 key 只服务本人查询（接口侧脱敏返回）。
+    """
+    __tablename__ = "llm_config"
+    config_id: Mapped[str] = mapped_column(String(16), primary_key=True)
+    user_id: Mapped[str] = mapped_column(String(32), unique=True, index=True)
+    t_provider: Mapped[str] = mapped_column(String(20), default="")
+    t_base_url: Mapped[str] = mapped_column(String(120), default="")
+    t_api_key: Mapped[str] = mapped_column(String(120), default="")
+    t_model: Mapped[str] = mapped_column(String(60), default="")
+    v_provider: Mapped[str] = mapped_column(String(20), default="")
+    v_base_url: Mapped[str] = mapped_column(String(120), default="")
+    v_api_key: Mapped[str] = mapped_column(String(120), default="")
+    v_model: Mapped[str] = mapped_column(String(60), default="")
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
 def init_db() -> None:
     Base.metadata.create_all(engine)
     if DB_URL.startswith("sqlite"):

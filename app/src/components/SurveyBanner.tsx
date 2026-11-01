@@ -128,7 +128,7 @@ function SurveyModal({ survey, uid, onDone, onClose }: {
 /** 今日卡入口条：有待填问卷时出现（周问卷由周日定时任务生成实例，天然只在周日之后出现） */
 export function SurveyBanner() {
   const uid = loadUser()
-  const { pending, refresh, clear } = usePending(uid)
+  const { pending, refresh } = usePending(uid)
   const [open, setOpen] = useState(false)
   if (!pending) return null
   return (

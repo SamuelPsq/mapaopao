@@ -6,6 +6,7 @@ import Today from './pages/Today'
 import Rearrange from './pages/Rearrange'
 import Week from './pages/Week'
 import Metrics from './pages/Metrics'
+import Settings from './pages/Settings'
 import Degrade from './pages/Degrade'
 import Lab from './pages/Lab'
 import Assistant from './components/Assistant'
@@ -27,6 +28,7 @@ export default function App() {
         <Route path="/rearrange" element={<Rearrange />} />
         <Route path="/week/:no?" element={<Week />} />
         <Route path="/metrics" element={<Metrics />} />
+        <Route path="/settings" element={<Settings />} />
         <Route path="/degrade" element={<Degrade />} />
         <Route path="/lab" element={<Lab />} />
       </Routes>

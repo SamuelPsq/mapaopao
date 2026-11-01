@@ -660,9 +660,9 @@ async def vision_vdot(user_id: str = Query(...), file: UploadFile = File(...)):
     if len(image) > MAX_BYTES:
         raise HTTPException(413, "图片太大了（超过 10MB），请压缩后再上传")
     try:
-        got = extract_result(image, mime)
+        got = extract_result(image, mime, user_id=user_id)
     except VisionNotConfigured:
-        raise HTTPException(503, "智能识别尚未配置视觉模型密钥（VISION_API_KEY），请在 .env 中配置后重启后端")
+        raise HTTPException(503, "智能识别尚未配置视觉模型密钥：请在「指标页 → AI 引擎设置」里填写，或让管理员在 .env 配置")
     if not got:
         raise HTTPException(422, "没能从图片里识别出有效的跑步成绩，请换一张更清晰的照片，或直接在今日打卡里手动输入")
     with db.SessionLocal() as s:
@@ -908,7 +908,8 @@ def today_card(user_id: str):
         reason_src = None
         if main:
             rfacts = {"is_key": bool(main.is_key), "key_done": done_key, "key_total": key_total}
-            r_out, reason_src = render_scene("reason_line", rfacts, reason_line_template(rfacts))
+            r_out, reason_src = render_scene("reason_line", rfacts, reason_line_template(rfacts),
+                                             user_id=user_id)
             reason = r_out["reason"] if isinstance(r_out, dict) else r_out
         # 重排建议触发：今天天气硬约束 或 已上报酸痛
         suggestion = None
@@ -964,7 +965,8 @@ def _degrade_check(s, plan: db.Plan, week_no: int) -> dict | None:
         total_done = sum(w["key_done"] for w in weeks)
         facts = {"total_done": total_done, "total_plan": total_plan,
                  "race": "全马" if plan.goal_race == "full" else "半马"}
-        advice, src = render_scene("degrade_advice", facts, degrade_advice_template(facts))
+        advice, src = render_scene("degrade_advice", facts, degrade_advice_template(facts),
+                                   user_id=plan.user_id)
         db.track("llm_explain", plan.user_id, scene="degrade_advice", source=src)
         msg = advice["advice"] if isinstance(advice, dict) else advice
         return {"triggered": True, "message": msg}
@@ -1328,7 +1330,8 @@ def stretch_advice(body: StretchIn):
     facts = {"status": body.status, "type_cn": body.type_cn, "target_km": body.target_km,
              "plan": stretch_plan({"status": body.status, "type_cn": body.type_cn,
                                    "target_km": body.target_km})}
-    out, src = render_scene("stretch_advice", facts, stretch_advice_template(facts))
+    out, src = render_scene("stretch_advice", facts, stretch_advice_template(facts),
+                            user_id=body.user_id)
     text = out["stretch"] if isinstance(out, dict) else out
     db.track("llm_explain", body.user_id, scene="stretch_advice", source=src)
     return {"text": text, "source": src}
@@ -1374,6 +1377,50 @@ def user_me(user_id: str):
             "weight_kg": user.weight_kg,
             "city": user.city,
         }
+
+
+@app.get("/v1/settings/llm")
+def settings_llm_view(user_id: str):
+    """AI 引擎设置回显：供应商预设 + 已存配置（key 脱敏）+ 当前兜底来源。"""
+    from server import llmconf
+    return llmconf.view(user_id)
+
+
+class LLMChannelIn(BaseModel):
+    provider: str | None = None
+    base_url: str | None = None
+    api_key: str | None = None      # None=不变；空串=清除；其余=覆盖
+    model: str | None = None
+
+
+class LLMSettingsIn(BaseModel):
+    text: LLMChannelIn | None = None
+    vision: LLMChannelIn | None = None
+
+
+@app.put("/v1/settings/llm")
+def settings_llm_save(user_id: str, body: LLMSettingsIn):
+    """保存 AI 引擎配置：文本与视觉通道可分别更新；文本通道建议先测试连接。"""
+    from server import llmconf
+    llmconf.save(user_id, body.text.model_dump() if body.text else None,
+                 body.vision.model_dump() if body.vision else None)
+    return {"ok": True, **llmconf.view(user_id)["fallback"]}
+
+
+class LLMTestIn(BaseModel):
+    channel: str                      # text / vision
+    base_url: str = ""
+    api_key: str = ""
+    model: str = ""
+
+
+@app.post("/v1/settings/llm/test")
+def settings_llm_test(user_id: str, body: LLMTestIn):
+    """试连（不落库）：先试 GET /models，不通再试最小 chat 补全；失败说人话。"""
+    from server import llmconf
+    if body.channel not in ("text", "vision"):
+        raise HTTPException(400, "测试通道只支持 text / vision")
+    return llmconf.test_connection(body.channel, body.model_dump())
 
 
 _AVATAR_PREFIXES = ("data:image/png;base64,", "data:image/jpeg;base64,", "data:image/webp;base64,")
@@ -1476,7 +1523,7 @@ def rearrange_preview(body: PreviewIn):
             s.commit()
             return {"main": None, "alt": None, "guard_notes": audit,
                     "message": "本周没有可调整的空间，保持原计划"}
-        explain_main, src = render_explain(_facts_for(main, ctx))
+        explain_main, src = render_explain(_facts_for(main, ctx), user_id=body.user_id)
         event_id = uuid.uuid4().hex[:16]
         candidates = [_cand_json(main, ctx)]
         if alt:
@@ -1493,7 +1540,7 @@ def rearrange_preview(body: PreviewIn):
         s.commit()
         alt_payload = None
         if alt:
-            alt_explain, alt_src = render_explain(_facts_for(alt, ctx))
+            alt_explain, alt_src = render_explain(_facts_for(alt, ctx), user_id=body.user_id)
             alt_payload = {"strategy": alt.strategy, "description": alt.description,
                            "delta_km": alt.delta_km, "sessions": _cand_sessions(alt),
                            "explain": alt_explain | {"source": alt_src}}
@@ -1523,7 +1570,7 @@ def rearrange_preview(body: PreviewIn):
                 kb_hits = _rag.retrieve(
                     f"重排 {trigger_cn} {main.strategy} {alt.strategy} 训练计划调整原则")
                 rec_facts["principles"] = [h["text"] for h in kb_hits]
-                rec, rsrc = render_recommend(rec_facts)
+                rec, rsrc = render_recommend(rec_facts, user_id=body.user_id)
                 if rec:
                     ai_rec = rec | {"source": rsrc}
                 db.track("rearrange_ai_recommend", body.user_id,
@@ -1623,7 +1670,8 @@ def week_review(plan_id: str, week_no: int):
         denom = planned_denom or current_total
         cfacts = {"week_no": week_no, "phase": pw.phase,
                   "rate_pct": round(done / (denom or 1) * 100), "done": done, "planned": denom}
-        comment, csrc = render_scene("week_comment", cfacts, week_comment_template(cfacts))
+        comment, csrc = render_scene("week_comment", cfacts, week_comment_template(cfacts),
+                                     user_id=plan.user_id)
         db.track("llm_explain", plan.user_id, scene="week_comment", source=csrc)
         # 训练天数 > 课次上限（6/7 天上限 5 节）→ 确定性的补充提醒，不依赖 LLM
         extra_note = None

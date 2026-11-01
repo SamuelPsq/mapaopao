@@ -333,8 +333,9 @@ function SurveysPanel() {
 }
 
 function SurveyCard({ survey, onChanged }: { survey: SurveyRow; onChanged: () => void }) {
-  const [stats, setStats] = useState<{ rate?: number | null; weeks?: { week_ref: string; total: number; done: number }[] } | null>(null)
-  const loadStats = () => api.get(`/v1/lab/surveys/${survey.survey_id}/stats`)
+  type Stats = { rate?: number | null; weeks?: { week_ref: string; total: number; done: number }[] }
+  const [stats, setStats] = useState<Stats | null>(null)
+  const loadStats = () => api.get<Stats>(`/v1/lab/surveys/${survey.survey_id}/stats`)
     .then(setStats).catch(() => setStats(null))
   return (
     <div className="rounded-2xl border bg-card p-4 shadow-sm">

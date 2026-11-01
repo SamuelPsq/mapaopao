@@ -145,13 +145,13 @@ SCENE_SCHEMAS: dict[str, dict] = {
 }
 
 
-def render_recommend(facts: dict) -> tuple[Optional[dict], str]:
+def render_recommend(facts: dict, user_id: Optional[str] = None) -> tuple[Optional[dict], str]:
     """重排候选推荐：模型在 main / alt 中选一个（或 either），附一句理由。
 
     只影响「推荐展示」，不影响候选生成与落地——决策主权在规则引擎和用户。
     校验：choice 必须是 main/alt/either；理由过数值断言；不过即降级（None, template）。
     """
-    llm = _llm_call("rearrange_recommend", facts)
+    llm = _llm_call("rearrange_recommend", facts, user_id=user_id)
     if llm is not None and llm.get("choice") in ("main", "alt", "either"):
         reason = str(llm.get("reason", "")).strip()
         if reason and assert_no_hallucination(reason, facts):
@@ -246,13 +246,13 @@ SCENE_EXTRA: dict[str, dict] = {
 }
 
 
-def _llm_call(scene: str, facts: dict) -> Optional[dict]:
+def _llm_call(scene: str, facts: dict, user_id: Optional[str] = None) -> Optional[dict]:
     """调用兼容 OpenAI 协议的网关（DeepSeek / Kimi 等）。未配置或失败返回 None（走模板降级）。"""
-    base = os.getenv("LLM_BASE_URL")
-    key = os.getenv("LLM_API_KEY")
-    model = os.getenv("LLM_MODEL")
-    if not (base and key and model):
+    from server import llmconf
+    resolved = llmconf.resolve_text(user_id)
+    if not resolved:
         return None
+    base, key, model = resolved
     extra = SCENE_EXTRA.get(scene, {})
     system = extra.get("system") or (
         "你是马拉松训练助手的文案层。所有数字已给定，禁止引入任何新数字。"
@@ -311,13 +311,13 @@ def _extract_json(text: str) -> str:
     return text[start:end + 1] if start >= 0 and end > start else text
 
 
-def render_scene(scene: str, facts: dict, fallback):
+def render_scene(scene: str, facts: dict, fallback, user_id: Optional[str] = None):
     """通用解释入口：返回 (文案, 来源 llm/template)。
 
     LLM 输出必须过数值断言，不过即降级到 fallback——这条断言比任何 prompt 都管用。
     fallback 为 str（单字段场景直接返回）或 dict（多字段场景）。
     """
-    llm = _llm_call(scene, facts)
+    llm = _llm_call(scene, facts, user_id=user_id)
     if llm is not None:
         joined = " ".join(str(v) for v in llm.values())
         if assert_no_hallucination(joined, facts):
@@ -325,7 +325,7 @@ def render_scene(scene: str, facts: dict, fallback):
     return fallback, "template"
 
 
-def render_explain(facts: dict) -> tuple[dict, str]:
+def render_explain(facts: dict, user_id: Optional[str] = None) -> tuple[dict, str]:
     """重排解释（兼容旧签名）：返回 (四槽位文案, 来源 llm/template)。"""
     tpl = _fill(_template(facts.get("strategy", "noop"), facts.get("trigger_group", "manual")), facts)
-    return render_scene("explain_rearrange", facts, tpl)
+    return render_scene("explain_rearrange", facts, tpl, user_id=user_id)

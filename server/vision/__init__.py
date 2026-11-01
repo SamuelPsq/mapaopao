@@ -42,17 +42,17 @@ class VisionNotConfigured(Exception):
     """未配置视觉识别密钥——与「识别失败」区分，应用侧应给出不同的用户提示。"""
 
 
-def extract_result(image_bytes: bytes, mime: str) -> dict | None:
+def extract_result(image_bytes: bytes, mime: str, user_id: str | None = None) -> dict | None:
     """调视觉模型提取成绩；任何失败（未配置/超时/校验不过）都返回 None。
 
-    独立环境变量 VISION_BASE_URL / VISION_API_KEY / VISION_MODEL：
+    独立配置通道（用户设置页 > VISION_BASE_URL / VISION_API_KEY / VISION_MODEL）：
     视觉能力绑定具体多模态模型（DeepSeek 全系不支持图片），不能与文本 LLM 混用。
     """
-    base = os.getenv("VISION_BASE_URL", "https://api.moonshot.cn")
-    key = os.getenv("VISION_API_KEY")
-    model = os.getenv("VISION_MODEL", "moonshot-v1-8k-vision-preview")
-    if not key:
-        raise VisionNotConfigured("缺少 VISION_API_KEY")
+    from server import llmconf
+    resolved = llmconf.resolve_vision(user_id)
+    if not resolved:
+        raise VisionNotConfigured("缺少视觉模型密钥")
+    base, key, model = resolved
     try:
         import httpx
         b64 = base64.b64encode(image_bytes).decode()
