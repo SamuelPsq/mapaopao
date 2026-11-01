@@ -306,6 +306,26 @@ export default function Today() {
   const phaseCn: Record<string, string> = { load: "加载周", cut: "减量周", taper: "赛前减量", base: "基础期", build: "强化期", peak: "峰值期" }
   const durationMin = m ? Math.round(m.target_km * paceSec(m.target_pace) / 60) : 0
 
+  // 天气内容（气温 + 7 天趋势）：有课嵌在主课卡里，没课独立成卡，两种形态共用
+  const weatherInner = card.weather ? (
+    <>
+      <div className="flex items-end justify-between gap-2">
+        <div className="flex items-baseline gap-1.5">
+          <span className="text-2xl font-black leading-none">
+            {Math.round(card.weather.t_max)}<span className="text-sm font-bold">°C</span>
+          </span>
+          <span className="text-[11px] text-white/85">
+            {card.weather.condition} · 体感 {Math.round(card.weather.apparent_max)}°
+          </span>
+        </div>
+        {card.weather.precip > 0 ? (
+          <span className="text-[10px] text-white/80">降雨 {fmtKm(card.weather.precip)} mm</span>
+        ) : null}
+      </div>
+      <WxTrend week={card.weather.week} />
+    </>
+  ) : null
+
   return (
     <Shell>
       {/* 顶部 */}
@@ -371,25 +391,19 @@ export default function Today() {
               </span>
             </div>
             {/* 当前城市气温 + 天气状况 + 未来 7 天趋势 */}
-            {card.weather ? (
-              <div className="mt-2 border-t border-white/15 pt-2">
-                <div className="flex items-end justify-between gap-2">
-                  <div className="flex items-baseline gap-1.5">
-                    <span className="text-2xl font-black leading-none">
-                      {Math.round(card.weather.t_max)}<span className="text-sm font-bold">°C</span>
-                    </span>
-                    <span className="text-[11px] text-white/85">
-                      {card.weather.condition} · 体感 {Math.round(card.weather.apparent_max)}°
-                    </span>
-                  </div>
-                  {card.weather.precip > 0 ? (
-                    <span className="text-[10px] text-white/80">降雨 {fmtKm(card.weather.precip)} mm</span>
-                  ) : null}
-                </div>
-                <WxTrend week={card.weather.week} />
-              </div>
+            {weatherInner ? (
+              <div className="mt-2 border-t border-white/15 pt-2">{weatherInner}</div>
             ) : null}
             {card.reason_line ? <div className="text-[11px] text-white/90 mt-2 border-t border-white/15 pt-2">{card.reason_line}</div> : null}
+          </div>
+        </div>
+      ) : card.weather ? (
+        /* 今天没排课（如周日）：天气独立成卡，不跟着课表一起消失 */
+        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary to-[hsl(20,88%,33%)] text-primary-foreground shadow-md shadow-primary/20 mb-4">
+          <div className="absolute -right-6 -top-8 h-24 w-24 rounded-full bg-white/10" />
+          <div className="relative px-4 py-3.5">
+            <div className="text-sm font-medium text-white/90 mb-1.5">今天没有排课，好好休息</div>
+            {weatherInner}
           </div>
         </div>
       ) : (
