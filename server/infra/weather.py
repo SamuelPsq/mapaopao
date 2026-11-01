@@ -22,6 +22,18 @@ AQI_HARD_LIMIT = 150                   # AQI >150 硬约束
 _cache: dict[str, tuple[float, "WeatherDay"]] = {}
 TTL_FORECAST = 6 * 3600                # 未来 7 天 TTL 6h
 TTL_HISTORY = 30 * 24 * 3600           # 历史日期 TTL 30d
+TTL_NEGATIVE = 60.0                    # 失败负缓存 60s：避免故障期每个请求都慢超时
+
+# 末次成功快照（磁盘兜底）：API 超时/断网时展示最近一次成功数据（source=cache），
+# 而不是整块消失。文件落在工作区根，不进 Git。
+import json
+import os
+import threading
+from pathlib import Path
+
+_SNAPSHOT_PATH = Path(__file__).resolve().parent.parent.parent / "wx_snapshot.json"
+_SNAPSHOT_LOCK = threading.Lock()
+_SNAPSHOT_MAX_AGE = 48 * 3600          # 快照超过 48h 不再兜底（预报本身也过期了）
 
 
 @dataclass
@@ -71,8 +83,9 @@ def _empty_day(d: date, source: str = "STALE", confidence: str = "low") -> Weath
     return WeatherDay(date=d.isoformat(), source=source, confidence=confidence)
 
 
-def _fetch_7d(lat: float, lon: float, timeout: float = 3.0) -> dict[str, WeatherDay]:
-    """一次请求拉取 7 天预报（+一次 AQI），返回 {date_str: WeatherDay}。"""
+def _fetch_7d(lat: float, lon: float, timeout: float = 8.0) -> dict[str, WeatherDay]:
+    """一次请求拉取 7 天预报（+一次 AQI），返回 {date_str: WeatherDay}。
+    超时给到 8s：实测该 API 从本机访问耗时 ~2.7s，3s 阈值贴边会偶发整体超时。"""
     params = {
         "latitude": lat, "longitude": lon,
         "daily": "temperature_2m_max,relative_humidity_2m_mean,precipitation_sum,weathercode",
@@ -82,11 +95,10 @@ def _fetch_7d(lat: float, lon: float, timeout: float = 3.0) -> dict[str, Weather
         r = client.get(API_URL, params=params)
         r.raise_for_status()
         j = r.json()
-    daily = j["daily"]
-    times = daily["time"]
-    aqi_by_day: dict[str, int] = {}
-    try:
-        with httpx.Client(timeout=timeout) as client:
+        daily = j["daily"]
+        times = daily["time"]
+        aqi_by_day: dict[str, int] = {}
+        try:
             r2 = client.get("https://air-quality-api.open-meteo.com/v1/air-quality",
                             params={"latitude": lat, "longitude": lon,
                                     "hourly": "us_aqi", "timezone": "auto", "forecast_days": 7})
@@ -96,8 +108,8 @@ def _fetch_7d(lat: float, lon: float, timeout: float = 3.0) -> dict[str, Weather
                     vals = [v for v in arr[i * 24:(i + 1) * 24] if v is not None]
                     if vals:
                         aqi_by_day[t] = max(vals)
-    except Exception:
-        pass                                              # AQI 失败不阻塞主链路
+        except Exception:
+            pass                                          # AQI 失败不阻塞主链路
     out: dict[str, WeatherDay] = {}
     for i, t in enumerate(times):
         t_max = daily["temperature_2m_max"][i]
@@ -113,21 +125,77 @@ def _fetch_7d(lat: float, lon: float, timeout: float = 3.0) -> dict[str, Weather
     return out
 
 
+# ---------------------------------------------------------------- 快照持久化
+def _snapshot_key(lat: float, lon: float) -> str:
+    return f"{lat:.1f},{lon:.1f}"                   # 粒度 0.1° ≈ 11km，同城不同区共用一个快照
+
+
+def _snapshot_save(lat: float, lon: float, data: dict[str, WeatherDay]) -> None:
+    """按城市键保存末次成功快照（多用户不同城市互不覆盖）。"""
+    with _SNAPSHOT_LOCK:
+        try:
+            store: dict = {}
+            if _SNAPSHOT_PATH.exists():
+                try:
+                    store = json.loads(_SNAPSHOT_PATH.read_text(encoding="utf-8"))
+                except ValueError:
+                    store = {}
+            store[_snapshot_key(lat, lon)] = {
+                "lat": lat, "lon": lon, "ts": time.time(),
+                "days": {k: v.to_dict() for k, v in data.items()}}
+            _SNAPSHOT_PATH.write_text(json.dumps(store, ensure_ascii=False), encoding="utf-8")
+        except OSError:
+            pass                                      # 快照写失败不影响主链路
+
+
+def _snapshot_load(lat: float, lon: float) -> dict[str, WeatherDay] | None:
+    """读取该城市末次成功快照（48h 内）。返回 source=cache 的兜底数据。"""
+    with _SNAPSHOT_LOCK:
+        try:
+            if not _SNAPSHOT_PATH.exists():
+                return None
+            store = json.loads(_SNAPSHOT_PATH.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return None
+    p = store.get(_snapshot_key(lat, lon)) if isinstance(store, dict) else None
+    if not p:
+        return None                                     # 该城市没有快照（或旧格式单城市文件）
+    if time.time() - p.get("ts", 0) > _SNAPSHOT_MAX_AGE:
+        return None
+    out: dict[str, WeatherDay] = {}
+    for k, v in (p.get("days") or {}).items():
+        d = WeatherDay(**{f: v[f] for f in
+                          ("date", "t_max", "rh_mean", "precip", "weather_code",
+                           "aqi", "apparent_max") if f in v})
+        d.source = "cache"                              # 标记兜底：硬约束保守生效
+        d.confidence = "low"                            # 软调节不触发（避免误伤，与 STALE 哲学一致）
+        out[k] = d
+    return out or None
+
+
 _week_cache: dict[str, tuple[float, dict[str, WeatherDay]]] = {}
 
 
 def _week_forecast(lat: float, lon: float) -> dict[str, WeatherDay]:
-    """取（并缓存 6h）未来 7 天预报。任何失败都返回 {}，绝不抛异常。"""
+    """取（并缓存 6h）未来 7 天预报。失败时兜底末次成功快照（source=cache），
+    快照也没有才返回 {}——绝不抛异常，也不让天气块整块消失。"""
     key = f"wx7:{lat:.2f},{lon:.2f}"
     now = time.time()
     if key in _week_cache and now - _week_cache[key][0] < TTL_FORECAST:
         return _week_cache[key][1]
+    if key in _week_cache and now - _week_cache[key][0] < TTL_NEGATIVE \
+            and not _week_cache[key][1]:
+        return {}                                       # 负缓存：故障期 60s 内不重试
     try:
         data = _fetch_7d(lat, lon)
         _week_cache[key] = (now, data)
+        if data:
+            _snapshot_save(lat, lon, data)
         return data
     except Exception:
-        return {}
+        _week_cache[key] = (now, {})
+        snap = _snapshot_load(lat, lon)
+        return snap if snap is not None else {}
 
 
 def get_weather(lat: float, lon: float, target: date) -> WeatherDay:

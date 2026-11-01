@@ -11,7 +11,7 @@ import tempfile
 os.environ["MAPAOPAO_DB_URL"] = "sqlite:///" + os.path.join(
     tempfile.gettempdir(), "mapaopao_api_test.db")
 
-from datetime import date
+from datetime import date, timedelta
 
 from fastapi.testclient import TestClient
 
@@ -38,7 +38,21 @@ def _fresh_db():
 def _make_user_plan():
     uid = c.post("/v1/profile", json=PROFILE).json()["user_id"]
     plan_id = c.post(f"/v1/plan/generate?user_id={uid}").json()["plan_id"]
+    _shift_plan_to_today(plan_id)
     return uid, plan_id
+
+
+def _shift_plan_to_today(plan_id):
+    """计划固定从本周一生成；周日跑测试时第 1 周只剩今天、无剩余课次，降载无事可改。
+    把计划整体平移到从今天开始，保证「今天有课、本周有剩余课次」，与运行日星期几无关。"""
+    with db.SessionLocal.begin() as s:
+        plan = s.get(db.Plan, plan_id)
+        delta = (date.today() - plan.start_date).days
+        if delta <= 0:
+            return
+        plan.start_date += timedelta(days=delta)
+        for sess in s.query(db.Session).filter_by(plan_id=plan_id):
+            sess.date += timedelta(days=delta)
 
 
 def _future(s):

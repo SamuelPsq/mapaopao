@@ -117,7 +117,7 @@ def test_tune_after_deviation_applies_valid_ops():
     user, plan = _user_plan()
     from server import tune
     orig = tune.propose_ops
-    tune.propose_ops = lambda facts, rag_ctx=None: [
+    tune.propose_ops = lambda facts, rag_ctx=None, user_id=None: [
         {"op": "adjust", "session_id": "plan-raguser-W1-s1", "km": 6.5}]   # 6.0→6.5，+8.3%，合法
     try:
         r = tune_after_deviation(user, plan, 1, "over_done", 1.5, recent_logs=[])
@@ -138,7 +138,7 @@ def test_tune_after_deviation_rejects_bad_ops():
     user, plan = _user_plan()
     from server import tune
     orig = tune.propose_ops
-    tune.propose_ops = lambda facts, rag_ctx=None: [
+    tune.propose_ops = lambda facts, rag_ctx=None, user_id=None: [
         {"op": "adjust", "session_id": "plan-raguser-W1-s2", "km": 20.0}]
     try:
         r = tune_after_deviation(user, plan, 1, "over_done", 1.5, recent_logs=[])
@@ -205,7 +205,7 @@ def test_tune_after_deviation_weekly_cooldown():
     orig = tune.propose_ops
     calls = {"n": 0}
 
-    def fake(facts, rag_ctx=None):
+    def fake(facts, rag_ctx=None, user_id=None):
         calls["n"] += 1
         return [{"op": "adjust", "session_id": "plan-raguser-W1-s1", "km": 6.5}]
 

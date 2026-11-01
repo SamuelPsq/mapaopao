@@ -109,7 +109,7 @@ def test_tune_applies_and_is_idempotent(monkeypatch):
     assert new_km != orig_km and abs(new_km - orig_km) <= orig_km * tune.KM_TOL + 1e-9
 
     monkeypatch.setattr(tune, "propose_ops",
-                        lambda facts: [{"op": "adjust", "session_id": easy, "km": new_km}])
+                        lambda facts, rag_ctx=None, user_id=None: [{"op": "adjust", "session_id": easy, "km": new_km}])
     r = c.get("/v1/today?user_id=u1")
     assert r.status_code == 200
 
@@ -121,7 +121,7 @@ def test_tune_applies_and_is_idempotent(monkeypatch):
         assert len(ev) == 1 and ev[0].payload["applied"] is True
 
     # 幂等：第二次查看不再调 LLM（桩改成抛异常都能过）
-    def _boom(facts):
+    def _boom(facts, rag_ctx=None, user_id=None):
         raise AssertionError("should not call LLM again")
     monkeypatch.setattr(tune, "propose_ops", _boom)
     c.get("/v1/today?user_id=u1")
@@ -142,7 +142,7 @@ def test_tune_rejects_bad_ops(monkeypatch):
     # LLM 想把课加量 50% → 必须被硬校验拒收，课表保持原样
     sid = next(iter(before))
     monkeypatch.setattr(tune, "propose_ops",
-                        lambda facts: [{"op": "adjust", "session_id": sid, "km": 99.0}])
+                        lambda facts, rag_ctx=None, user_id=None: [{"op": "adjust", "session_id": sid, "km": 99.0}])
     assert c.get("/v1/today?user_id=u2").status_code == 200
     with db.SessionLocal() as s:
         after = {x.session_id: (x.target_km, x.date, x.source) for x in

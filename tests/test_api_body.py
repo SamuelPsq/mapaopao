@@ -171,7 +171,24 @@ def _seed_user_with_plan(username):
         "goal_race": "half", "ability": "B_base", "injury_flag": "N",
         "height_cm": 170, "weight_kg": 60, "city": "上海", "lat": 31.23, "lon": 121.47})
     c.post(f"/v1/plan/generate?user_id={uid}")
+    # 平移到从今天开始：模板按工作日排课，周日/周一生成时「今天没课」会让断言翻车
+    _shift_plan_to_today(uid)
     return uid
+
+
+def _shift_plan_to_today(uid):
+    with db.SessionLocal() as s:
+        plan = s.query(db.Plan).filter_by(user_id=uid, status="active").first()
+        if not plan:
+            return
+        from datetime import date as _date, timedelta as _td
+        delta = (_date.today() - plan.start_date).days
+        if delta <= 0:
+            return
+        plan.start_date += _td(days=delta)
+        for sess in s.query(db.Session).filter_by(plan_id=plan.plan_id):
+            sess.date += _td(days=delta)
+        s.commit()
 
 
 def _insert_reports(uid, rows):
@@ -270,9 +287,15 @@ def test_skip_kind_and_calendar_view():
                                   soreness_part="knee", sleep_score=6, fatigue_score=4))
 
     month = _date.today().strftime("%Y-%m")
-    cal = c.get("/v1/calendar", params={"user_id": uid, "month": month}).json()
-    assert cal["month"] == month and len(cal["days"]) >= 28
-    by_date = {d["date"]: d for d in cal["days"]}
+    # 课次可能跨月（如月末生成的课表），按涉及的每个月分别拉月历再合并
+    checked = ([today_sess["date"]] if today_sess else []) + [t["date"] for t in targets] \
+        + [r["date"] for r in rest_days]
+    by_date = {}
+    for m in {month} | {d[:7] for d in checked}:
+        cal = c.get("/v1/calendar", params={"user_id": uid, "month": m}).json()
+        assert cal["month"] == m
+        by_date.update({d["date"]: d for d in cal["days"]})
+    assert len(by_date) >= 28
     if today_sess is not None:
         d = by_date[today_sess["date"]]
         assert d["kind"] == "run" and d["km"] == round(today_sess["target_km"], 1) and d["pace"]
