@@ -84,6 +84,7 @@ export interface TodayCard {
   city: string
   today_has_run: boolean
   main_session: MainSession | null
+  next_session?: MainSession | null   // 本周已无未上课次（如周日）时的全计划最近一课
   reason_line: string
   weather_line: string
   hard_days: string[]

@@ -854,6 +854,14 @@ def today_card(user_id: str):
         else:
             future = [x for x in sessions if x.date > today and x.status == "planned"]
             main = future[0] if future else None
+        # 跨周兜底：本周已无未上课次（如周日）→ 找全计划里最近一节，供无课日卡片展示
+        next_sess = None
+        if main is None:
+            nxt = s.query(db.Session).filter(
+                db.Session.plan_id == plan.plan_id, db.Session.status == "planned",
+                db.Session.date > today).order_by(db.Session.date, db.Session.seq).first()
+            if nxt:
+                next_sess = _session_dict(nxt)
         done_key = sum(1 for x in sessions if x.is_key and
                        (logs.get(x.session_id) and logs[x.session_id].status in ("full", "over", "partial")))
         key_total = sum(1 for x in sessions if x.is_key)
@@ -936,6 +944,7 @@ def today_card(user_id: str):
             "weather": weather_out,
             "today_has_run": bool(todays),
             "main_session": _session_dict(main, logs.get(main.session_id)) if main else None,
+            "next_session": next_sess,
             "reason_line": reason, "weather_line": wx_line, "hard_days": hard_days,
             "suggestion": suggestion, "degrade": degrade, "recovery_alert": recovery_alert,
             "week_progress": {"key_done": done_key, "key_total": key_total,

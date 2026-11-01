@@ -121,6 +121,14 @@ export default function Today() {
   const m = card.main_session
   const todayStr = new Date().toLocaleDateString("sv-SE")   // YYYY-MM-DD（本地时区）
   const isToday = !!m && m.date === todayStr                // 主课是不是今天的课
+  // 无课日的「下一节」：明天/后天/周X · 课型 + 距离
+  const ns = card.next_session
+  const nsLabel = (() => {
+    if (!ns) return ""
+    const diff = Math.round((new Date(ns.date).getTime() - new Date(todayStr).getTime()) / 86400000)
+    const prefix = diff === 1 ? "明天" : diff === 2 ? "后天" : ns.dow
+    return `${prefix} · ${ns.type_cn} ${fmtKm(ns.target_km)} km`
+  })()
 
   async function log(status: "full" | "partial" | "over" | "skipped", actualKm?: number, durationSec?: number, skipKind?: "rest" | "strength", devReason?: "impulse" | "mismatch") {
     if (!isToday) { setNotTimeOpen(true); return }          // 时间对不上：不是不练，时候未到
@@ -402,12 +410,18 @@ export default function Today() {
         <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary to-[hsl(20,88%,33%)] text-primary-foreground shadow-md shadow-primary/20 mb-4">
           <div className="absolute -right-6 -top-8 h-24 w-24 rounded-full bg-white/10" />
           <div className="relative px-4 py-3.5">
-            <div className="text-sm font-medium text-white/90 mb-1.5">今天没有排课，好好休息</div>
+            <div className="text-sm font-medium text-white/90 mb-1.5">
+              今天没有排课，好好休息
+              {nsLabel ? <span className="block text-[11px] font-normal text-white/75 mt-0.5">下一节：{nsLabel}</span> : null}
+            </div>
             {weatherInner}
           </div>
         </div>
       ) : (
-        <div className="rounded-2xl border bg-card px-4 py-4 text-sm text-muted-foreground shadow-sm mb-4">今天没有排课，好好休息。</div>
+        <div className="rounded-2xl border bg-card px-4 py-4 text-sm text-muted-foreground shadow-sm mb-4">
+          今天没有排课，好好休息。
+          {nsLabel ? <span className="block text-xs mt-1">下一节：{nsLabel}</span> : null}
+        </div>
       )}
 
       {/* 力量训练提醒：不进周计划，空闲日提示即可 */}
