@@ -70,6 +70,8 @@ export default function Today() {
   const [fatigue, setFatigue] = useState(4)
   // 跑后拉伸建议（LLM 生成，规则模板兜底）
   const [stretch, setStretch] = useState<null | { text: string; source: string; suggestion: string }>(null)
+  // 未绑定 AI Key 提醒：每次登录进首页弹一次（sessionStorage 控制同一会话只弹一次，退出登录清除）
+  const [keyHintOpen, setKeyHintOpen] = useState(false)
 
   // 问卷提交中 / 进阶重排中：禁用按钮防重复提交
   const [surveyBusy, setSurveyBusy] = useState(false)
@@ -87,6 +89,18 @@ export default function Today() {
   }, [uid, nav])
 
   useEffect(() => { refresh() }, [refresh])
+
+  useEffect(() => {
+    if (!uid || sessionStorage.getItem("mpaopao_key_hint")) return
+    api.get<{ fallback: string }>(`/v1/settings/llm?user_id=${uid}`)
+      .then(v => {
+        if (v.fallback !== "user") {
+          setKeyHintOpen(true)
+          sessionStorage.setItem("mpaopao_key_hint", "1")   // 本次登录只弹一次
+        }
+      })
+      .catch(() => {})
+  }, [uid])
 
   useEffect(() => {
     if (!toast) return
@@ -474,6 +488,24 @@ export default function Today() {
       <CitySheet current={card.city} onDone={(msg) => { setToast(msg); refresh() }} />
 
       <NavBar weekNo={card.week_no} />
+
+      {/* 未绑定 AI Key 提醒：每次登录进首页弹一次，绑定后不再出现 */}
+      <AlertDialog open={keyHintOpen} onOpenChange={setKeyHintOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>还没有绑定你的 AI Key</AlertDialogTitle>
+            <AlertDialogDescription>
+              现在所有 AI 功能（跑小助问答、周审视点评、智能识别成绩）都走服务器默认配置。
+              绑定自己的模型和 API 后，AI 回答更稳定、识别更快，且不计入服务器额度。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>下次再说</AlertDialogCancel>
+            <AlertDialogAction onClick={() => nav("/settings")}>去绑定</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {toast ? <div className="fixed bottom-20 left-1/2 -translate-x-1/2 bg-foreground text-background text-sm px-4 py-2 rounded-full shadow-lg max-w-xs text-center z-50">{toast}</div> : null}
 
       {/* 打卡弹窗：里程 + 总用时（时分秒滚轮），默认值即今日课程目标 */}

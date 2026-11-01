@@ -249,7 +249,7 @@ SCENE_EXTRA: dict[str, dict] = {
 def _llm_call(scene: str, facts: dict, user_id: Optional[str] = None) -> Optional[dict]:
     """调用兼容 OpenAI 协议的网关（DeepSeek / Kimi 等）。未配置或失败返回 None（走模板降级）。"""
     from server import llmconf
-    resolved = llmconf.resolve_text(user_id)
+    resolved = llmconf.resolve(user_id)
     if not resolved:
         return None
     base, key, model = resolved

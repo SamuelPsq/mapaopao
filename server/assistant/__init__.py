@@ -112,7 +112,7 @@ def assistant_llm(question: str, context: dict, kb: list[dict],
     user_id 用于解析该用户自配的 AI 引擎（设置页 v3.3），未配置回退 .env。
     """
     from server import llmconf
-    resolved = llmconf.resolve_text(user_id)
+    resolved = llmconf.resolve(user_id)
     if not resolved:
         return None
     base, key, model = resolved

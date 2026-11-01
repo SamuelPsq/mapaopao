@@ -1381,34 +1381,27 @@ def user_me(user_id: str):
 
 @app.get("/v1/settings/llm")
 def settings_llm_view(user_id: str):
-    """AI 引擎设置回显：供应商预设 + 已存配置（key 脱敏）+ 当前兜底来源。"""
+    """AI 引擎设置回显：供应商预设（均为多模态模型）+ 已存配置（key 脱敏）+ 兜底来源。"""
     from server import llmconf
     return llmconf.view(user_id)
 
 
-class LLMChannelIn(BaseModel):
+class LLMConfigIn(BaseModel):
     provider: str | None = None
     base_url: str | None = None
     api_key: str | None = None      # None=不变；空串=清除；其余=覆盖
     model: str | None = None
 
 
-class LLMSettingsIn(BaseModel):
-    text: LLMChannelIn | None = None
-    vision: LLMChannelIn | None = None
-
-
 @app.put("/v1/settings/llm")
-def settings_llm_save(user_id: str, body: LLMSettingsIn):
-    """保存 AI 引擎配置：文本与视觉通道可分别更新；文本通道建议先测试连接。"""
+def settings_llm_save(user_id: str, body: LLMConfigIn):
+    """保存 AI 引擎配置（单通道）：跑小助/文案/微调/智能识别共用一份 Key 与模型。"""
     from server import llmconf
-    llmconf.save(user_id, body.text.model_dump() if body.text else None,
-                 body.vision.model_dump() if body.vision else None)
-    return {"ok": True, **llmconf.view(user_id)["fallback"]}
+    llmconf.save(user_id, body.model_dump())
+    return {"ok": True, "fallback": llmconf.view(user_id)["fallback"]}
 
 
 class LLMTestIn(BaseModel):
-    channel: str                      # text / vision
     base_url: str = ""
     api_key: str = ""
     model: str = ""
@@ -1418,9 +1411,7 @@ class LLMTestIn(BaseModel):
 def settings_llm_test(user_id: str, body: LLMTestIn):
     """试连（不落库）：先试 GET /models，不通再试最小 chat 补全；失败说人话。"""
     from server import llmconf
-    if body.channel not in ("text", "vision"):
-        raise HTTPException(400, "测试通道只支持 text / vision")
-    return llmconf.test_connection(body.channel, body.model_dump())
+    return llmconf.test_connection(body.model_dump())
 
 
 _AVATAR_PREFIXES = ("data:image/png;base64,", "data:image/jpeg;base64,", "data:image/webp;base64,")

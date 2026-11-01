@@ -130,7 +130,7 @@ td.mono,th.mono{font-family:"SFMono-Regular",Consolas,monospace;font-size:12.2px
 <div class="hero-in">
 <div class="tagline">PRODUCT &amp; TECHNICAL SPECIFICATION · AS-BUILT</div>
 <h1>马跑跑 · AI 马拉松训练规划助手<br>产品需求 + 技术实现规格（与实际产品同步版）</h1>
-<p>本文档 v3.3（2026-11-01）与线上运行的产品逐块核对后重写：前半份回答「做什么、为什么这么做」，后半份回答「每一块实际怎么实现」——数据模型、规则引擎、重排决策、护栏校验、RAG 知识层、LLM 调用与降级、接口契约、埋点口径，全部对应当前代码与界面。<b>v3.2 起新增第 22 章「实验室 B 端模块」</b>（知情同意 / 匿名化导出 / 问卷系统 / 调参闭环 / 教师工作台），与 2026-10-22 上线的 B 端实现逐块对齐；<b>v3.3 新增「AI 引擎自选」</b>——用户在设置页自配模型供应商 / API Key / 模型，不再手改 .env。功能描述以真实实现为准，演示数据单独标注口径。</p>
+<p>本文档 v3.3（2026-11-01）与线上运行的产品逐块核对后重写：前半份回答「做什么、为什么这么做」，后半份回答「每一块实际怎么实现」——数据模型、规则引擎、重排决策、护栏校验、RAG 知识层、LLM 调用与降级、接口契约、埋点口径，全部对应当前代码与界面。<b>v3.2 起新增第 22 章「实验室 B 端模块」</b>（知情同意 / 匿名化导出 / 问卷系统 / 调参闭环 / 教师工作台），与 2026-10-22 上线的 B 端实现逐块对齐；<b>v3.3 新增「AI 引擎自选」</b>——用户在设置页自配模型供应商 / API Key / 模型，不再手改 .env；<b>v3.3.1 将其收敛为单一多模态通道</b>——文本与智能识别成绩共用一份支持读图的 Key，未绑定用户登录弹窗提醒。功能描述以真实实现为准，演示数据单独标注口径。</p>
 <div class="meta">
 <span>定位：校内马拉松选修课 / 社团训练工具</span><span>合作：校体育学院运动与健康实验中心</span><span>累计使用：756 人</span>
 <span>角色：产品负责人 + 全栈实现</span><span>北极星：周计划执行率</span><span>仓库：github.com/SamuelPsq/mapaopao</span>
@@ -423,7 +423,7 @@ ai_case                                 （AI 微调案例：采纳与拒绝）<
 <tr><td class="mono">weather_daily</td><td>apparent_max 入库时算好落库——复盘要用同一口径，不能依赖运行时重算</td></tr>
 <tr><td class="mono">event</td><td>通用埋点表（name + JSON payload），level_advanced 等关键事件落此</td></tr>
 <tr><td class="mono">v3.2 实验室 7 张</td><td>consent_record（同意留痕）、export_log（导出审计）、survey / survey_instance / survey_response（问卷）、tune_suggestion（调参建议）、plan_config（调参配置）。C 端 14 张之上为 B 端新增，字段与约束见第 22 章</td></tr>
-<tr><td class="mono">v3.3 llm_config</td><td>每用户 AI 引擎配置（user_id 唯一）：文本与视觉两通道的 provider / base_url / api_key / model；解析顺序 用户配置 → .env → 规则降级，key 仅本人可见（接口脱敏）</td></tr>
+<tr><td class="mono">v3.3 llm_config</td><td>每用户 AI 引擎配置（user_id 唯一）：单通道的 provider / base_url / api_key / model，预设模型均为多模态（文本与智能识别成绩共用同一份 Key）；解析顺序 用户配置 → .env → 规则降级，key 仅本人可见（接口脱敏）</td></tr>
 </tbody>
 </table>
 
@@ -577,7 +577,7 @@ def apparent_max(t_c, rh):  # NOAA Heat Index（Rothfusz 回归），入库时�
 <p>降级原则：第三方挂掉绝不阻塞主链路——取昨天的预报 + 低置信标记；低置信时硬约束仍生效、软调节不触发（避免误伤）。<b>天气行在今日卡上用「数字 + ℃ + 天气图表」呈现</b>，hover 周审视页的小圆点可看当日天气——判定逻辑要被用户看见，而不是黑盒。</p>
 
 <h2>13 LLM 调用层</h2>
-<div class="sub">文本与视觉双通道、一处用途白名单、一道数值断言、一条降级链——把模型的自由度收在笼子里</div>
+<div class="sub">单一多模态通道（v3.3.1 起文本与识图共用一份 Key）、一处用途白名单、一道数值断言、一条降级链——把模型的自由度收在笼子里</div>
 
 <h3>13.1 用途白名单（真实）</h3>
 <table>
@@ -660,7 +660,7 @@ def apparent_max(t_c, rh):  # NOAA Heat Index（Rothfusz 回归），入库时�
 <tr><td class="mono">POST /v1/vision/vdot</td><td>识别成绩图 → 数值断言 → 折算 VDOT（确认后走统一重估）</td></tr>
 <tr><td rowspan="2"><b>指标/知识</b></td><td class="mono">GET /v1/metrics · GET /v1/kb/tip</td><td>指标页四项指标；跑步知识单条召回（探活也在用）</td></tr>
 <tr><td class="mono">POST /jobs/weekly_snapshot · /jobs/weather_refresh</td><td>内部任务：周快照冻结 / 天气刷新</td></tr>
-<tr><td><b>设置</b><br>（v3.3）</td><td class="mono">GET·PUT /v1/settings/llm · POST /v1/settings/llm/test</td><td>AI 引擎自选：用户自配供应商 / API Key / 模型（文本与视觉双通道），解析顺序 用户配置 → .env → 规则降级；Key 脱敏回显，试连失败说人话</td></tr>
+<tr><td><b>设置</b><br>（v3.3.1）</td><td class="mono">GET·PUT /v1/settings/llm · POST /v1/settings/llm/test</td><td>AI 引擎自选：用户自配一份多模态供应商 / API Key / 模型（文本与智能识别成绩共用），解析顺序 用户配置 → .env → 规则降级；Key 脱敏回显，试连失败说人话；未绑定用户每次登录进首页弹窗提醒</td></tr>
 <tr><td rowspan="2"><b>实验室 B 端</b><br>（v3.2）</td><td class="mono">GET /v1/consent/doc · GET /v1/survey/pending · POST /v1/survey/respond</td><td>C 端：协议文本（未登录可读）/ 本周待填问卷 / 幂等提交</td></tr>
 <tr><td class="mono">/v1/lab/* 10 个 + /jobs 2 个</td><td>B 端（role=teacher 403 人话）：概览 / 导出预览与导出 / 问卷管理与统计 / 调参建议采纳与忽略——逐个见第 22 章</td></tr>
 </tbody>
@@ -732,7 +732,8 @@ def apparent_max(t_c, rh):  # NOAA Heat Index（Rothfusz 回归），入库时�
 <tr><td><b>体验与信任</b></td><td>所有单向按钮防误触确认、打卡数字全站同步、网络断连降级文案与自动重试、缺密钥优雅降级、月历回看、品牌改版（Logo / 黄油体 / 入场动画）</td><td>「出错时说人话」成为全站规范</td></tr>
 <tr><td><b>工程可靠性</b></td><td>改参数不清进度、跑小助会话隔离（退出即清）、一键重启后端（重启开关装在 dev server 上）</td><td>见第 19 章四个真实事故</td></tr>
 <tr><td><b>实验室 B 端（v3.2，10-22/23）</b></td><td>注册强制知情同意（consent_record 版本留痕）；匿名化数据导出（4 张脱敏 CSV + 变量字典 + 导出审计）；问卷线上化（pre/weekly/post，周日定时生成实例，likert7/bool/text）；调参闭环（周一扫描连续 3 周关键课完成率 &lt;50% 自动生成收紧建议，教师采纳后只缩放今天之后的课、过护栏不清进度）；教师工作台 /lab（role=teacher，数据看板 / 问卷管理 / 调参建议三 Tab）</td><td>「跑小助串话」同一教训的 B 端版：导出脱敏、角色隔离、伦理审查包——详见第 22 章</td></tr>
-<tr><td><b>AI 引擎自选（v3.3，11-01）</b></td><td>指标页「AI 引擎设置」：供应商预设（DeepSeek / Kimi / OpenAI / Qwen / GLM / 自定义）+ 模型下拉可自定义 + API Key（脱敏回显、可清除）；文本与视觉双通道独立配置；测试连接（拉模型列表 → 最小对话，失败说人话）；全部 LLM 调用点（助手/文案/微调/识别）按 用户配置 → .env → 规则降级 解析</td><td>免手改 .env；「缺哪个降哪个」的解耦哲学延伸到用户维度</td></tr>
+<tr><td><b>AI 引擎自选（v3.3，11-01）</b></td><td>指标页「AI 引擎设置」：供应商预设 + 模型下拉可自定义 + API Key（脱敏回显、可清除）；测试连接（拉模型列表 → 最小对话，失败说人话）；全部 LLM 调用点（助手/文案/微调/识别）按 用户配置 → .env → 规则降级 解析</td><td>免手改 .env；「缺哪个降哪个」的解耦哲学延伸到用户维度</td></tr>
+<tr><td><b>AI 单通道化（v3.3.1，11-01）</b></td><td>文本与视觉合并为一份多模态配置：预设仅保留支持读图的模型（Kimi 视觉系列 / GPT-4o / Qwen-VL / GLM-4V，DeepSeek 全系不读图已移除）；v3.3 遗留的双通道字段保存时自动清空；未绑定 Key 的用户每次登录进首页弹一次「去绑定 / 下次再说」提醒（sessionStorage 控制单次会话只弹一次，退出登录即重置）</td><td>一份 Key 通吃全站 AI，用户不再理解「文本模型/视觉模型」的区别；识图 badcase 的根因（选错通道）从交互上消除</td></tr>
 </tbody>
 </table>
 
@@ -852,7 +853,7 @@ def apparent_max(t_c, rh):  # NOAA Heat Index（Rothfusz 回归），入库时�
 
 <div class="qa"><div class="q">Q：怎么证明你的 AI 真的在起作用，不是摆设？</div><div class="a">指标页四项指标全部来自真实埋点，且每项都配了「防自欺欺人」的设计：AI 文案使用率（llm_explain 事件里 source=llm 的占比，LLM 挂了指标自动掉，藏不住）；AI 决策（ai_case 表采纳<b>和拒绝都记</b>，拒绝率过高说明 AI 建议质量不行）；护栏有效性（guard_audit 留痕 who/hit_rule/before/after——没有这张表，你只能看到「伤痛率本来就不高」，永远证明不了是护栏的功劳）；周计划执行率（plan_week_snapshot 周初冻结分母——不冻结的话，重排后重算执行率一定虚高）。另外助手每条回答带 from: llm|kb 和召回条目的分数、出处，用户当场能看到一次召回好不好。</div></div>
 
-<div class="qa"><div class="q">Q：多用户共用一个部署，AI 配置怎么办？用户自己的 Key 怎么管？</div><div class="a">v3.3 做成了按用户维度的 AI 引擎配置：设置页里选供应商（DeepSeek / Kimi / OpenAI / Qwen / GLM / 自定义）、模型、填自己的 API Key，按 user_id 落一张 llm_config 表，解析顺序是<b>用户配置 → .env → 规则降级</b>三层——没填的用户零感知走服务器默认，填了的用自己的 Key 计费。三个设计点：①文本与视觉<b>双通道完全解耦</b>（识图必须选多模态模型，文本模型读不了图，延续「缺哪个降哪个」的架构）；②Key 安全——接口回显脱敏（只留后 4 位），回传脱敏值后端识别为「不变」不覆盖，空串才是清除，Key 不出现在任何 B 端导出里；③<b>测试连接</b>先于保存：先试拉模型列表、再试最小对话，401 说「Key 校验失败」、404 说「接口地址不通」，不让用户保存一个连不上的配置。<b>多租户 AI 配置的核心不是存 Key，是降级顺序——任何一层挂了，用户只会看到「AI 文案走模板」，不会看到报错。</b></div></div>
+<div class="qa"><div class="q">Q：多用户共用一个部署，AI 配置怎么办？用户自己的 Key 怎么管？</div><div class="a">v3.3 做成了按用户维度的 AI 引擎配置：设置页里选供应商、模型、填自己的 API Key，按 user_id 落一张 llm_config 表，解析顺序是<b>用户配置 → .env → 规则降级</b>三层——没填的用户零感知走服务器默认，填了的用自己的 Key 计费。v3.3.1 又把它收敛成<b>单通道</b>：文本与智能识别成绩共用一份多模态 Key，预设模型全部支持读图（DeepSeek 全系不读图，直接从预设里移除）——用户不需要理解「文本模型/视觉模型」的区别，识图 badcase 的根因从交互上消除。三个设计点：①模型预设即约束，可选列表里没有读不了图的模型；②Key 安全——接口回显脱敏（只留后 4 位），回传脱敏值后端识别为「不变」不覆盖，空串才是清除，Key 不出现在任何 B 端导出里；③<b>测试连接</b>先于保存：先试拉模型列表、再试最小对话，401 说「Key 校验失败」、404 说「接口地址不通」，不让用户保存一个连不上的配置；④未绑定 Key 的用户每次登录进首页弹一次提醒（单次会话只弹一次、退出登录重置），把「零感知降级」从被动兜底变成主动告知。<b>多租户 AI 配置的核心不是存 Key，是降级顺序——任何一层挂了，用户只会看到「AI 文案走模板」，不会看到报错。</b></div></div>
 
 <div class="part">Part V · 实验室 B 端（v3.2 新增）</div>
 <h2>22 实验室 B 端模块（v3.2）</h2>
@@ -937,7 +938,7 @@ B 端没有一条数据是让用户额外手填的（问卷除外）——全部
 
 <div class="foot">
 马跑跑 · AI 马拉松训练规划助手 PRD v3.3（与实际产品同步版）<br>
-口径声明：本文档功能描述以代码与界面为准；第 19 章事故均有 Git 提交记录；v1 文档（PRD_马跑跑_旧版备份.html）中的迭代数值为复盘重建口径，不再引用为产品成果。竞品信息来自公开资料，未付费实测。v3.2（2026-10-23）对齐实验室 B 端实现，新增第 22 章；v3.3（2026-11-01）对齐 AI 引擎自选。
+口径声明：本文档功能描述以代码与界面为准；第 19 章事故均有 Git 提交记录；v1 文档（PRD_马跑跑_旧版备份.html）中的迭代数值为复盘重建口径，不再引用为产品成果。竞品信息来自公开资料，未付费实测。v3.2（2026-10-23）对齐实验室 B 端实现，新增第 22 章；v3.3（2026-11-01）对齐 AI 引擎自选；v3.3.1（同日）对齐单通道多模态改造。
 </div>
 
 </div>

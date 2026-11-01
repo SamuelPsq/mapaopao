@@ -174,6 +174,7 @@ export function clearUser() {
   localStorage.removeItem("mpaopao_username")
   localStorage.removeItem("mpaopao_token")
   localStorage.removeItem("mpaopao_role")
+  sessionStorage.removeItem("mpaopao_key_hint")   // 下次登录重新提醒绑定 AI Key
   // 通知挂根部、路由切换不卸载的组件（如跑小助）立即清空本账号状态，防串话
   window.dispatchEvent(new Event("mpaopao:logout"))
 }

@@ -130,7 +130,7 @@ def propose_ops(facts: dict, rag_ctx: Optional[dict] = None,
     user_id 用于解析该用户自配的 AI 引擎，未配置回退 .env。
     """
     from server import llmconf
-    resolved = llmconf.resolve_text(user_id)
+    resolved = llmconf.resolve(user_id)
     if not resolved:
         return None
     base, key, model = resolved
