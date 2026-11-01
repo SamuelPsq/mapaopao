@@ -209,7 +209,7 @@ export default function SettingsPage() {
           </section>
 
           <p className="text-[11px] text-muted-foreground text-center pb-2">
-            推荐：Kimi（moonshot-v1-8k-vision-preview）或 GPT-4o mini——识图好且便宜
+            推荐：Kimi（moonshot-v1-8k-vision-preview）、GPT-4o mini 或 DeepSeek（deepseek-flash）——识图好且便宜
           </p>
         </div>
       ) : null}

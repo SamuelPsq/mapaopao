@@ -18,11 +18,14 @@ from . import db
 
 # ---------------------------------------------------------------- 供应商预设
 # 只列「确认支持图片输入」的模型：智能识别成绩（读成绩单/手表截图）依赖多模态能力。
-# DeepSeek 全系不支持图片，不在预设里（服务器 .env 仍可用它做纯文本兜底）。
+# 注意各家文本模型不一定读得了图（如 deepseek-chat），所以只放各自的视觉型号：
+# DeepSeek 用 2026-09 起原生多模态的 V4.1 Flash（deepseek-flash）及其前身视觉实验版。
 PROVIDERS: dict[str, dict] = {
     "kimi": {"label": "Kimi（Moonshot）", "base_url": "https://api.moonshot.cn/v1",
              "models": ["moonshot-v1-8k-vision-preview", "moonshot-v1-32k-vision-preview",
                         "moonshot-v1-128k-vision-preview"]},
+    "deepseek": {"label": "DeepSeek", "base_url": "https://api.deepseek.com/v1",
+                 "models": ["deepseek-flash", "deepseek-v4-flash-vision-exp"]},
     "openai": {"label": "OpenAI / GPT", "base_url": "https://api.openai.com/v1",
                "models": ["gpt-4o-mini", "gpt-4o", "gpt-4.1-mini"]},
     "qwen": {"label": "Qwen（通义）", "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",

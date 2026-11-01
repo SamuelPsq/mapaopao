@@ -37,9 +37,11 @@ def test_view_defaults_and_masked_save():
     uid = _register("userone")
     v = c.get(f"/v1/settings/llm?user_id={uid}").json()
     assert v["config"]["api_key"] == "" and v["fallback"] in ("env", "none")
-    # 预设全部为多模态模型（智能识别成绩依赖读图能力）
+    # 预设全部为多模态模型（智能识别成绩依赖读图能力）；DeepSeek 只有视觉型号入选
     assert "kimi" in v["providers"] and "custom" in v["providers"]
-    assert "deepseek" not in v["providers"]
+    assert "deepseek" in v["providers"]
+    assert all("vision" in m or m == "deepseek-flash"
+               for m in v["providers"]["deepseek"]["models"])
     for p in v["providers"].values():
         if not p["models"]:
             continue  # custom 预设无固定模型列表
