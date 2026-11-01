@@ -20,6 +20,12 @@ interface PendingSurvey {
 
 const KIND_CN: Record<string, string> = { pre: "前测", weekly: "每周问卷", post: "后测" }
 
+/** "2026-W44" → "第 44 周"；无 week_ref（前测/后测）返回空串 */
+function weekLabel(week_ref: string): string {
+  const n = week_ref.split("-W")[1]
+  return n ? `（第 ${parseInt(n, 10)} 周）` : ""
+}
+
 function usePending(uid: string | null) {
   const [pending, setPending] = useState<PendingSurvey | null>(null)
   const refresh = () => {
@@ -67,7 +73,7 @@ function SurveyModal({ survey, uid, onDone, onClose }: {
         onClick={(e) => e.stopPropagation()}>
         <div className="mb-3 flex items-center justify-between">
           <div>
-            <div className="text-base font-bold">{survey.title}</div>
+            <div className="text-base font-bold">{survey.title}{weekLabel(survey.week_ref)}</div>
             <div className="text-xs text-muted-foreground">{KIND_CN[survey.kind]} · 约 30 秒</div>
           </div>
           <button onClick={onClose} className="p-2 text-muted-foreground active:scale-95">
@@ -136,7 +142,7 @@ export function SurveyBanner() {
       <button onClick={() => setOpen(true)}
         className="mb-5 flex w-full items-center gap-2 rounded-2xl border border-primary/25 bg-primary/5 px-4 py-3 text-left shadow-sm transition-all active:scale-[0.99]">
         <ClipboardList className="h-4 w-4 shrink-0 text-primary" />
-        <span className="text-sm font-medium text-primary">{pending.title}</span>
+        <span className="text-sm font-medium text-primary">{pending.title}{weekLabel(pending.week_ref)}</span>
         <span className="ml-auto text-xs text-muted-foreground">{KIND_CN[pending.kind]} · 点击填写</span>
       </button>
       {open ? (
@@ -158,7 +164,7 @@ export function SurveyHint() {
       <button onClick={() => setOpen(true)}
         className="mb-5 flex w-full items-center gap-2 rounded-2xl border border-dashed px-4 py-2.5 text-left text-xs text-muted-foreground transition-colors hover:text-foreground active:scale-[0.99]">
         <ClipboardList className="h-3.5 w-3.5 shrink-0" />
-        {pending.title}（{KIND_CN[pending.kind]}）还未填写，点这里补交
+        {pending.title}{weekLabel(pending.week_ref)}（{KIND_CN[pending.kind]}）还未填写，点这里补交
       </button>
       {open ? (
         <SurveyModal survey={pending} uid={uid!} onClose={() => setOpen(false)}
