@@ -214,12 +214,26 @@ def build_export(cohort: str | None, date_from: date, date_to: date) -> tuple[by
 
 # ---------------------------------------------------------------- 问卷：学生侧待填
 def pending_survey(user_id: str) -> dict | None:
-    """本周待填问卷：周问卷（实例驱动，周日生成）优先，其次前测，最后后测。"""
+    """本周待填问卷：只看本周实例（周问卷由周日定时任务生成），过期未填的标记 skipped；
+    本周无实例则依次看前测 / 后测。"""
     with db.SessionLocal() as s:
         weekly = s.query(db.Survey).filter_by(kind="weekly", active=True).first()
         if weekly:
+            today = date.today()
+            week_ref = f"{today.isocalendar().year}-W{today.isocalendar().week:02d}"
+            # 过期实例不再打扰用户：标记 skipped（导出回收率仍记为未交）
+            stale = s.query(db.SurveyInstance).filter(
+                db.SurveyInstance.user_id == user_id,
+                db.SurveyInstance.survey_id == weekly.survey_id,
+                db.SurveyInstance.status == "pending",
+                db.SurveyInstance.week_ref != week_ref).all()
+            for st in stale:
+                st.status = "skipped"
+            if stale:
+                s.commit()
             inst = s.query(db.SurveyInstance).filter_by(
-                user_id=user_id, survey_id=weekly.survey_id, status="pending").first()
+                user_id=user_id, survey_id=weekly.survey_id,
+                week_ref=week_ref, status="pending").first()
             if inst:
                 return {"survey_id": weekly.survey_id, "kind": "weekly",
                         "title": weekly.title, "schema": weekly.schema_json,

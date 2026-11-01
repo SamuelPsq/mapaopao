@@ -268,7 +268,7 @@ class SurveyInstance(Base):
     user_id: Mapped[str] = mapped_column(String(32), index=True)
     survey_id: Mapped[str] = mapped_column(String(40), index=True)
     week_ref: Mapped[str] = mapped_column(String(12))
-    status: Mapped[str] = mapped_column(String(12), default="pending")  # pending / done
+    status: Mapped[str] = mapped_column(String(12), default="pending")  # pending / done / skipped（过期未填）
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     __table_args__ = (UniqueConstraint("user_id", "survey_id", "week_ref", name="uq_instance"),)
 

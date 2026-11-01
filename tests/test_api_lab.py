@@ -138,3 +138,19 @@ def test_survey_management():
                                        "answers": {"q1": 5}})
     stats = c.get(f"/v1/lab/surveys/{r2.json()['survey_id']}/stats").json()
     assert stats["kind"] == "weekly" and stats["weeks"][0]["done"] == 1
+
+
+def test_pending_ignores_stale_instance():
+    """过期未填的周问卷实例不再弹出：读取待填时自动标记 skipped，banner 消失。"""
+    _fresh_db()
+    _teacher()
+    uid = _user_with_plan("stu1")
+    r = c.post("/v1/lab/surveys", json={"kind": "weekly", "title": "每周追踪",
+                                        "questions": [{"id": "q1", "text": "睡眠", "type": "likert7"}]})
+    sid = r.json()["survey_id"]
+    with db.SessionLocal.begin() as s:
+        s.add(db.SurveyInstance(user_id=uid, survey_id=sid, week_ref="2026-W40", status="pending"))
+    p = c.get(f"/v1/survey/pending?user_id={uid}").json()["pending"]
+    assert p is None                              # 本周无实例、旧实例不再打扰
+    with db.SessionLocal() as s:
+        assert s.query(db.SurveyInstance).filter_by(user_id=uid).one().status == "skipped"
